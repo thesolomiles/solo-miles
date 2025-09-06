@@ -1,6 +1,8 @@
 ---
 import "../styles/global.css";
 const { title = "The Solo Miles", description = "Cycling • Travel • Design" } = Astro.props;
+import Navbar from "../components/Navbar.astro";
+
 ---
 <html lang="en">
   <head>
@@ -10,6 +12,7 @@ const { title = "The Solo Miles", description = "Cycling • Travel • Design" 
     <meta name="description" content={description} />
   </head>
   <body class="min-h-dvh bg-white text-neutral-900 antialiased">
+	<Navbar />
     <main class="mx-auto max-w-5xl p-6">
       <slot />
     </main>

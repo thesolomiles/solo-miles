@@ -1,0 +1,20 @@
+---
+const links = [
+  { name: "Home", href: "/" },
+  { name: "About", href: "/about" },
+  { name: "YouTube", href: "https://youtube.com/@TheSoloMiles" },
+];
+---
+
+<nav class="flex items-center justify-between py-4 px-6 bg-neutral-100 border-b border-neutral-200">
+  <a href="/" class="text-lg font-semibold text-neutral-800">🚴 The Solo Miles</a>
+  <ul class="flex space-x-6">
+    {links.map(link => (
+      <li>
+        <a href={link.href} class="text-neutral-600 hover:text-neutral-900">
+          {link.name}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>
