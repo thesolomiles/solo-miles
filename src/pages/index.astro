@@ -3,14 +3,50 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <!-- The nav bar has been removed as requested. -->
-<div
-  class="min-h-screen flex items-center justify-center"
-  style="background: #0a0a0a;"
->
-  <img
-    src="/assets/logos/horizontal-white.svg"
-    alt="The Solo Miles Logo"
-    style="max-width: 240px; width: 100%; height: auto;"
-    class="mx-auto"
-  />
+<style>
+  .animated-gradient-bg {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Dark background with a very faint light from the top */
+    background: linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.08) 0%,
+      rgba(30,32,38,1) 20%,
+      rgba(20,22,28,1) 100%
+    );
+    background-color: #181a20;
+  }
+</style>
+<style>
+  @keyframes glowFade {
+    0% {
+      filter: drop-shadow(0 -8px 24px rgba(255,255,255,0.10))
+              drop-shadow(0 4px 24px rgba(0,0,0,0.35));
+    }
+    50% {
+      filter: drop-shadow(0 -8px 32px rgba(255,255,255,0.28))
+              drop-shadow(0 4px 24px rgba(0,0,0,0.35));
+    }
+    100% {
+      filter: drop-shadow(0 -8px 24px rgba(255,255,255,0.10))
+              drop-shadow(0 4px 24px rgba(0,0,0,0.35));
+    }
+  }
+  .logo-glow-animate {
+    animation: glowFade 2.8s ease-in-out infinite;
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>
+<div class="animated-gradient-bg">
+  <div class="mx-auto" style="max-width: 240px;">
+    <img
+      src="src/assets/logos/vertical-white.svg"
+      alt="The Solo Miles Logo"
+      class="logo-glow-animate"
+    />
+  </div>
 </div>
