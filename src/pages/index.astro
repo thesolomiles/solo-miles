@@ -6,17 +6,39 @@ import Layout from "../layouts/Layout.astro";
 <style>
   .animated-gradient-bg {
     min-height: 100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Dark background with a very faint light from the top */
-    background: linear-gradient(
-      to bottom,
-      rgba(255,255,255,0.08) 0%,
-      rgba(30,32,38,1) 20%,
-      rgba(20,22,28,1) 100%
-    );
     background-color: #181a20;
+    position: relative;
+    overflow: hidden;
+    border: none;
+  }
+  .animated-gradient-bg::before {
+    content: "";
+    position: absolute;
+    /* Move up so the top half of the radial gradient is cut off */
+    top: -37.5vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150vw;
+    height: 150vh;
+    pointer-events: none;
+    /* Radial gradient, centered vertically above the page, fading out by 75% of the page height */
+    background: radial-gradient(
+      ellipse at 50% 25%,
+      rgba(255,255,255,0.18) 0%,
+      rgba(255,255,255,0.08) 40%,
+      rgba(255,255,255,0.00) 75%
+    );
+    z-index: 0;
+  }
+  .animated-gradient-bg > * {
+    position: relative;
+    z-index: 1;
   }
 </style>
 <style>
