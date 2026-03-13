@@ -168,6 +168,14 @@ export function GameWorld() {
   // Character hitbox (smaller than tile for smoother movement)
   const CHARACTER_WIDTH = 24
   const CHARACTER_HEIGHT = 24
+
+  const handleVirtualKey = useCallback((key: string, isDown: boolean) => {
+    if (isDown) {
+      keysPressed.current.add(key)
+    } else {
+      keysPressed.current.delete(key)
+    }
+  }, [])
   
   const canMoveTo = useCallback((newX: number, newY: number) => {
     // Check all four corners of character hitbox
@@ -432,7 +440,78 @@ export function GameWorld() {
         >
           Arrow Keys / WASD to move
         </div>
+        <button
+          type="button"
+          onClick={toggleDayNight}
+          className="px-3 py-1.5 text-xs font-mono mt-1"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.85)",
+            color: "#FFE066",
+            border: "2px solid #FFE066",
+            borderRadius: 2,
+            imageRendering: "pixelated",
+            cursor: "pointer",
+          }}
+        >
+          Toggle Day / Night
+        </button>
       </div>
+      
+      {/* Mobile direction controller (virtual D-pad) */}
+      {viewportSize.width < 768 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2">
+          <button
+            type="button"
+            className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
+            onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", true) }}
+            onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
+            onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
+            onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", true) }}
+            onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
+            onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
+          >
+            UP
+          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
+              onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", true) }}
+              onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
+              onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
+              onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", true) }}
+              onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
+              onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
+            >
+              LEFT
+            </button>
+            <button
+              type="button"
+              className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
+              onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", true) }}
+              onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
+              onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
+              onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", true) }}
+              onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
+              onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
+            >
+              DOWN
+            </button>
+            <button
+              type="button"
+              className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
+              onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", true) }}
+              onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
+              onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
+              onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", true) }}
+              onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
+              onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
+            >
+              RIGHT
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Night overlay - covers the entire world */}
       <div 
