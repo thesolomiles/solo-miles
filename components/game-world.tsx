@@ -163,7 +163,7 @@ export function GameWorld() {
   
   const isMobile = viewportSize.width < 768
   const BASE_MOVE_SPEED = 3
-  const MAX_MOBILE_MOVE_SPEED = 6
+  const MAX_MOBILE_MOVE_SPEED = 4
   const mobileMoveSpeed = useRef<number>(BASE_MOVE_SPEED)
   const FRAME_RATE = 120
   const CAMERA_SMOOTHNESS = 0.08 // Lower = smoother, higher = snappier
