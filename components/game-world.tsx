@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { PixelCharacter } from "./pixel-character"
 
 type Direction = "down" | "up" | "left" | "right"
@@ -33,7 +33,7 @@ const MAP_WIDTH = 50
 const MAP_HEIGHT = 24
 
 // Define collision tiles (non-walkable)
-const COLLISION_TILES = [TILE.WATER, TILE.TREE, TILE.HOUSE_1, TILE.HOUSE_2, TILE.HOUSE_3, TILE.FENCE, TILE.WELL]
+const COLLISION_TILES: readonly TileType[] = [TILE.WATER, TILE.TREE, TILE.HOUSE_1, TILE.HOUSE_2, TILE.HOUSE_3, TILE.FENCE, TILE.WELL]
 
 // Town map layout - expanded with route, second town, and secret forest
 // Town 1 (Pallet Town): tiles 0-19
@@ -122,7 +122,7 @@ function getNightTint(timeOfDay: TimeOfDay): string {
 
 export function GameWorld() {
   // Position in pixels (spawn in Pallet Town center - row 16 is main path)
-  const [position, setPosition] = useState({ x: 9 * TILE_SIZE, y: 16 * TILE_SIZE })
+  const [position, setPosition] = useState({ x: 40 * TILE_SIZE, y: 16 * TILE_SIZE })
   const [direction, setDirection] = useState<Direction>("down")
   const [isWalking, setIsWalking] = useState(false)
   const [walkFrame, setWalkFrame] = useState(0)
@@ -161,13 +161,76 @@ export function GameWorld() {
     }
   }
   
-  const MOVE_SPEED = 3
+  const isMobile = viewportSize.width < 768
+  const MOVE_SPEED = isMobile ? 7 : 3
   const FRAME_RATE = 120
   const CAMERA_SMOOTHNESS = 0.08 // Lower = smoother, higher = snappier
   
   // Character hitbox (smaller than tile for smoother movement)
   const CHARACTER_WIDTH = 24
   const CHARACTER_HEIGHT = 24
+
+  const lightSources = useMemo(() => {
+    const sources: Array<{ x: number; y: number; radius: number; kind: "campfire" | "house" }> = []
+    for (let y = 0; y < TOWN_MAP.length; y++) {
+      for (let x = 0; x < TOWN_MAP[y].length; x++) {
+        const tile = TOWN_MAP[y][x]
+
+        if (tile === TILE.CAMPFIRE) {
+          sources.push({ x, y, radius: 170, kind: "campfire" })
+          continue
+        }
+
+        // House light source: only emit from the top-left of a 2x2 house block
+        if (tile === TILE.HOUSE_1 || tile === TILE.HOUSE_2 || tile === TILE.HOUSE_3) {
+          const right = TOWN_MAP[y]?.[x + 1]
+          const down = TOWN_MAP[y + 1]?.[x]
+          if (right === tile && down === tile) {
+            sources.push({ x, y, radius: 150, kind: "house" })
+          }
+        }
+      }
+    }
+    return sources
+  }, [])
+
+  const campfireLightLayer = useMemo(() => {
+    const opacity = getNightOverlayOpacity(timeOfDay)
+    if (opacity <= 0) return null
+    if (lightSources.length === 0) return null
+
+    const gradients = lightSources
+      .filter(s => s.kind === "campfire")
+      .map(({ x, y, radius }) => {
+      const worldX = x * TILE_SIZE + TILE_SIZE / 2
+      const worldY = y * TILE_SIZE + TILE_SIZE / 2
+      const screenX = worldX - cameraPos.x
+      const screenY = worldY - cameraPos.y
+
+      return `radial-gradient(circle ${radius}px at ${screenX}px ${screenY}px, rgba(255, 235, 190, 0.75) 0%, rgba(255, 175, 80, 0.40) 32%, rgba(255, 110, 20, 0.18) 55%, transparent 78%)`
+    })
+
+    return gradients.join(", ")
+  }, [timeOfDay, lightSources, cameraPos.x, cameraPos.y])
+
+  const houseLightLayer = useMemo(() => {
+    const opacity = getNightOverlayOpacity(timeOfDay)
+    if (opacity <= 0) return null
+    if (lightSources.length === 0) return null
+
+    const gradients = lightSources
+      .filter(s => s.kind === "house")
+      .map(({ x, y, radius }) => {
+        const worldX = x * TILE_SIZE + TILE_SIZE / 2
+        const worldY = y * TILE_SIZE + TILE_SIZE / 2
+        const screenX = worldX - cameraPos.x
+        const screenY = worldY - cameraPos.y
+
+        return `radial-gradient(circle ${Math.round(radius * 0.8)}px at ${screenX + 18}px ${screenY + 2}px, rgba(255, 240, 200, 0.50) 0%, rgba(255, 205, 120, 0.25) 40%, rgba(255, 160, 60, 0.10) 62%, transparent 80%)`
+      })
+
+    return gradients.join(", ")
+  }, [timeOfDay, lightSources, cameraPos.x, cameraPos.y])
 
   const handleVirtualKey = useCallback((key: string, isDown: boolean) => {
     if (isDown) {
@@ -250,7 +313,7 @@ export function GameWorld() {
     }
     
     animationRef.current = requestAnimationFrame(updateMovement)
-  }, [canMoveTo])
+  }, [canMoveTo, MOVE_SPEED])
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -375,7 +438,15 @@ export function GameWorld() {
           width: MAP_WIDTH * TILE_SIZE,
           height: MAP_HEIGHT * TILE_SIZE,
           transform: `translate(${-cameraPos.x}px, ${-cameraPos.y}px)`,
-          imageRendering: "pixelated"
+          imageRendering: "pixelated",
+          filter:
+            timeOfDay === "day"
+              ? "none"
+              : timeOfDay === "dawn"
+                ? "brightness(0.88) saturate(0.95) contrast(1.02)"
+                : timeOfDay === "dusk"
+                  ? "brightness(0.78) saturate(0.9) contrast(1.03)"
+                  : "brightness(0.62) saturate(0.85) contrast(1.05)"
         }}
       >
         {/* Render tiles */}
@@ -457,70 +528,156 @@ export function GameWorld() {
         </button>
       </div>
       
-      {/* Mobile direction controller (virtual D-pad) */}
+      {/* Mobile direction controller (virtual thumbstick) */}
       {viewportSize.width < 768 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2">
-          <button
-            type="button"
-            className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
-            onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", true) }}
-            onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
-            onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
-            onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", true) }}
-            onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
-            onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowUp", false) }}
+        <div
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]"
+          style={{ touchAction: "none" }}
+        >
+          <div
+            className="relative w-28 h-28 rounded-full"
+            style={{
+              backgroundColor: "rgba(0, 0, 0, 0.55)",
+              border: "2px solid rgba(255, 255, 255, 0.45)",
+              boxShadow: "0 10px 20px rgba(0,0,0,0.25)",
+              imageRendering: "pixelated",
+            }}
+            onPointerDown={(e) => {
+              const el = e.currentTarget
+              el.setPointerCapture(e.pointerId)
+
+              const rect = el.getBoundingClientRect()
+              const centerX = rect.left + rect.width / 2
+              const centerY = rect.top + rect.height / 2
+
+              const updateFromPointer = (clientX: number, clientY: number) => {
+                const dx = clientX - centerX
+                const dy = clientY - centerY
+                const maxRadius = rect.width * 0.35
+                const dist = Math.hypot(dx, dy)
+                const clamped = dist === 0 ? { x: 0, y: 0 } : {
+                  x: (dx / dist) * Math.min(dist, maxRadius),
+                  y: (dy / dist) * Math.min(dist, maxRadius),
+                }
+
+                // Move knob
+                const knob = el.querySelector<HTMLDivElement>("[data-knob]")
+                if (knob) {
+                  knob.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`
+                }
+
+                // Translate vector into arrow-key presses (supports diagonals)
+                const deadZone = maxRadius * 0.25
+                const pressX = Math.abs(dx) > deadZone
+                const pressY = Math.abs(dy) > deadZone
+
+                handleVirtualKey("ArrowLeft", pressX && dx < 0)
+                handleVirtualKey("ArrowRight", pressX && dx > 0)
+                handleVirtualKey("ArrowUp", pressY && dy < 0)
+                handleVirtualKey("ArrowDown", pressY && dy > 0)
+              }
+
+              updateFromPointer(e.clientX, e.clientY)
+
+              const handleMove = (ev: PointerEvent) => updateFromPointer(ev.clientX, ev.clientY)
+              const handleUp = () => {
+                // Reset knob and release keys
+                const knob = el.querySelector<HTMLDivElement>("[data-knob]")
+                if (knob) knob.style.transform = "translate(0px, 0px)"
+
+                handleVirtualKey("ArrowLeft", false)
+                handleVirtualKey("ArrowRight", false)
+                handleVirtualKey("ArrowUp", false)
+                handleVirtualKey("ArrowDown", false)
+
+                window.removeEventListener("pointermove", handleMove)
+                window.removeEventListener("pointerup", handleUp)
+                window.removeEventListener("pointercancel", handleUp)
+              }
+
+              window.addEventListener("pointermove", handleMove)
+              window.addEventListener("pointerup", handleUp, { once: true })
+              window.addEventListener("pointercancel", handleUp, { once: true })
+            }}
           >
-            UP
-          </button>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
-              onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", true) }}
-              onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
-              onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
-              onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", true) }}
-              onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
-              onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowLeft", false) }}
+            {/* Arrow indicators (icons only, no text) */}
+            <svg
+              className="absolute inset-0"
+              viewBox="0 0 100 100"
+              aria-hidden="true"
+              style={{ opacity: 0.55 }}
             >
-              LEFT
-            </button>
-            <button
-              type="button"
-              className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
-              onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", true) }}
-              onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
-              onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
-              onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", true) }}
-              onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
-              onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowDown", false) }}
-            >
-              DOWN
-            </button>
-            <button
-              type="button"
-              className="w-12 h-12 rounded bg-black/70 text-xs font-mono text-white border border-white/60"
-              onMouseDown={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", true) }}
-              onMouseUp={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
-              onMouseLeave={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
-              onTouchStart={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", true) }}
-              onTouchEnd={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
-              onTouchCancel={(e) => { e.preventDefault(); handleVirtualKey("ArrowRight", false) }}
-            >
-              RIGHT
-            </button>
+              <path d="M50 14 L40 26 H46 V38 H54 V26 H60 Z" fill="rgba(255,255,255,0.75)" />
+              <path d="M50 86 L40 74 H46 V62 H54 V74 H60 Z" fill="rgba(255,255,255,0.75)" />
+              <path d="M14 50 L26 40 V46 H38 V54 H26 V60 Z" fill="rgba(255,255,255,0.75)" />
+              <path d="M86 50 L74 40 V46 H62 V54 H74 V60 Z" fill="rgba(255,255,255,0.75)" />
+            </svg>
+
+            {/* Thumb knob */}
+            <div
+              data-knob
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full"
+              style={{
+                backgroundColor: "rgba(0, 0, 0, 0.75)",
+                border: "2px solid rgba(255, 255, 255, 0.55)",
+                boxShadow: "inset 0 0 0 2px rgba(0,0,0,0.25)",
+                transition: "transform 60ms linear",
+                willChange: "transform",
+              }}
+            />
           </div>
         </div>
       )}
       
-      {/* Night overlay - covers the entire world */}
-      <div 
+      {/* Night tint (subtle) */}
+      <div
         className="absolute inset-0 pointer-events-none z-[500] transition-opacity duration-1000"
         style={{
           backgroundColor: getNightTint(timeOfDay),
-          opacity: getNightOverlayOpacity(timeOfDay) > 0 ? 1 : 0
+          opacity: getNightOverlayOpacity(timeOfDay),
         }}
       />
+
+      {/* Campfire light layer (adds light back at night) */}
+      {campfireLightLayer && (
+        <>
+          {/* House lights (steady) */}
+          {houseLightLayer && (
+            <div
+              className="absolute inset-0 pointer-events-none z-[515]"
+              style={{
+                backgroundImage: houseLightLayer,
+                mixBlendMode: "screen",
+                opacity: Math.min(1, getNightOverlayOpacity(timeOfDay) * 1.1),
+              }}
+            />
+          )}
+
+          {/* Campfire lights (flicker) */}
+          <div
+            className="absolute inset-0 pointer-events-none z-[520] campfire-flicker"
+            style={{
+              backgroundImage: campfireLightLayer,
+              mixBlendMode: "screen",
+              opacity: Math.min(1, getNightOverlayOpacity(timeOfDay) * 1.2),
+            }}
+          />
+          <style jsx>{`
+            @keyframes campfireFlicker {
+              0% { opacity: 0.92; filter: blur(0.4px); }
+              18% { opacity: 1; filter: blur(0px); }
+              35% { opacity: 0.95; filter: blur(0.6px); }
+              55% { opacity: 1.06; filter: blur(0.2px); }
+              78% { opacity: 0.97; filter: blur(0.7px); }
+              100% { opacity: 1.02; filter: blur(0.1px); }
+            }
+            .campfire-flicker {
+              animation: campfireFlicker 1.1s steps(6, end) infinite;
+              will-change: opacity, filter;
+            }
+          `}</style>
+        </>
+      )}
       
       {/* Pixel art border frame */}
       <div 
@@ -912,6 +1069,25 @@ function WellTile({ style }: { style: React.CSSProperties }) {
 function CampfireTile({ style, isNight }: { style: React.CSSProperties; isNight?: boolean }) {
   return (
     <div style={{ ...style, backgroundColor: "#5AAF3A", overflow: "visible", zIndex: 150 }}>
+      {/* Ambient glow halo at night */}
+      {isNight && (
+        <div
+          className="absolute"
+          style={{
+            width: 120,
+            height: 120,
+            left: -36,
+            top: -44,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(255,220,140,0.35) 0%, rgba(255,140,40,0.22) 35%, rgba(255,90,0,0.10) 55%, transparent 75%)",
+            filter: "blur(2px)",
+            opacity: 1,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
       {/* Stone circle base */}
       <div className="absolute" style={{
         width: 32,
@@ -923,43 +1099,64 @@ function CampfireTile({ style, isNight }: { style: React.CSSProperties; isNight?
         border: "2px solid #404040"
       }} />
       
-      {/* Logs */}
+      {/* Logs (more detailed) */}
       <div className="absolute" style={{
-        width: 24,
-        height: 6,
+        width: 26,
+        height: 7,
         backgroundColor: "#654321",
-        left: 12,
-        top: 30,
-        borderRadius: 2,
-        transform: "rotate(-15deg)",
-        border: "1px solid #4A3728"
-      }} />
+        left: 11,
+        top: 31,
+        borderRadius: 3,
+        transform: "rotate(-18deg)",
+        border: "1px solid #3A2A1F"
+      }}>
+        {/* wood rings */}
+        <div className="absolute" style={{ width: 4, height: 4, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.35)", left: 2, top: 1, opacity: 0.6 }} />
+        <div className="absolute" style={{ width: 3, height: 3, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.28)", left: 6, top: 2, opacity: 0.5 }} />
+      </div>
       <div className="absolute" style={{
-        width: 24,
-        height: 6,
+        width: 26,
+        height: 7,
         backgroundColor: "#5C3A1D",
-        left: 12,
-        top: 28,
-        borderRadius: 2,
-        transform: "rotate(15deg)",
-        border: "1px solid #4A3728"
-      }} />
+        left: 11,
+        top: 27,
+        borderRadius: 3,
+        transform: "rotate(18deg)",
+        border: "1px solid #3A2A1F"
+      }}>
+        <div className="absolute" style={{ width: 4, height: 4, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.35)", right: 2, top: 1, opacity: 0.6 }} />
+        <div className="absolute" style={{ width: 3, height: 3, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.28)", right: 7, top: 2, opacity: 0.5 }} />
+      </div>
+
+      {/* Small embers */}
+      <div className="absolute" style={{ width: 3, height: 3, left: 21, top: 28, borderRadius: "50%", backgroundColor: "#FFB703", boxShadow: "0 0 6px rgba(255, 160, 60, 0.6)" }} />
+      <div className="absolute" style={{ width: 2, height: 2, left: 28, top: 30, borderRadius: "50%", backgroundColor: "#FF6B00", boxShadow: "0 0 5px rgba(255, 120, 40, 0.5)" }} />
       
       {/* Fire glow (larger at night) */}
       <div 
         className="absolute"
         style={{
-          width: 40,
-          height: 40,
-          background: "radial-gradient(circle, rgba(255,150,50,0.4) 0%, rgba(255,100,0,0.2) 40%, transparent 70%)",
+          width: isNight ? 56 : 40,
+          height: isNight ? 56 : 40,
+          background: isNight
+            ? "radial-gradient(circle, rgba(255,210,120,0.65) 0%, rgba(255,120,20,0.35) 35%, rgba(255,80,0,0.18) 55%, transparent 75%)"
+            : "radial-gradient(circle, rgba(255,150,50,0.4) 0%, rgba(255,100,0,0.2) 40%, transparent 70%)",
           left: 4,
           top: 4,
           borderRadius: "50%",
+          transform: isNight ? "translate(-8px, -8px)" : "none",
           opacity: isNight ? 1 : 0.5,
-          transition: "opacity 1s"
+          transition: "opacity 1s, transform 1s"
         }}
       />
       
+      {/* Smoke (animated) */}
+      <div className="absolute pointer-events-none" style={{ left: 10, top: -8, width: 28, height: 34, opacity: 0.9 }}>
+        <div className="absolute smoke-puff" style={{ left: 10, top: 18, width: 10, height: 10, borderRadius: "50%", backgroundColor: "rgba(220,220,220,0.22)", filter: "blur(0.4px)" }} />
+        <div className="absolute smoke-puff smoke-delay" style={{ left: 4, top: 22, width: 12, height: 12, borderRadius: "50%", backgroundColor: "rgba(210,210,210,0.18)", filter: "blur(0.5px)" }} />
+        <div className="absolute smoke-puff smoke-delay2" style={{ left: 14, top: 24, width: 8, height: 8, borderRadius: "50%", backgroundColor: "rgba(235,235,235,0.16)", filter: "blur(0.6px)" }} />
+      </div>
+
       {/* Flames - animated */}
       <div className="absolute" style={{ left: 14, top: 8, width: 20, height: 24 }}>
         {/* Main flame */}
@@ -968,12 +1165,14 @@ function CampfireTile({ style, isNight }: { style: React.CSSProperties; isNight?
           style={{
             width: 12,
             height: 20,
-            background: "linear-gradient(to top, #FF4500 0%, #FF6B00 40%, #FFD700 80%, #FFFF00 100%)",
+            background: isNight
+              ? "linear-gradient(to top, #FF2D00 0%, #FF7A00 35%, #FFE066 70%, #FFFFFF 100%)"
+              : "linear-gradient(to top, #FF4500 0%, #FF6B00 40%, #FFD700 80%, #FFFF00 100%)",
             left: 4,
             bottom: 0,
             borderRadius: "50% 50% 20% 20%",
             animation: "flicker 0.5s ease-in-out infinite alternate",
-            boxShadow: isNight ? "0 0 15px 5px rgba(255,100,0,0.6)" : "0 0 8px 2px rgba(255,100,0,0.3)"
+            boxShadow: isNight ? "0 0 24px 10px rgba(255,140,40,0.85)" : "0 0 8px 2px rgba(255,100,0,0.3)"
           }}
         />
         {/* Left flame */}
@@ -982,7 +1181,9 @@ function CampfireTile({ style, isNight }: { style: React.CSSProperties; isNight?
           style={{
             width: 8,
             height: 14,
-            background: "linear-gradient(to top, #FF6B00 0%, #FFD700 60%, #FFFF00 100%)",
+            background: isNight
+              ? "linear-gradient(to top, #FF7A00 0%, #FFE066 55%, #FFFFFF 100%)"
+              : "linear-gradient(to top, #FF6B00 0%, #FFD700 60%, #FFFF00 100%)",
             left: 0,
             bottom: 2,
             borderRadius: "50% 50% 20% 20%",
@@ -995,7 +1196,9 @@ function CampfireTile({ style, isNight }: { style: React.CSSProperties; isNight?
           style={{
             width: 8,
             height: 16,
-            background: "linear-gradient(to top, #FF6B00 0%, #FFD700 60%, #FFFF00 100%)",
+            background: isNight
+              ? "linear-gradient(to top, #FF7A00 0%, #FFE066 55%, #FFFFFF 100%)"
+              : "linear-gradient(to top, #FF6B00 0%, #FFD700 60%, #FFFF00 100%)",
             right: 0,
             bottom: 1,
             borderRadius: "50% 50% 20% 20%",
@@ -1052,6 +1255,21 @@ function CampfireTile({ style, isNight }: { style: React.CSSProperties; isNight?
           0% { transform: scaleY(1) scaleX(1); opacity: 1; }
           50% { transform: scaleY(1.1) scaleX(0.9); opacity: 0.9; }
           100% { transform: scaleY(0.95) scaleX(1.05); opacity: 1; }
+        }
+        @keyframes smokeRise {
+          0% { transform: translateY(0px) translateX(0px) scale(0.9); opacity: 0; }
+          15% { opacity: 0.35; }
+          60% { opacity: 0.22; }
+          100% { transform: translateY(-18px) translateX(-4px) scale(1.25); opacity: 0; }
+        }
+        .smoke-puff {
+          animation: smokeRise 1.6s ease-out infinite;
+        }
+        .smoke-delay {
+          animation-delay: 0.45s;
+        }
+        .smoke-delay2 {
+          animation-delay: 0.9s;
         }
         @keyframes sparkle {
           0% { transform: translateY(0) scale(1); opacity: 1; }
