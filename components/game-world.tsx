@@ -162,7 +162,9 @@ export function GameWorld() {
   }
   
   const isMobile = viewportSize.width < 768
-  const MOVE_SPEED = isMobile ? 7 : 3
+  const BASE_MOVE_SPEED = 3
+  const MAX_MOBILE_MOVE_SPEED = 6
+  const mobileMoveSpeed = useRef<number>(BASE_MOVE_SPEED)
   const FRAME_RATE = 120
   const CAMERA_SMOOTHNESS = 0.08 // Lower = smoother, higher = snappier
   
@@ -286,21 +288,23 @@ export function GameWorld() {
     
     let dx = 0
     let dy = 0
+
+    const speed = isMobile ? mobileMoveSpeed.current : BASE_MOVE_SPEED
     
     if (keys.has("ArrowUp") || keys.has("w") || keys.has("W")) {
-      dy = -MOVE_SPEED
+      dy = -speed
       setDirection("up")
     }
     if (keys.has("ArrowDown") || keys.has("s") || keys.has("S")) {
-      dy = MOVE_SPEED
+      dy = speed
       setDirection("down")
     }
     if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) {
-      dx = -MOVE_SPEED
+      dx = -speed
       setDirection("left")
     }
     if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) {
-      dx = MOVE_SPEED
+      dx = speed
       setDirection("right")
     }
     
@@ -313,7 +317,7 @@ export function GameWorld() {
     }
     
     animationRef.current = requestAnimationFrame(updateMovement)
-  }, [canMoveTo, MOVE_SPEED])
+  }, [canMoveTo, isMobile, BASE_MOVE_SPEED])
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -571,6 +575,10 @@ export function GameWorld() {
                 const pressX = Math.abs(dx) > deadZone
                 const pressY = Math.abs(dy) > deadZone
 
+                // Speed scales with thumbstick push: 3..6
+                const push = Math.min(1, dist / maxRadius)
+                mobileMoveSpeed.current = BASE_MOVE_SPEED + push * (MAX_MOBILE_MOVE_SPEED - BASE_MOVE_SPEED)
+
                 handleVirtualKey("ArrowLeft", pressX && dx < 0)
                 handleVirtualKey("ArrowRight", pressX && dx > 0)
                 handleVirtualKey("ArrowUp", pressY && dy < 0)
@@ -584,6 +592,8 @@ export function GameWorld() {
                 // Reset knob and release keys
                 const knob = el.querySelector<HTMLDivElement>("[data-knob]")
                 if (knob) knob.style.transform = "translate(0px, 0px)"
+
+                mobileMoveSpeed.current = BASE_MOVE_SPEED
 
                 handleVirtualKey("ArrowLeft", false)
                 handleVirtualKey("ArrowRight", false)
