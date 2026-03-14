@@ -482,19 +482,10 @@ export function GameWorld() {
       const deadzone = 0.35
       const ax = Math.abs(stick.dx)
       const ay = Math.abs(stick.dy)
-      const isHorizontal = ax > deadzone && ay <= deadzone
-      const isVertical = ay > deadzone && ax <= deadzone
-      const isDiagonal = ax > deadzone && ay > deadzone
 
-      if (isHorizontal) {
-        dx = stick.dx > 0 ? moveAmount : -moveAmount
-        setDirection(stick.dx > 0 ? "right" : "left")
-      } else if (isVertical) {
-        dy = stick.dy > 0 ? moveAmount : -moveAmount
-        setDirection(stick.dy > 0 ? "down" : "up")
-      } else if (isDiagonal) {
-        mobileZigzagPhaseRef.current = 1 - mobileZigzagPhaseRef.current
-        if (mobileZigzagPhaseRef.current === 0) {
+      if (ax > deadzone || ay > deadzone) {
+        // Cardinal-only: pick the dominant axis, ignore the other (no diagonals)
+        if (ax >= ay) {
           dx = stick.dx > 0 ? moveAmount : -moveAmount
           setDirection(stick.dx > 0 ? "right" : "left")
         } else {
@@ -512,19 +503,28 @@ export function GameWorld() {
       }
       if (keys.has("ArrowUp") || keys.has("w") || keys.has("W")) {
         dy = -moveAmount
-        setDirection("up")
       }
       if (keys.has("ArrowDown") || keys.has("s") || keys.has("S")) {
         dy = moveAmount
-        setDirection("down")
       }
       if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) {
         dx = -moveAmount
-        setDirection("left")
       }
       if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) {
         dx = moveAmount
-        setDirection("right")
+      }
+
+      // Enforce no diagonals: if both axes active, prefer vertical, then horizontal
+      if (dx !== 0 && dy !== 0) {
+        // Prefer vertical movement when both are pressed
+        dx = 0
+      }
+
+      // Set facing direction based on the final axis we kept
+      if (dy !== 0) {
+        setDirection(dy > 0 ? "down" : "up")
+      } else if (dx !== 0) {
+        setDirection(dx > 0 ? "right" : "left")
       }
     }
 
