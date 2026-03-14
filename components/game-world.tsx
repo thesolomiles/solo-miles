@@ -105,57 +105,43 @@ interface MapEntry {
 // Overworld collision (HOUSE_DOOR is walkable to allow entry)
 const OVERWORLD_COLLISION: readonly number[] = [TILE.WATER, TILE.TREE, TILE.HOUSE_1, TILE.HOUSE_2, TILE.HOUSE_3, TILE.FENCE, TILE.WELL]
 
-// Town map layout - expanded with route, second town, and secret forest
-// Town 1 (Pallet Town): tiles 0-19, Route 1: 20-34, Town 2 (Viridian): 35-49, Secret Forest: rows 0-8
+// Overworld: Village (bottom) → Bridge → Forest Road → Forest End (top). 36×30 tiles.
 const OVERWORLD_TILES: TileType[][] = [
-  // Row 0 - top border (secret forest area)
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-  // Row 1 - secret forest clearing surrounded by trees
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 3, 4, 5, 5, 5, 5],
-  // Row 2 - secret clearing
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 0, 0, 0, 4, 5, 5, 5],
-  // Row 3 - clearing with flowers and campfire
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 0, 0, 13, 0, 0, 3, 5, 5],
-  // Row 4 - clearing area
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 4, 0, 3, 0, 0, 5, 5],
-  // Row 5 - path through bushes turns west (tall grass)
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 12, 12, 12, 12, 4, 5, 5, 5],
-  // Row 6 - tall grass path continues south through dense trees
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 12, 12, 5, 5, 5, 5, 5],
-  // Row 7 - narrow tall grass path through forest
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 12, 12, 5, 5, 5, 5, 5, 5],
-  // Row 8 - path entry hidden between trees (north of Viridian)
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 12, 12, 5, 5, 5, 5, 5, 5, 5],
-  // Row 9 - top border of main world / entry to secret path
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 12, 12, 5, 5, 5, 5, 5, 5, 5, 5],
-  // Row 10 (old row 1)
-  [5, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 5, 0, 3, 0, 0, 5, 0, 4, 0, 0, 5, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
-  // Row 11 (old row 2)
-  [5, 0, 6, 6, 0, 1, 1, 0, 7, 7, 7, 0, 0, 1, 1, 0, 8, 8, 0, 0, 0, 0, 0, 0, 0, 5, 0, 5, 0, 0, 5, 0, 0, 0, 0, 5, 0, 7, 7, 0, 1, 1, 0, 8, 8, 0, 6, 6, 0, 5],
-  // Row 12 (old row 3) - (2,12) is HOUSE_DOOR for entry
-  [5, 0, 14, 6, 0, 1, 1, 0, 7, 7, 7, 0, 0, 1, 1, 0, 8, 8, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 5, 0, 0, 0, 4, 0, 5, 0, 7, 7, 0, 1, 1, 0, 8, 8, 0, 6, 6, 0, 5],
-  // Row 13 (old row 4)
-  [5, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 4, 0, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 5],
-  // Row 14 (old row 5)
-  [5, 0, 9, 9, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 9, 9, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 9, 0, 1, 1, 1, 1, 1, 1, 0, 9, 0, 5],
-  // Row 15 (old row 6)
-  [5, 0, 0, 0, 0, 1, 1, 1, 1, 11, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 11, 1, 0, 0, 0, 5],
-  // Row 16 (old row 7) - main horizontal path
-  [5, 3, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 4, 1, 1, 0, 5, 0, 3, 0, 5, 0, 4, 0, 5, 0, 3, 0, 5, 1, 1, 0, 0, 3, 1, 1, 1, 1, 1, 1, 0, 0, 4, 5],
-  // Row 17 (old row 8)
-  [5, 0, 0, 10, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 10, 0, 0, 1, 1, 0, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 1, 1, 0, 10, 0, 1, 1, 1, 1, 1, 1, 0, 10, 0, 5],
-  // Row 18 (old row 9)
-  [5, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 5],
-  // Row 19 (old row 10)
-  [5, 0, 6, 6, 0, 1, 1, 0, 8, 8, 0, 7, 7, 1, 1, 0, 6, 6, 0, 0, 0, 5, 0, 0, 4, 0, 5, 0, 3, 0, 5, 0, 4, 0, 0, 0, 0, 0, 6, 6, 1, 1, 0, 7, 7, 0, 8, 8, 0, 5],
-  // Row 20 (old row 11)
-  [5, 0, 6, 6, 0, 1, 1, 0, 8, 8, 0, 7, 7, 1, 1, 0, 6, 6, 0, 0, 5, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 5, 0, 5, 0, 6, 6, 1, 1, 0, 7, 7, 0, 8, 8, 0, 5],
-  // Row 21 (old row 12)
-  [5, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 7, 7, 1, 1, 0, 0, 0, 0, 5, 0, 0, 5, 0, 0, 5, 5, 0, 0, 5, 5, 0, 0, 5, 0, 0, 5, 0, 0, 0, 1, 1, 0, 7, 7, 0, 0, 0, 0, 5],
-  // Row 22 (old row 13)
-  [5, 4, 0, 3, 0, 0, 0, 0, 3, 4, 0, 0, 0, 0, 0, 0, 3, 0, 4, 0, 0, 5, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 5, 0, 0, 3, 4, 0, 0, 0, 0, 0, 0, 3, 0, 4, 5],
-  // Row 23 - bottom border
-  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  // Rows 0–1: Forest End – clearing with sign, trees around
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 1, 0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 1, 1, 1, 0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  // Rows 2–9: Forest Road – dirt path center; sign (left) and konbini (right) by the road, trees cleared for access
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 1, 1, 1, 1, 1, 7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 5, 1, 1, 1, 1, 0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 10, 1, 1, 1, 1, 1, 1, 7, 14, 5, 5, 5, 5, 0, 0, 0, 0, 0, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 5, 1, 1, 1, 1, 1, 7, 5, 5, 5, 5, 0, 0, 0, 0, 0, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  // Row 10: River (full width), bridge center (only crossing)
+  [5, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 5],
+  // Rows 11–29: Village – dirt path north from center, 6 house plots (2×2 each)
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 14, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 14, 0, 0, 0, 5],
+  [5, 0, 0, 0, 1, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 14, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 14, 0, 0, 0, 5],
+  [5, 0, 0, 0, 1, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 14, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 14, 0, 0, 0, 5],
+  [5, 0, 0, 0, 1, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 8, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
 ]
 
 // House interior: single reusable map (10x8), door at center bottom
@@ -173,14 +159,15 @@ const INTERIOR_COLLISION: readonly number[] = [INTERIOR.WALL, INTERIOR.FURNITURE
 
 // Trigger definitions per map (dialogue + transition)
 const OVERWORLD_TRIGGERS: Trigger[] = [
-  { type: "dialogue", x: 3, y: 17, dialogue: ["Welcome to Pallet Town."] },
-  { type: "dialogue", x: 39, y: 17, dialogue: ["Welcome to Pallet Town."] },
-  { type: "dialogue", x: 9, y: 15, dialogue: ["The well water looks clean."] },
-  { type: "dialogue", x: 14, y: 15, dialogue: ["The well water looks clean."] },
-  { type: "dialogue", x: 43, y: 3, dialogue: ["The fire crackles warmly."] },
-  { type: "transition", x: 2, y: 12, targetMap: "house_interior", section: "about" },
-  { type: "transition", x: 18, y: 12, targetMap: "house_interior", section: "projects" },
-  { type: "transition", x: 38, y: 12, targetMap: "house_interior", section: "contact" },
+  { type: "dialogue", x: 14, y: 0, width: 4, height: 2, dialogue: ["It's a long road ahead."] },
+  { type: "dialogue", x: 12, y: 5, dialogue: ["Vending machines. Out of order."] },
+  { type: "dialogue", x: 19, y: 6, dialogue: ["Konbini. Open 24/7."] },
+  { type: "transition", x: 4, y: 12, targetMap: "house_interior", section: "about" },
+  { type: "transition", x: 30, y: 12, targetMap: "house_interior", section: "projects" },
+  { type: "transition", x: 4, y: 16, targetMap: "house_interior", section: "contact" },
+  { type: "transition", x: 30, y: 16, targetMap: "house_interior", section: "about" },
+  { type: "transition", x: 4, y: 20, targetMap: "house_interior", section: "about" },
+  { type: "transition", x: 30, y: 20, targetMap: "house_interior", section: "about" },
 ]
 const INTERIOR_TRIGGERS: Trigger[] = [
   { type: "transition", x: 4, y: 7, width: 2, height: 1, targetMap: "overworld" },
@@ -189,12 +176,11 @@ const INTERIOR_TRIGGERS: Trigger[] = [
 const OVERWORLD_NPCS: Npc[] = [
   {
     id: "villager_1",
-    x: 10,
-    y: 14,
+    x: 19,
+    y: 24,
     dialogue: [
       "Hello there.",
-      "Welcome to Pallet Town.",
-      "The professor lives up the road.",
+      "This is the village. Cross the bridge to reach the forest road.",
     ],
   },
 ]
@@ -203,8 +189,8 @@ const OVERWORLD_NPCS: Npc[] = [
 const MAP_REGISTRY: Record<MapId, MapEntry> = {
   overworld: {
     id: "overworld",
-    width: 50,
-    height: 24,
+    width: 36,
+    height: 30,
     tiles: OVERWORLD_TILES as number[][],
     collisionTiles: OVERWORLD_COLLISION,
     triggers: OVERWORLD_TRIGGERS,
@@ -224,46 +210,18 @@ const MAP_REGISTRY: Record<MapId, MapEntry> = {
 
 const TRANSITION_DURATION_MS = 280
 
-// Time of day types
-type TimeOfDay = "day" | "dusk" | "night" | "dawn"
-
-function getTimeOfDay(): TimeOfDay {
-  const hour = new Date().getHours()
-  if (hour >= 6 && hour < 18) return "day"
-  if (hour >= 18 && hour < 20) return "dusk"
-  if (hour >= 20 || hour < 5) return "night"
-  return "dawn"
-}
-
-function getNightOverlayOpacity(timeOfDay: TimeOfDay): number {
-  switch (timeOfDay) {
-    case "day": return 0
-    case "dawn": return 0.25
-    case "dusk": return 0.35
-    case "night": return 0.6
-  }
-}
-
-function getNightTint(timeOfDay: TimeOfDay): string {
-  switch (timeOfDay) {
-    case "day": return "transparent"
-    case "dawn": return "rgba(255, 180, 100, 0.15)"
-    case "dusk": return "rgba(255, 120, 50, 0.2)"
-    case "night": return "rgba(20, 30, 80, 0.6)"
-  }
-}
-
 export function GameWorld() {
-  // Position in pixels (spawn in Pallet Town center - row 16 is main path)
-  const [position, setPosition] = useState({ x: 40 * TILE_SIZE, y: 16 * TILE_SIZE })
+  // Position in pixels (spawn near village center)
+  const [position, setPosition] = useState({
+    x: 17 * TILE_SIZE + TILE_SIZE / 2 - 32,
+    y: 24 * TILE_SIZE + TILE_SIZE - 72,
+  })
   const [direction, setDirection] = useState<Direction>("down")
   const [isWalking, setIsWalking] = useState(false)
   const [walkFrame, setWalkFrame] = useState(0)
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0 })
   const [viewportSize, setViewportSize] = useState({ width: 960, height: 640 })
   const [rustlingTiles, setRustlingTiles] = useState<Set<string>>(new Set())
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>("day")
-  const [manualTimeOverride, setManualTimeOverride] = useState<TimeOfDay | null>(null)
   const [dialogueState, setDialogueState] = useState<{ lines: string[]; index: number } | null>(null)
   const dialogueOpen = dialogueState !== null
   const currentDialogueLine = dialogueState?.lines[dialogueState.index] ?? null
@@ -275,41 +233,21 @@ export function GameWorld() {
   const pendingHouseSectionRef = useRef<SectionId>("about")
   const lastDoorTileRef = useRef<{ tileX: number; tileY: number } | null>(null)
   const wasOnInteriorExitRef = useRef(false)
+  const forestEndModalShownRef = useRef(false)
   const keysPressed = useRef<Set<string>>(new Set())
   const animationRef = useRef<number | null>(null)
   const lastFrameTime = useRef<number>(0)
   const walkFrameTimeRef = useRef<number>(0)
-  
-  // Update time of day periodically (only when not manually overridden)
-  useEffect(() => {
-    if (manualTimeOverride === null) {
-      setTimeOfDay(getTimeOfDay())
-      const interval = setInterval(() => {
-        setTimeOfDay(getTimeOfDay())
-      }, 60000) // Check every minute
-      return () => clearInterval(interval)
-    }
-  }, [manualTimeOverride])
-  
-  // Apply manual override
-  useEffect(() => {
-    if (manualTimeOverride !== null) {
-      setTimeOfDay(manualTimeOverride)
-    }
-  }, [manualTimeOverride])
-  
-  const toggleDayNight = () => {
-    if (manualTimeOverride === "night" || (manualTimeOverride === null && timeOfDay === "night")) {
-      setManualTimeOverride("day")
-    } else {
-      setManualTimeOverride("night")
-    }
-  }
+  const [areaLabelText, setAreaLabelText] = useState("")
+  const [areaLabelOpacity, setAreaLabelOpacity] = useState(0)
+  const lastAreaRef = useRef<string>("")
   
   const isMobile = viewportSize.width < 768
   const BASE_MOVE_SPEED = 3
   const MAX_MOBILE_MOVE_SPEED = 3
   const mobileMoveSpeed = useRef<number>(BASE_MOVE_SPEED)
+  const mobileThumbstickRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 })
+  const mobileZigzagPhaseRef = useRef(0)
   // Movement: speed units per second (3 ≈ 180 px/s so ~3 px/frame at 60fps)
   const PIXELS_PER_SECOND_PER_SPEED = 60
   const WALK_FRAME_INTERVAL_MS = 120
@@ -338,69 +276,6 @@ export function GameWorld() {
     }
   }, [currentMapId])
 
-  const lightSources = useMemo(() => {
-    const overworld = MAP_REGISTRY.overworld
-    const tiles = overworld.tiles
-    const sources: Array<{ x: number; y: number; radius: number; kind: "campfire" | "house" }> = []
-    for (let y = 0; y < tiles.length; y++) {
-      for (let x = 0; x < tiles[y].length; x++) {
-        const tile = tiles[y][x]
-
-        if (tile === TILE.CAMPFIRE) {
-          sources.push({ x, y, radius: 170, kind: "campfire" })
-          continue
-        }
-
-        if (tile === TILE.HOUSE_1 || tile === TILE.HOUSE_2 || tile === TILE.HOUSE_3) {
-          const right = tiles[y]?.[x + 1]
-          const down = tiles[y + 1]?.[x]
-          if (right === tile && down === tile) {
-            sources.push({ x, y, radius: 150, kind: "house" })
-          }
-        }
-      }
-    }
-    return sources
-  }, [])
-
-  const campfireLightLayer = useMemo(() => {
-    const opacity = getNightOverlayOpacity(timeOfDay)
-    if (opacity <= 0) return null
-    if (lightSources.length === 0) return null
-
-    const gradients = lightSources
-      .filter(s => s.kind === "campfire")
-      .map(({ x, y, radius }) => {
-      const worldX = x * TILE_SIZE + TILE_SIZE / 2
-      const worldY = y * TILE_SIZE + TILE_SIZE / 2
-      const screenX = worldX - cameraPos.x
-      const screenY = worldY - cameraPos.y
-
-      return `radial-gradient(circle ${radius}px at ${screenX}px ${screenY}px, rgba(255, 235, 190, 0.75) 0%, rgba(255, 175, 80, 0.40) 32%, rgba(255, 110, 20, 0.18) 55%, transparent 78%)`
-    })
-
-    return gradients.join(", ")
-  }, [timeOfDay, lightSources, cameraPos.x, cameraPos.y])
-
-  const houseLightLayer = useMemo(() => {
-    const opacity = getNightOverlayOpacity(timeOfDay)
-    if (opacity <= 0) return null
-    if (lightSources.length === 0) return null
-
-    const gradients = lightSources
-      .filter(s => s.kind === "house")
-      .map(({ x, y, radius }) => {
-        const worldX = x * TILE_SIZE + TILE_SIZE / 2
-        const worldY = y * TILE_SIZE + TILE_SIZE / 2
-        const screenX = worldX - cameraPos.x
-        const screenY = worldY - cameraPos.y
-
-        return `radial-gradient(circle ${Math.round(radius * 0.8)}px at ${screenX + 18}px ${screenY + 2}px, rgba(255, 240, 200, 0.50) 0%, rgba(255, 205, 120, 0.25) 40%, rgba(255, 160, 60, 0.10) 62%, transparent 80%)`
-      })
-
-    return gradients.join(", ")
-  }, [timeOfDay, lightSources, cameraPos.x, cameraPos.y])
-
   const handleVirtualKey = useCallback((key: string, isDown: boolean) => {
     if (isDown) {
       keysPressed.current.add(key)
@@ -414,11 +289,20 @@ export function GameWorld() {
       const { tiles, width, height, isSolid, npcs } = currentMapData
       const left = newX + HITBOX_OFFSET_X
       const top = newY + HITBOX_OFFSET_Y
+      const right = left + HITBOX_WIDTH
+      const bottom = top + HITBOX_HEIGHT
+      const mapRight = width * TILE_SIZE
+      const mapBottom = height * TILE_SIZE
+
+      if (left < 0 || top < 0 || right > mapRight || bottom > mapBottom) {
+        return false
+      }
+
       const corners = [
         { x: left, y: top },
-        { x: left + HITBOX_WIDTH, y: top },
-        { x: left, y: top + HITBOX_HEIGHT },
-        { x: left + HITBOX_WIDTH, y: top + HITBOX_HEIGHT },
+        { x: right, y: top },
+        { x: left, y: bottom },
+        { x: right, y: bottom },
       ]
 
       for (const point of corners) {
@@ -430,8 +314,26 @@ export function GameWorld() {
         }
 
         const tile = tiles[tileY][tileX]
+
+        // Treat all tiles in a small neighborhood around any door tile as non-solid,
+        // so the player can move freely right up to and around doors.
         if (isSolid(tile)) {
-          return false
+          let nearDoor = false
+          for (let dy = -1; dy <= 1 && !nearDoor; dy++) {
+            const ny = tileY + dy
+            if (ny < 0 || ny >= height) continue
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = tileX + dx
+              if (nx < 0 || nx >= width) continue
+              if (tiles[ny][nx] === TILE.HOUSE_DOOR) {
+                nearDoor = true
+                break
+              }
+            }
+          }
+          if (!nearDoor) {
+            return false
+          }
         }
 
         if (npcs.some((npc) => npc.x === tileX && npc.y === tileY)) {
@@ -520,7 +422,7 @@ export function GameWorld() {
         pendingHouseSectionRef.current = trigger.section ?? "about"
         setExitPosition({
           x: trigger.x * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
-          y: (trigger.y + 1) * TILE_SIZE - SPRITE_HEIGHT,
+          y: (trigger.y + 1) * TILE_SIZE - HITBOX_OFFSET_Y,
         })
         transitionIntentRef.current = "enter_house"
       } else {
@@ -565,49 +467,82 @@ export function GameWorld() {
   }, [dialogueOpen, advanceDialogue, handleInteract])
 
   const updateMovement = useCallback((timestamp: number) => {
-    const keys = keysPressed.current
     const prevTime = lastFrameTime.current
     lastFrameTime.current = timestamp
     const dtSec = prevTime > 0 ? Math.min((timestamp - prevTime) / 1000, 0.1) : 0
-
-    if (keys.size === 0) {
-      setIsWalking(false)
-      walkFrameTimeRef.current = 0
-      animationRef.current = requestAnimationFrame(updateMovement)
-      return
-    }
-
-    setIsWalking(true)
-
-    if (walkFrameTimeRef.current === 0) walkFrameTimeRef.current = timestamp
-    if (timestamp - walkFrameTimeRef.current >= WALK_FRAME_INTERVAL_MS) {
-      setWalkFrame(prev => (prev + 1) % 4)
-      walkFrameTimeRef.current = timestamp
-    }
 
     const speed = isMobile ? mobileMoveSpeed.current : BASE_MOVE_SPEED
     const moveAmount = speed * PIXELS_PER_SECOND_PER_SPEED * dtSec
 
     let dx = 0
     let dy = 0
-    if (keys.has("ArrowUp") || keys.has("w") || keys.has("W")) {
-      dy = -moveAmount
-      setDirection("up")
-    }
-    if (keys.has("ArrowDown") || keys.has("s") || keys.has("S")) {
-      dy = moveAmount
-      setDirection("down")
-    }
-    if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) {
-      dx = -moveAmount
-      setDirection("left")
-    }
-    if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) {
-      dx = moveAmount
-      setDirection("right")
+
+    if (isMobile) {
+      const stick = mobileThumbstickRef.current
+      const deadzone = 0.35
+      const ax = Math.abs(stick.dx)
+      const ay = Math.abs(stick.dy)
+      const isHorizontal = ax > deadzone && ay <= deadzone
+      const isVertical = ay > deadzone && ax <= deadzone
+      const isDiagonal = ax > deadzone && ay > deadzone
+
+      if (isHorizontal) {
+        dx = stick.dx > 0 ? moveAmount : -moveAmount
+        setDirection(stick.dx > 0 ? "right" : "left")
+      } else if (isVertical) {
+        dy = stick.dy > 0 ? moveAmount : -moveAmount
+        setDirection(stick.dy > 0 ? "down" : "up")
+      } else if (isDiagonal) {
+        mobileZigzagPhaseRef.current = 1 - mobileZigzagPhaseRef.current
+        if (mobileZigzagPhaseRef.current === 0) {
+          dx = stick.dx > 0 ? moveAmount : -moveAmount
+          setDirection(stick.dx > 0 ? "right" : "left")
+        } else {
+          dy = stick.dy > 0 ? moveAmount : -moveAmount
+          setDirection(stick.dy > 0 ? "down" : "up")
+        }
+      }
+    } else {
+      const keys = keysPressed.current
+      if (keys.size === 0) {
+        setIsWalking(false)
+        walkFrameTimeRef.current = 0
+        animationRef.current = requestAnimationFrame(updateMovement)
+        return
+      }
+      if (keys.has("ArrowUp") || keys.has("w") || keys.has("W")) {
+        dy = -moveAmount
+        setDirection("up")
+      }
+      if (keys.has("ArrowDown") || keys.has("s") || keys.has("S")) {
+        dy = moveAmount
+        setDirection("down")
+      }
+      if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) {
+        dx = -moveAmount
+        setDirection("left")
+      }
+      if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) {
+        dx = moveAmount
+        setDirection("right")
+      }
     }
 
-    if (dx !== 0 || dy !== 0) {
+    const hasInput = dx !== 0 || dy !== 0
+    if (!hasInput) {
+      setIsWalking(false)
+      walkFrameTimeRef.current = 0
+      animationRef.current = requestAnimationFrame(updateMovement)
+      return
+    }
+
+    {
+      setIsWalking(true)
+      if (walkFrameTimeRef.current === 0) walkFrameTimeRef.current = timestamp
+      if (timestamp - walkFrameTimeRef.current >= WALK_FRAME_INTERVAL_MS) {
+        setWalkFrame(prev => (prev + 1) % 4)
+        walkFrameTimeRef.current = timestamp
+      }
       setPosition(prev => {
         const newX = dx !== 0 && canMoveTo(prev.x + dx, prev.y) ? prev.x + dx : prev.x
         const newY = dy !== 0 && canMoveTo(prev.x, prev.y + dy) ? prev.y + dy : prev.y
@@ -741,14 +676,15 @@ export function GameWorld() {
       return
     }
     const trigger = getTransitionTriggerAt(tileX, tileY)
-    if (trigger != null && trigger.targetMap === "house_interior") {
+    // Only trigger house entry when moving up into the door (approaching from the south)
+    if (trigger != null && trigger.targetMap === "house_interior" && direction === "up") {
       const prev = lastDoorTileRef.current
       if (prev === null || prev.tileX !== tileX || prev.tileY !== tileY) {
         lastDoorTileRef.current = { tileX, tileY }
         pendingHouseSectionRef.current = trigger.section ?? "about"
         setExitPosition({
           x: tileX * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
-          y: (tileY + 1) * TILE_SIZE - SPRITE_HEIGHT,
+          y: (tileY + 1) * TILE_SIZE - HITBOX_OFFSET_Y,
         })
         transitionIntentRef.current = "enter_house"
         setTransitionOpacity(1)
@@ -756,7 +692,7 @@ export function GameWorld() {
     } else {
       lastDoorTileRef.current = null
     }
-  }, [currentMapId, position, transitionOpacity, currentMapData.width, currentMapData.height, getTransitionTriggerAt])
+  }, [currentMapId, position, direction, transitionOpacity, currentMapData.width, currentMapData.height, getTransitionTriggerAt])
 
   useEffect(() => {
     if (currentMapId !== "house_interior" || transitionOpacity > 0) return
@@ -782,6 +718,31 @@ export function GameWorld() {
       wasOnInteriorExitRef.current = false
     }
   }, [currentMapId, position, transitionOpacity, currentMapData.width, currentMapData.height, getTransitionTriggerAt])
+
+  // Forest end: auto-show "It's a long road ahead." when player moves to the top (road end)
+  const FOREST_END_TRIGGER = { x: 14, y: 0, w: 4, h: 2 }
+  useEffect(() => {
+    if (currentMapId !== "overworld" || transitionOpacity > 0) return
+    const left = position.x + HITBOX_OFFSET_X
+    const top = position.y + HITBOX_OFFSET_Y
+    const centerX = left + HITBOX_WIDTH / 2
+    const bottom = top + HITBOX_HEIGHT
+    const tileX = Math.floor(centerX / TILE_SIZE)
+    const tileY = Math.floor(bottom / TILE_SIZE)
+    const inForestEnd =
+      tileY >= FOREST_END_TRIGGER.y &&
+      tileY < FOREST_END_TRIGGER.y + FOREST_END_TRIGGER.h &&
+      tileX >= FOREST_END_TRIGGER.x &&
+      tileX < FOREST_END_TRIGGER.x + FOREST_END_TRIGGER.w
+    if (inForestEnd) {
+      if (!forestEndModalShownRef.current && dialogueState === null) {
+        forestEndModalShownRef.current = true
+        setDialogueState({ lines: ["It's a long road ahead."], index: 0 })
+      }
+    } else {
+      forestEndModalShownRef.current = false
+    }
+  }, [currentMapId, position, transitionOpacity, dialogueState])
 
   // Handle viewport resize
   useEffect(() => {
@@ -828,6 +789,30 @@ export function GameWorld() {
     })
     return () => cancelAnimationFrame(cameraFrame)
   }, [position, viewportSize, currentMapData.width, currentMapData.height])
+
+  // Area name: show when first entering an area, fade out after 3s
+  const currentAreaName = useMemo(() => {
+    if (currentMapId === "house_interior" && currentHouseSection != null) {
+      return SECTION_LABELS[currentHouseSection]
+    }
+    if (currentMapId === "overworld") {
+      if (position.y < 2 * TILE_SIZE) return "Forest End"
+      if (position.y < 10 * TILE_SIZE) return "Forest Road"
+      if (position.y < 11 * TILE_SIZE) return "Bridge"
+      return "Village"
+    }
+    return currentMapData.label ?? ""
+  }, [currentMapId, currentHouseSection, position.y, currentMapData.label])
+
+  useEffect(() => {
+    if (!currentAreaName) return
+    if (currentAreaName === lastAreaRef.current) return
+    lastAreaRef.current = currentAreaName
+    setAreaLabelText(currentAreaName)
+    setAreaLabelOpacity(1)
+    const t = setTimeout(() => setAreaLabelOpacity(0), 3000)
+    return () => clearTimeout(t)
+  }, [currentAreaName])
   
   // Check if player is in tall grass and trigger rustling animation (overworld only)
   useEffect(() => {
@@ -878,16 +863,6 @@ export function GameWorld() {
           height: mapHeightPx,
           transform: `translate(${-cameraPos.x}px, ${-cameraPos.y}px)`,
           imageRendering: "pixelated",
-          filter:
-            currentMapId === "house_interior"
-              ? "none"
-              : timeOfDay === "day"
-                ? "none"
-                : timeOfDay === "dawn"
-                  ? "brightness(0.88) saturate(0.95) contrast(1.02)"
-                  : timeOfDay === "dusk"
-                    ? "brightness(0.78) saturate(0.9) contrast(1.03)"
-                    : "brightness(0.62) saturate(0.85) contrast(1.05)",
         }}
       >
         {/* Render tiles: overworld or interior */}
@@ -900,7 +875,7 @@ export function GameWorld() {
                 x={x}
                 y={y}
                 isRustling={rustlingTiles.has(`${x}-${y}`)}
-                isNight={timeOfDay === "night" || timeOfDay === "dusk"}
+                isNight={false}
                 overworldTiles={currentMapData.tiles as number[][]}
               />
             ))
@@ -966,30 +941,8 @@ export function GameWorld() {
       </div>
       
       {/* UI Overlay */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 z-[1000]">
-        <div 
-          className="px-4 py-2 text-sm font-mono"
-          style={{
-            backgroundColor: "rgba(0, 0, 0, 0.85)",
-            color: "#FFE066",
-            border: "3px solid #FFE066",
-            borderRadius: 2,
-            imageRendering: "pixelated"
-          }}
-        >
-          {currentMapId === "house_interior" && currentHouseSection != null
-            ? SECTION_LABELS[currentHouseSection].toUpperCase()
-            : currentMapData.label
-              ? currentMapData.label.toUpperCase()
-              : position.y < 10 * TILE_SIZE
-                ? "SECRET FOREST"
-                : position.x < 20 * TILE_SIZE
-                  ? "PALLET TOWN"
-                  : position.x < 35 * TILE_SIZE
-                    ? "ROUTE 1"
-                    : "VIRIDIAN TOWN"}
-        </div>
-        {currentMapId === "house_interior" && currentHouseSection != null && (
+      {currentMapId === "house_interior" && currentHouseSection != null && (
+        <div className="absolute top-4 left-4 z-[1000]">
           <div
             className="px-3 py-2 text-xs font-mono rounded"
             style={{
@@ -1000,34 +953,27 @@ export function GameWorld() {
           >
             Content: {SECTION_LABELS[currentHouseSection]} (placeholder)
           </div>
-        )}
-        <div 
-          className="px-3 py-1.5 text-xs font-mono"
-          style={{
-            backgroundColor: "rgba(0, 0, 0, 0.75)",
-            color: "#FFFFFF",
-            border: "2px solid #888",
-            borderRadius: 2
-          }}
-        >
-          Arrow Keys / WASD to move
         </div>
-        <button
-          type="button"
-          onClick={toggleDayNight}
-          className="px-3 py-1.5 text-xs font-mono mt-1"
+      )}
+      {/* Area name: shown when first entering an area, fades out after 3s */}
+      {areaLabelText && (
+        <div
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] transition-opacity duration-500"
           style={{
+            opacity: areaLabelOpacity,
             backgroundColor: "rgba(0, 0, 0, 0.85)",
             color: "#FFE066",
-            border: "2px solid #FFE066",
+            border: "3px solid #FFE066",
             borderRadius: 2,
+            padding: "8px 16px",
+            fontFamily: "monospace",
+            fontSize: 14,
             imageRendering: "pixelated",
-            cursor: "pointer",
           }}
         >
-          Toggle Day / Night
-        </button>
-      </div>
+          {areaLabelText.toUpperCase()}
+        </div>
+      )}
       
       {/* Mobile direction controller (virtual thumbstick) */}
       {viewportSize.width < 768 && (
@@ -1067,35 +1013,29 @@ export function GameWorld() {
                   knob.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`
                 }
 
-                // Translate vector into arrow-key presses (supports diagonals)
+                // Cardinal-only: store normalized direction for movement (no diagonal; zigzag applied in updateMovement)
                 const deadZone = maxRadius * 0.25
-                const pressX = Math.abs(dx) > deadZone
-                const pressY = Math.abs(dy) > deadZone
-
-                // Speed scales with thumbstick push: 3..6
                 const push = Math.min(1, dist / maxRadius)
                 mobileMoveSpeed.current = BASE_MOVE_SPEED + push * (MAX_MOBILE_MOVE_SPEED - BASE_MOVE_SPEED)
-
-                handleVirtualKey("ArrowLeft", pressX && dx < 0)
-                handleVirtualKey("ArrowRight", pressX && dx > 0)
-                handleVirtualKey("ArrowUp", pressY && dy < 0)
-                handleVirtualKey("ArrowDown", pressY && dy > 0)
+                if (dist > deadZone) {
+                  const nx = dx / dist
+                  const ny = dy / dist
+                  mobileThumbstickRef.current = { dx: nx, dy: ny }
+                } else {
+                  mobileThumbstickRef.current = { dx: 0, dy: 0 }
+                }
               }
 
               updateFromPointer(e.clientX, e.clientY)
 
               const handleMove = (ev: PointerEvent) => updateFromPointer(ev.clientX, ev.clientY)
               const handleUp = () => {
-                // Reset knob and release keys
+                // Reset knob and clear thumbstick intent
                 const knob = el.querySelector<HTMLDivElement>("[data-knob]")
                 if (knob) knob.style.transform = "translate(0px, 0px)"
 
                 mobileMoveSpeed.current = BASE_MOVE_SPEED
-
-                handleVirtualKey("ArrowLeft", false)
-                handleVirtualKey("ArrowRight", false)
-                handleVirtualKey("ArrowUp", false)
-                handleVirtualKey("ArrowDown", false)
+                mobileThumbstickRef.current = { dx: 0, dy: 0 }
 
                 window.removeEventListener("pointermove", handleMove)
                 window.removeEventListener("pointerup", handleUp)
@@ -1155,59 +1095,6 @@ export function GameWorld() {
         </button>
       )}
       
-      {currentMapId === "overworld" && (
-        <>
-          {/* Night tint (subtle) */}
-          <div
-            className="absolute inset-0 pointer-events-none z-[500] transition-opacity duration-1000"
-            style={{
-              backgroundColor: getNightTint(timeOfDay),
-              opacity: getNightOverlayOpacity(timeOfDay),
-            }}
-          />
-          {/* Campfire light layer (adds light back at night) */}
-          {campfireLightLayer && (
-        <>
-          {/* House lights (steady) */}
-          {houseLightLayer && (
-            <div
-              className="absolute inset-0 pointer-events-none z-[515]"
-              style={{
-                backgroundImage: houseLightLayer,
-                mixBlendMode: "screen",
-                opacity: Math.min(1, getNightOverlayOpacity(timeOfDay) * 1.1),
-              }}
-            />
-          )}
-
-          {/* Campfire lights (flicker) */}
-          <div
-            className="absolute inset-0 pointer-events-none z-[520] campfire-flicker"
-            style={{
-              backgroundImage: campfireLightLayer,
-              mixBlendMode: "screen",
-              opacity: Math.min(1, getNightOverlayOpacity(timeOfDay) * 1.2),
-            }}
-          />
-          <style jsx>{`
-            @keyframes campfireFlicker {
-              0% { opacity: 0.92; filter: blur(0.4px); }
-              18% { opacity: 1; filter: blur(0px); }
-              35% { opacity: 0.95; filter: blur(0.6px); }
-              55% { opacity: 1.06; filter: blur(0.2px); }
-              78% { opacity: 0.97; filter: blur(0.7px); }
-              100% { opacity: 1.02; filter: blur(0.1px); }
-            }
-            .campfire-flicker {
-              animation: campfireFlicker 1.1s steps(6, end) infinite;
-              will-change: opacity, filter;
-            }
-          `}</style>
-        </>
-      )}
-        </>
-      )}
-
       {/* Map transition overlay (fade out / fade in) */}
       <div
         className="absolute inset-0 pointer-events-none z-[1500] transition-opacity duration-300"
@@ -1325,8 +1212,22 @@ function Tile({ type, x, y, isRustling, isNight, overworldTiles }: { type: TileT
       return <SignTile style={style} />
     case TILE.WELL:
       return <WellTile style={style} />
-    case TILE.HOUSE_DOOR:
+    case TILE.HOUSE_DOOR: {
+      // If this door tile is in the bottom row of a 2x2 house, the house is already drawn from the top-left
+      // with the door at center-bottom — don't draw a second door here (would misalign).
+      const map = overworldTiles ?? []
+      const isBody = (t: number) => t === TILE.HOUSE_1 || t === TILE.HOUSE_2 || t === TILE.HOUSE_3
+      const topL = map[y - 1]?.[x]
+      const topR = map[y - 1]?.[x + 1]
+      const botR = map[y]?.[x + 1]
+      const topL2 = map[y - 1]?.[x - 1]
+      const botL = map[y]?.[x - 1]
+      const isBottomRowOfHouse =
+        (isBody(topL) && isBody(topR) && isBody(botR)) ||
+        (isBody(topL2) && isBody(topL) && isBody(botL))
+      if (isBottomRowOfHouse) return <GrassTile style={style} variant={(x + y) % 3} />
       return <HouseDoorTile style={style} />
+    }
     case TILE.TALL_GRASS:
       return <TallGrassTile style={style} isRustling={isRustling} />
     case TILE.CAMPFIRE:
