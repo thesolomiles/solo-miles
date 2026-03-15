@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react"
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react"
+import { flushSync } from "react-dom"
 import { PixelCharacter } from "./pixel-character"
 
 type Direction = "down" | "up" | "left" | "right"
@@ -42,6 +43,14 @@ const TILE_SIZE = 48
 // Map id type for transitions (extend with more interiors later)
 type MapId = "overworld" | "house_interior"
 
+// Single source of truth for overworld doors: (x, y) is the door tile. Rendering, collision, and triggers derive from this.
+export interface Door {
+  x: number
+  y: number
+  targetMap: MapId
+  section?: SectionId
+}
+
 // Trigger system: reusable event layer for dialogue, transitions, etc.
 type TriggerType = "dialogue" | "transition"
 
@@ -73,6 +82,8 @@ interface TransitionTrigger extends BaseTrigger {
   targetMap: MapId
   /** When targetMap is house_interior, which portfolio section this house represents */
   section?: SectionId
+  /** Explicit overworld spawn tile when exiting (tile in front of door). Used so exit aligns with the door. */
+  exitSpawnTile?: { x: number; y: number }
 }
 
 type Trigger = DialogueTrigger | TransitionTrigger
@@ -98,11 +109,38 @@ interface MapEntry {
   tiles: number[][]
   collisionTiles: readonly number[]
   triggers: Trigger[]
+  doors?: Door[]
   npcs?: Npc[]
   label?: string
 }
 
-// Overworld collision (HOUSE_DOOR is walkable to allow entry)
+function isDoorAt(doors: Door[] | undefined, x: number, y: number): boolean {
+  return doors?.some((d) => d.x === x && d.y === y) ?? false
+}
+
+/** Single source of truth for camera target: same math as transition and smooth-follow. Character center offset = 12px. */
+function getCameraTarget(
+  position: { x: number; y: number },
+  mapData: { width: number; height: number },
+  viewportSize: { width: number; height: number },
+  characterCenterOffset = 12
+): { x: number; y: number } {
+  const mapW = mapData.width * TILE_SIZE
+  const mapH = mapData.height * TILE_SIZE
+  const vw = viewportSize.width > 0 ? viewportSize.width : 960
+  const vh = viewportSize.height > 0 ? viewportSize.height : 640
+  const targetX =
+    mapW > vw
+      ? Math.max(0, Math.min(position.x - vw / 2 + characterCenterOffset, mapW - vw))
+      : (mapW - vw) / 2
+  const targetY =
+    mapH > vh
+      ? Math.max(0, Math.min(position.y - vh / 2 + characterCenterOffset, mapH - vh))
+      : (mapH - vh) / 2
+  return { x: targetX, y: targetY }
+}
+
+// Overworld collision: doors are solid via OVERWORLD_DOORS; no HOUSE_DOOR in this list so door positions come from door list only
 const OVERWORLD_COLLISION: readonly number[] = [TILE.WATER, TILE.TREE, TILE.HOUSE_1, TILE.HOUSE_2, TILE.HOUSE_3, TILE.FENCE, TILE.WELL]
 
 // Overworld: Village (bottom) → Bridge → Forest Road → Forest End (top). 36×30 tiles.
@@ -122,18 +160,17 @@ const OVERWORLD_TILES: TileType[][] = [
   [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
   // Row 10: River (full width), bridge center (only crossing)
   [5, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 5],
-  // Rows 11–29: Village – dirt path north from center, 6 house plots (2×2 each)
-  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
-  [5, 0, 0, 0, 14, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 14, 0, 0, 0, 5],
+  // Rows 11–29: Village – 6 house plots (2×2). Door positions come from OVERWORLD_DOORS; grid uses path (1) at those tiles.
+  [5, 0, 0, 0, 1, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 1, 0, 0, 0, 5],
   [5, 0, 0, 0, 1, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 0, 0, 0, 5],
   [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
-  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
-  [5, 0, 0, 0, 14, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 14, 0, 0, 0, 5],
+  [5, 0, 0, 0, 1, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 1, 0, 0, 0, 5],
   [5, 0, 0, 0, 1, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 0, 0, 0, 5],
   [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
   [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
-  [5, 0, 0, 0, 14, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 14, 0, 0, 0, 5],
+  [5, 0, 0, 0, 1, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 1, 0, 0, 0, 5],
   [5, 0, 0, 0, 1, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 8, 0, 0, 0, 5],
+  [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
   [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
   [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
   [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
@@ -157,17 +194,32 @@ const INTERIOR_TILES: InteriorTileType[][] = [
 ]
 const INTERIOR_COLLISION: readonly number[] = [INTERIOR.WALL, INTERIOR.FURNITURE]
 
-// Trigger definitions per map (dialogue + transition)
+// Single source of truth: overworld door positions. Rendering, collision, and triggers all derive from this.
+const OVERWORLD_DOORS: Door[] = [
+  { x: 4, y: 11, targetMap: "house_interior", section: "about" },
+  { x: 31, y: 11, targetMap: "house_interior", section: "projects" },
+  { x: 4, y: 15, targetMap: "house_interior", section: "contact" },
+  { x: 31, y: 15, targetMap: "house_interior", section: "about" },
+  { x: 4, y: 19, targetMap: "house_interior", section: "about" },
+  { x: 31, y: 19, targetMap: "house_interior", section: "about" },
+]
+
+// Triggers: dialogue triggers + transition triggers derived from OVERWORLD_DOORS (trigger at door.x, door.y; player stands at door.x, door.y + 1)
 const OVERWORLD_TRIGGERS: Trigger[] = [
   { type: "dialogue", x: 14, y: 0, width: 4, height: 2, dialogue: ["It's a long road ahead."] },
   { type: "dialogue", x: 12, y: 5, dialogue: ["Vending machines. Out of order."] },
   { type: "dialogue", x: 19, y: 6, dialogue: ["Konbini. Open 24/7."] },
-  { type: "transition", x: 4, y: 12, targetMap: "house_interior", section: "about" },
-  { type: "transition", x: 30, y: 12, targetMap: "house_interior", section: "projects" },
-  { type: "transition", x: 4, y: 16, targetMap: "house_interior", section: "contact" },
-  { type: "transition", x: 30, y: 16, targetMap: "house_interior", section: "about" },
-  { type: "transition", x: 4, y: 20, targetMap: "house_interior", section: "about" },
-  { type: "transition", x: 30, y: 20, targetMap: "house_interior", section: "about" },
+  ...OVERWORLD_DOORS.map(
+    (door): TransitionTrigger => ({
+      type: "transition",
+      x: door.x,
+      y: door.y,
+      targetMap: door.targetMap,
+      section: door.section,
+      facingRequired: "up",
+      exitSpawnTile: { x: door.x, y: door.y + 1 },
+    }),
+  ),
 ]
 const INTERIOR_TRIGGERS: Trigger[] = [
   { type: "transition", x: 4, y: 7, width: 2, height: 1, targetMap: "overworld" },
@@ -194,6 +246,7 @@ const MAP_REGISTRY: Record<MapId, MapEntry> = {
     tiles: OVERWORLD_TILES as number[][],
     collisionTiles: OVERWORLD_COLLISION,
     triggers: OVERWORLD_TRIGGERS,
+    doors: OVERWORLD_DOORS,
     npcs: OVERWORLD_NPCS,
   },
   house_interior: {
@@ -241,7 +294,24 @@ export function GameWorld() {
   const [areaLabelText, setAreaLabelText] = useState("")
   const [areaLabelOpacity, setAreaLabelOpacity] = useState(0)
   const lastAreaRef = useRef<string>("")
-  
+  const [debugOverlay, setDebugOverlay] = useState(false)
+  const [cameraDebug, setCameraDebug] = useState(false)
+  const cameraUpdateSourceRef = useRef<"initial" | "smooth_follow" | "map_transition">("initial")
+  const cameraJustSnappedRef = useRef(false)
+  const cameraSnapTargetRef = useRef<{ x: number; y: number } | null>(null)
+  /** Set on transition complete; used for world transform on first render so first paint is correct. Cleared after use. */
+  const transitionDisplayCameraRef = useRef<{ x: number; y: number } | null>(null)
+  // Diagnostic: runtime logging and one-frame label
+  const frameNumberRef = useRef(0)
+  const transitionLogFramesRef = useRef(0)
+  const smoothFollowSkipFramesRef = useRef(0)
+  const lastCameraPosRef = useRef({ x: 0, y: 0 })
+  const lastMapIdRef = useRef<MapId>("overworld")
+  const lastTargetCameraRef = useRef({ x: 0, y: 0 })
+  const lastCameraWriteSourceRef = useRef<string>("initial")
+  const lastCameraWriteXYRef = useRef<{ x: number; y: number } | null>(null)
+  const oneFrameLabelRef = useRef<string>("")
+
   const isMobile = viewportSize.width < 768
   const BASE_MOVE_SPEED = 3
   const MAX_MOBILE_MOVE_SPEED = 3
@@ -272,6 +342,7 @@ export function GameWorld() {
       mapId: map.id,
       label: map.label,
       triggers: map.triggers,
+      doors: map.doors,
       npcs: map.npcs ?? [],
     }
   }, [currentMapId])
@@ -286,7 +357,7 @@ export function GameWorld() {
   
   const canMoveTo = useCallback(
     (newX: number, newY: number) => {
-      const { tiles, width, height, isSolid, npcs } = currentMapData
+      const { tiles, width, height, isSolid, npcs, doors } = currentMapData
       const left = newX + HITBOX_OFFSET_X
       const top = newY + HITBOX_OFFSET_Y
       const right = left + HITBOX_WIDTH
@@ -315,8 +386,11 @@ export function GameWorld() {
 
         const tile = tiles[tileY][tileX]
 
-        // Treat all tiles in a small neighborhood around any door tile as non-solid,
-        // so the player can move freely right up to and around doors.
+        // Door position (from door list or HOUSE_DOOR tile e.g. konbini) is always solid; interact from the tile below.
+        if (isDoorAt(doors, tileX, tileY) || tile === TILE.HOUSE_DOOR) {
+          return false
+        }
+        // Other solids: allow walking through house-body tiles only when adjacent to a door (approach path).
         if (isSolid(tile)) {
           let nearDoor = false
           for (let dy = -1; dy <= 1 && !nearDoor; dy++) {
@@ -325,7 +399,7 @@ export function GameWorld() {
             for (let dx = -1; dx <= 1; dx++) {
               const nx = tileX + dx
               if (nx < 0 || nx >= width) continue
-              if (tiles[ny][nx] === TILE.HOUSE_DOOR) {
+              if (isDoorAt(doors, nx, ny) || tiles[ny][nx] === TILE.HOUSE_DOOR) {
                 nearDoor = true
                 break
               }
@@ -418,11 +492,12 @@ export function GameWorld() {
     }
     if (trigger.type === "transition") {
       if (trigger.targetMap === "house_interior") {
-        lastDoorTileRef.current = { tileX: trigger.x, tileY: trigger.y }
         pendingHouseSectionRef.current = trigger.section ?? "about"
+        // exitSpawnTile derived from Door: { x: door.x, y: door.y + 1 } (tile below door)
+        const spawn = trigger.exitSpawnTile ?? { x: trigger.x, y: trigger.y + 1 }
         setExitPosition({
-          x: trigger.x * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
-          y: (trigger.y + 1) * TILE_SIZE - HITBOX_OFFSET_Y,
+          x: spawn.x * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
+          y: (spawn.y + 1) * TILE_SIZE - HITBOX_OFFSET_Y - HITBOX_HEIGHT,
         })
         transitionIntentRef.current = "enter_house"
       } else {
@@ -555,6 +630,14 @@ export function GameWorld() {
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "b" || e.key === "B") {
+        setDebugOverlay(prev => !prev)
+        return
+      }
+      if (e.key === "v" || e.key === "V") {
+        setCameraDebug(prev => !prev)
+        return
+      }
       if (e.key === "Escape") {
         if (dialogueOpen) {
           closeDialogue()
@@ -612,87 +695,82 @@ export function GameWorld() {
     if (transitionOpacity < 1) return
     const intent = transitionIntentRef.current
     if (intent === null) return
-    const CHAR_HALF = 12
-    const vw = viewportSize.width
-    const vh = viewportSize.height
 
     const t = setTimeout(() => {
       if (intent === "enter_house") {
         const map = MAP_REGISTRY.house_interior
-        const mapW = map.width * TILE_SIZE
-        const mapH = map.height * TILE_SIZE
-        const pos = interiorSpawnPosition
-        const targetX =
-          mapW > vw
-            ? Math.max(0, Math.min(pos.x - vw / 2 + CHAR_HALF, mapW - vw))
-            : (mapW - vw) / 2
-        const targetY =
-          mapH > vh
-            ? Math.max(0, Math.min(pos.y - vh / 2 + CHAR_HALF, mapH - vh))
-            : (mapH - vh) / 2
-        setCurrentMapId("house_interior")
-        setCurrentHouseSection(pendingHouseSectionRef.current)
-        setPosition(interiorSpawnPosition)
-        setDirection("up")
-        setCameraPos({ x: targetX, y: targetY })
-        setTransitionOpacity(0)
+        const newPos = interiorSpawnPosition
+        const cam = getCameraTarget(newPos, map, viewportSize)
+        cameraUpdateSourceRef.current = "map_transition"
+        cameraSnapTargetRef.current = cam
+        cameraJustSnappedRef.current = true
+        transitionLogFramesRef.current = 4
+        smoothFollowSkipFramesRef.current = 3
+        transitionDisplayCameraRef.current = cam
+        lastCameraWriteSourceRef.current = "map_transition"
+        lastCameraWriteXYRef.current = cam
+        oneFrameLabelRef.current = "SNAP APPLIED (flushSync)"
+        console.log("[CAMERA-DIAG] === TRANSITION FRAME (timeout) ===", {
+          timestamp: performance.now(),
+          currentMapId: "house_interior",
+          cameraWritten: cam,
+          cameraSnapTargetRef: cam,
+          cameraJustSnappedRef: true,
+          smooth_follow_ran_this_frame: false,
+          snap_ran_this_frame: false,
+          code_path: "map_transition",
+          written_xy: cam,
+          world_transform_xy: { x: -cam.x, y: -cam.y },
+          world_transform_source: "cameraPos (set in flushSync)",
+        })
+        flushSync(() => {
+          setCurrentMapId("house_interior")
+          setCurrentHouseSection(pendingHouseSectionRef.current)
+          setPosition(newPos)
+          setDirection("up")
+          setCameraPos(cam)
+          setTransitionOpacity(0)
+        })
         transitionIntentRef.current = null
       } else {
         const map = MAP_REGISTRY.overworld
-        const mapW = map.width * TILE_SIZE
-        const mapH = map.height * TILE_SIZE
-        const pos = exitPosition
-        const targetX =
-          mapW > vw
-            ? Math.max(0, Math.min(pos.x - vw / 2 + CHAR_HALF, mapW - vw))
-            : (mapW - vw) / 2
-        const targetY =
-          mapH > vh
-            ? Math.max(0, Math.min(pos.y - vh / 2 + CHAR_HALF, mapH - vh))
-            : (mapH - vh) / 2
-        setCurrentMapId("overworld")
-        setCurrentHouseSection(null)
-        setPosition(exitPosition)
-        setCameraPos({ x: targetX, y: targetY })
-        setTransitionOpacity(0)
+        const newPos = exitPosition
+        const cam = getCameraTarget(newPos, map, viewportSize)
+        cameraUpdateSourceRef.current = "map_transition"
+        cameraSnapTargetRef.current = cam
+        cameraJustSnappedRef.current = true
+        transitionLogFramesRef.current = 4
+        smoothFollowSkipFramesRef.current = 3
+        transitionDisplayCameraRef.current = cam
+        lastCameraWriteSourceRef.current = "map_transition"
+        lastCameraWriteXYRef.current = cam
+        oneFrameLabelRef.current = "SNAP APPLIED (flushSync)"
+        console.log("[CAMERA-DIAG] === TRANSITION FRAME (timeout) ===", {
+          timestamp: performance.now(),
+          currentMapId: "overworld",
+          cameraWritten: cam,
+          cameraSnapTargetRef: cam,
+          cameraJustSnappedRef: true,
+          smooth_follow_ran_this_frame: false,
+          snap_ran_this_frame: false,
+          code_path: "map_transition",
+          written_xy: cam,
+          world_transform_xy: { x: -cam.x, y: -cam.y },
+          world_transform_source: "cameraPos (set in flushSync)",
+        })
+        flushSync(() => {
+          setCurrentMapId("overworld")
+          setCurrentHouseSection(null)
+          setPosition(newPos)
+          setCameraPos(cam)
+          setTransitionOpacity(0)
+        })
         transitionIntentRef.current = null
         lastDoorTileRef.current = null
       }
     }, TRANSITION_DURATION_MS)
     return () => clearTimeout(t)
   }, [transitionOpacity, exitPosition, interiorSpawnPosition, viewportSize.width, viewportSize.height])
-
-  useEffect(() => {
-    if (currentMapId !== "overworld" || transitionOpacity > 0) return
-    const { width, height } = currentMapData
-    const left = position.x + HITBOX_OFFSET_X
-    const top = position.y + HITBOX_OFFSET_Y
-    const centerX = left + HITBOX_WIDTH / 2
-    const bottom = top + HITBOX_HEIGHT
-    const tileX = Math.floor(centerX / TILE_SIZE)
-    const tileY = Math.floor(bottom / TILE_SIZE)
-    if (tileX < 0 || tileX >= width || tileY < 0 || tileY >= height) {
-      lastDoorTileRef.current = null
-      return
-    }
-    const trigger = getTransitionTriggerAt(tileX, tileY)
-    // Only trigger house entry when moving up into the door (approaching from the south)
-    if (trigger != null && trigger.targetMap === "house_interior" && direction === "up") {
-      const prev = lastDoorTileRef.current
-      if (prev === null || prev.tileX !== tileX || prev.tileY !== tileY) {
-        lastDoorTileRef.current = { tileX, tileY }
-        pendingHouseSectionRef.current = trigger.section ?? "about"
-        setExitPosition({
-          x: tileX * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
-          y: (tileY + 1) * TILE_SIZE - HITBOX_OFFSET_Y,
-        })
-        transitionIntentRef.current = "enter_house"
-        setTransitionOpacity(1)
-      }
-    } else {
-      lastDoorTileRef.current = null
-    }
-  }, [currentMapId, position, direction, transitionOpacity, currentMapData.width, currentMapData.height, getTransitionTriggerAt])
 
   useEffect(() => {
     if (currentMapId !== "house_interior" || transitionOpacity > 0) return
@@ -754,41 +832,11 @@ export function GameWorld() {
     return () => window.removeEventListener("resize", updateViewport)
   }, [])
   
-  // Smooth camera following with lerp (large maps: follow player; small maps: center map in viewport)
+  // Smooth camera following disabled: world transform uses single source (transitionDisplayCameraRef ?? getCameraTarget).
+  // Re-enable later when camera architecture is stable.
   useEffect(() => {
-    const CHARACTER_WIDTH = 24
-    const CHARACTER_HEIGHT = 24
-    const mapW = currentMapData.width * TILE_SIZE
-    const mapH = currentMapData.height * TILE_SIZE
-    const vw = viewportSize.width
-    const vh = viewportSize.height
-
-    const targetX =
-      mapW > vw
-        ? Math.max(0, Math.min(position.x - vw / 2 + CHARACTER_WIDTH / 2, mapW - vw))
-        : (mapW - vw) / 2
-    const targetY =
-      mapH > vh
-        ? Math.max(0, Math.min(position.y - vh / 2 + CHARACTER_HEIGHT / 2, mapH - vh))
-        : (mapH - vh) / 2
-
-    const lerpCamera = () => {
-      setCameraPos(prev => {
-        const newX = prev.x + (targetX - prev.x) * CAMERA_SMOOTHNESS
-        const newY = prev.y + (targetY - prev.y) * CAMERA_SMOOTHNESS
-        if (Math.abs(newX - targetX) < 0.5 && Math.abs(newY - targetY) < 0.5) {
-          return { x: targetX, y: targetY }
-        }
-        return { x: newX, y: newY }
-      })
-    }
-
-    const cameraFrame = requestAnimationFrame(function animate() {
-      lerpCamera()
-      requestAnimationFrame(animate)
-    })
-    return () => cancelAnimationFrame(cameraFrame)
-  }, [position, viewportSize, currentMapData.width, currentMapData.height])
+    return () => {}
+  }, [])
 
   // Area name: show when first entering an area, fade out after 3s
   const currentAreaName = useMemo(() => {
@@ -852,16 +900,40 @@ export function GameWorld() {
 
   const mapWidthPx = currentMapData.width * TILE_SIZE
   const mapHeightPx = currentMapData.height * TILE_SIZE
+  const targetCamera = getCameraTarget(position, currentMapData, viewportSize)
+  const playerCenter = { x: position.x + 12, y: position.y + 12 }
+
+  lastCameraPosRef.current = cameraPos
+  lastMapIdRef.current = currentMapId
+  lastTargetCameraRef.current = targetCamera
+
+  const displayCamera = transitionDisplayCameraRef.current ?? getCameraTarget(position, currentMapData, viewportSize)
+
+  useLayoutEffect(() => {
+    if (transitionDisplayCameraRef.current != null) transitionDisplayCameraRef.current = null
+  }, [currentMapId])
 
   return (
     <div className="relative w-full h-screen overflow-hidden" style={{ backgroundColor: currentMapId === "overworld" ? "#5AAF3A" : "#8B7355" }}>
-      {/* World container that moves with camera */}
+      {/* Camera debug: viewport center crosshair (fixed on screen) */}
+      {cameraDebug && (
+        <div
+          className="absolute left-1/2 top-1/2 w-0 h-0 pointer-events-none z-[9999]"
+          style={{ transform: "translate(-50%, -50%)" }}
+          aria-hidden
+        >
+          <div className="absolute left-0 top-0 w-px h-[40px] bg-red-500 opacity-90" style={{ transform: "translate(-50%, -20px)" }} />
+          <div className="absolute left-0 top-0 w-[40px] h-px bg-red-500 opacity-90" style={{ transform: "translate(-20px, -50%)" }} />
+        </div>
+      )}
+
+      {/* World container that moves with camera. Use transition ref on first render after transition so first paint is correct. */}
       <div
         className="absolute"
         style={{
           width: mapWidthPx,
           height: mapHeightPx,
-          transform: `translate(${-cameraPos.x}px, ${-cameraPos.y}px)`,
+          transform: `translate(${-displayCamera.x}px, ${-displayCamera.y}px)`,
           imageRendering: "pixelated",
         }}
       >
@@ -874,6 +946,7 @@ export function GameWorld() {
                 type={tile}
                 x={x}
                 y={y}
+                isOverworldDoor={isDoorAt(currentMapData.doors, x, y)}
                 isRustling={rustlingTiles.has(`${x}-${y}`)}
                 isNight={false}
                 overworldTiles={currentMapData.tiles as number[][]}
@@ -915,6 +988,21 @@ export function GameWorld() {
           />
         </div>
 
+        {/* Camera debug: player center marker (in map space) */}
+        {cameraDebug && (
+          <div
+            className="absolute pointer-events-none rounded-full border-2 border-cyan-400 bg-cyan-400/30"
+            style={{
+              left: playerCenter.x - 4,
+              top: playerCenter.y - 4,
+              width: 8,
+              height: 8,
+              zIndex: 10003,
+            }}
+            aria-hidden
+          />
+        )}
+
         {/* Interaction hint (facing an interactable, no dialogue open) */}
         {isInteractableInFront && !dialogueOpen && (
           <div
@@ -938,8 +1026,114 @@ export function GameWorld() {
             {isMobile ? "Tap ○" : "Press E"}
           </div>
         )}
+
+        {/* Debug overlay: door triggers, player hitbox, tile in front (toggle with B) */}
+        {debugOverlay && (
+          <>
+            {currentMapId === "overworld" &&
+              currentMapData.triggers
+                .filter((t): t is TransitionTrigger => t.type === "transition" && t.targetMap === "house_interior")
+                .map((t, i) => (
+                  <div
+                    key={`debug-door-${i}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: t.x * TILE_SIZE,
+                      top: t.y * TILE_SIZE,
+                      width: (t.width ?? 1) * TILE_SIZE,
+                      height: (t.height ?? 1) * TILE_SIZE,
+                      border: "2px solid rgba(0, 255, 255, 0.9)",
+                      backgroundColor: "rgba(0, 255, 255, 0.12)",
+                      zIndex: 10000,
+                    }}
+                  />
+                ))}
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                left: position.x + HITBOX_OFFSET_X,
+                top: position.y + HITBOX_OFFSET_Y,
+                width: HITBOX_WIDTH,
+                height: HITBOX_HEIGHT,
+                border: "2px solid rgba(0, 255, 0, 0.9)",
+                backgroundColor: "rgba(0, 255, 0, 0.1)",
+                zIndex: 10001,
+              }}
+            />
+            {(() => {
+              const left = position.x + HITBOX_OFFSET_X
+              const top = position.y + HITBOX_OFFSET_Y
+              const centerX = left + HITBOX_WIDTH / 2
+              const bottom = top + HITBOX_HEIGHT
+              let frontTileX = 0
+              let frontTileY = 0
+              if (direction === "up") {
+                frontTileX = Math.floor(centerX / TILE_SIZE)
+                frontTileY = Math.floor((top - 1) / TILE_SIZE)
+              } else if (direction === "down") {
+                frontTileX = Math.floor(centerX / TILE_SIZE)
+                frontTileY = Math.floor((bottom + 1) / TILE_SIZE)
+              } else if (direction === "left") {
+                frontTileX = Math.floor((left - 1) / TILE_SIZE)
+                frontTileY = Math.floor((top + HITBOX_HEIGHT / 2) / TILE_SIZE)
+              } else {
+                frontTileX = Math.floor((left + HITBOX_WIDTH + 1) / TILE_SIZE)
+                frontTileY = Math.floor((top + HITBOX_HEIGHT / 2) / TILE_SIZE)
+              }
+              return (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: frontTileX * TILE_SIZE,
+                    top: frontTileY * TILE_SIZE,
+                    width: TILE_SIZE,
+                    height: TILE_SIZE,
+                    border: "2px solid rgba(255, 255, 0, 0.9)",
+                    backgroundColor: "rgba(255, 255, 0, 0.15)",
+                    zIndex: 10002,
+                  }}
+                />
+              )
+            })()}
+          </>
+        )}
       </div>
+
+      {/* Camera debug panel: always visible when cameraDebug is true (V to toggle) */}
+      {cameraDebug && (
+        <div className="absolute top-4 left-4 z-[10000] px-3 py-2 text-xs font-mono bg-black/90 text-green-300 rounded border border-green-500/50 max-w-[320px] overflow-auto max-h-[85vh]">
+          <div className="font-bold text-cyan-300 mb-1">Camera debug (V to toggle)</div>
+          {(oneFrameLabelRef.current === "SNAP APPLIED" || oneFrameLabelRef.current === "SNAP APPLIED (flushSync)" || oneFrameLabelRef.current === "SMOOTH FOLLOW APPLIED" || oneFrameLabelRef.current === "SMOOTH FOLLOW SKIPPED (diagnostic)") && (
+            <div className="mb-1 px-1 py-0.5 bg-yellow-900/80 text-yellow-200 font-bold rounded">
+              {oneFrameLabelRef.current}
+            </div>
+          )}
+          <div className="mb-1 px-1 py-0.5 bg-slate-800/80 text-slate-200 rounded">
+            WORLD TRANSFORM SOURCE: cameraPos
+          </div>
+          <div className="space-y-0.5">
+            <div>1. currentMapId: <span className="text-white">{currentMapId}</span></div>
+            <div>2. viewport: <span className="text-white">{viewportSize.width}</span> × <span className="text-white">{viewportSize.height}</span></div>
+            <div>3. map px: <span className="text-white">{mapWidthPx}</span> × <span className="text-white">{mapHeightPx}</span></div>
+            <div>4. player pos: <span className="text-white">{position.x.toFixed(1)}</span>, <span className="text-white">{position.y.toFixed(1)}</span></div>
+            <div>5. player center: <span className="text-white">{playerCenter.x.toFixed(1)}</span>, <span className="text-white">{playerCenter.y.toFixed(1)}</span></div>
+            <div>6. camera: <span className="text-white">{cameraPos.x.toFixed(1)}</span>, <span className="text-white">{cameraPos.y.toFixed(1)}</span></div>
+            <div>7. target camera: <span className="text-white">{targetCamera.x.toFixed(1)}</span>, <span className="text-white">{targetCamera.y.toFixed(1)}</span></div>
+            <div>8. world transform (displayCamera): <span className="text-white">{(-displayCamera.x).toFixed(1)}</span>, <span className="text-white">{(-displayCamera.y).toFixed(1)}</span></div>
+            <div>9. transition in progress: <span className="text-white">{transitionIntentRef.current != null ? "yes" : "no"}</span> {transitionIntentRef.current != null && `(${transitionIntentRef.current})`}</div>
+            <div>10. transition opacity: <span className="text-white">{transitionOpacity}</span></div>
+            <div>11. last camera source: <span className="text-white">{cameraUpdateSourceRef.current}</span></div>
+            <div>12. last write: <span className="text-white">{lastCameraWriteSourceRef.current}</span> {lastCameraWriteXYRef.current && `(${lastCameraWriteXYRef.current.x.toFixed(1)}, ${lastCameraWriteXYRef.current.y.toFixed(1)})`}</div>
+          </div>
+        </div>
+      )}
       
+      {/* Debug overlay hint */}
+      {debugOverlay && (
+        <div className="absolute top-4 right-4 z-[1000] px-2 py-1 text-xs font-mono bg-black/80 text-cyan-300 rounded">
+          Debug: B to toggle. Cyan=door trigger, Green=hitbox, Yellow=tile in front
+        </div>
+      )}
       {/* UI Overlay */}
       {currentMapId === "house_interior" && currentHouseSection != null && (
         <div className="absolute top-4 left-4 z-[1000]">
@@ -1177,7 +1371,7 @@ function NpcSprite({ spriteType }: { spriteType?: string }) {
   return <PixelCharacter direction="down" isWalking={false} walkFrame={0} />
 }
 
-function Tile({ type, x, y, isRustling, isNight, overworldTiles }: { type: TileType; x: number; y: number; isRustling?: boolean; isNight?: boolean; overworldTiles?: number[][] }) {
+function Tile({ type, x, y, isOverworldDoor, isRustling, isNight, overworldTiles }: { type: TileType; x: number; y: number; isOverworldDoor?: boolean; isRustling?: boolean; isNight?: boolean; overworldTiles?: number[][] }) {
   const style: React.CSSProperties = {
     position: "absolute",
     left: x * TILE_SIZE,
@@ -1186,7 +1380,12 @@ function Tile({ type, x, y, isRustling, isNight, overworldTiles }: { type: TileT
     height: TILE_SIZE,
     imageRendering: "pixelated"
   }
-  
+
+  // Single source of truth: door from OVERWORLD_DOORS renders exactly at (door.x, door.y) with no offset
+  if (isOverworldDoor) {
+    return <HouseDoorTile style={style} />
+  }
+
   switch (type) {
     case TILE.GRASS:
       return <GrassTile style={style} variant={(x + y) % 3} />
