@@ -90,9 +90,13 @@ type Trigger = DialogueTrigger | TransitionTrigger
 
 export interface Npc {
   id: string
+  name: string
+  mapId: MapId
   x: number
   y: number
-  spriteType?: string
+  width?: number
+  height?: number
+  facing?: Direction
   dialogue: string[]
 }
 
@@ -227,12 +231,41 @@ const INTERIOR_TRIGGERS: Trigger[] = [
 
 const OVERWORLD_NPCS: Npc[] = [
   {
-    id: "villager_1",
-    x: 19,
+    id: "overworld_greeter",
+    name: "Greeter",
+    mapId: "overworld",
+    x: 18,
     y: 24,
     dialogue: [
-      "Hello there.",
-      "This is the village. Cross the bridge to reach the forest road.",
+      "Welcome to the prototype.",
+      "Press E to talk to people.",
+      "Doors and NPCs now share the same interaction rhythm.",
+    ],
+  },
+  {
+    id: "collision_tester",
+    name: "Collision Tester",
+    mapId: "overworld",
+    x: 20,
+    y: 24,
+    dialogue: [
+      "You cannot walk through me.",
+      "Good. Collision works.",
+    ],
+  },
+]
+
+const INTERIOR_NPCS: Npc[] = [
+  {
+    id: "interior_tester",
+    name: "Room Tester",
+    mapId: "house_interior",
+    x: 4,
+    y: 4,
+    dialogue: [
+      "You made it inside.",
+      "This room will later hold your About section.",
+      "Map-local NPCs are working.",
     ],
   },
 ]
@@ -256,7 +289,7 @@ const MAP_REGISTRY: Record<MapId, MapEntry> = {
     tiles: INTERIOR_TILES as number[][],
     collisionTiles: INTERIOR_COLLISION,
     triggers: INTERIOR_TRIGGERS,
-    npcs: [],
+    npcs: INTERIOR_NPCS,
     label: "House",
   },
 }
@@ -296,21 +329,8 @@ export function GameWorld() {
   const lastAreaRef = useRef<string>("")
   const [debugOverlay, setDebugOverlay] = useState(false)
   const [cameraDebug, setCameraDebug] = useState(false)
-  const cameraUpdateSourceRef = useRef<"initial" | "smooth_follow" | "map_transition">("initial")
-  const cameraJustSnappedRef = useRef(false)
-  const cameraSnapTargetRef = useRef<{ x: number; y: number } | null>(null)
   /** Set on transition complete; used for world transform on first render so first paint is correct. Cleared after use. */
   const transitionDisplayCameraRef = useRef<{ x: number; y: number } | null>(null)
-  // Diagnostic: runtime logging and one-frame label
-  const frameNumberRef = useRef(0)
-  const transitionLogFramesRef = useRef(0)
-  const smoothFollowSkipFramesRef = useRef(0)
-  const lastCameraPosRef = useRef({ x: 0, y: 0 })
-  const lastMapIdRef = useRef<MapId>("overworld")
-  const lastTargetCameraRef = useRef({ x: 0, y: 0 })
-  const lastCameraWriteSourceRef = useRef<string>("initial")
-  const lastCameraWriteXYRef = useRef<{ x: number; y: number } | null>(null)
-  const oneFrameLabelRef = useRef<string>("")
 
   const isMobile = viewportSize.width < 768
   const BASE_MOVE_SPEED = 3
@@ -468,7 +488,7 @@ export function GameWorld() {
         if (tileX < 0 || tileX >= width || tileY < 0 || tileY >= height) continue
         for (const trigger of triggers) {
           if (!triggerContains(trigger, tileX, tileY)) continue
-          if (trigger.facingRequired != null && trigger.facingRequired !== dir) continue
+          if (trigger.type === "transition" && trigger.facingRequired != null && trigger.facingRequired !== dir) continue
           if (trigger.type === "dialogue") return trigger
           if (trigger.type === "transition") return trigger
         }
@@ -691,6 +711,24 @@ export function GameWorld() {
     }
   }, [])
 
+  const performMapTransition = useCallback(
+    (args: { nextMapId: MapId; nextPosition: { x: number; y: number }; nextSection?: SectionId | null }) => {
+      const { nextMapId, nextPosition, nextSection } = args
+      const map = MAP_REGISTRY[nextMapId]
+      const cam = getCameraTarget(nextPosition, map, viewportSize)
+      transitionDisplayCameraRef.current = cam
+      flushSync(() => {
+        setCurrentMapId(nextMapId)
+        setCurrentHouseSection(nextSection ?? null)
+        setPosition(nextPosition)
+        if (nextMapId === "house_interior") setDirection("up")
+        setCameraPos(cam)
+        setTransitionOpacity(0)
+      })
+    },
+    [viewportSize]
+  )
+
   useEffect(() => {
     if (transitionOpacity < 1) return
     const intent = transitionIntentRef.current
@@ -698,79 +736,24 @@ export function GameWorld() {
 
     const t = setTimeout(() => {
       if (intent === "enter_house") {
-        const map = MAP_REGISTRY.house_interior
-        const newPos = interiorSpawnPosition
-        const cam = getCameraTarget(newPos, map, viewportSize)
-        cameraUpdateSourceRef.current = "map_transition"
-        cameraSnapTargetRef.current = cam
-        cameraJustSnappedRef.current = true
-        transitionLogFramesRef.current = 4
-        smoothFollowSkipFramesRef.current = 3
-        transitionDisplayCameraRef.current = cam
-        lastCameraWriteSourceRef.current = "map_transition"
-        lastCameraWriteXYRef.current = cam
-        oneFrameLabelRef.current = "SNAP APPLIED (flushSync)"
-        console.log("[CAMERA-DIAG] === TRANSITION FRAME (timeout) ===", {
-          timestamp: performance.now(),
-          currentMapId: "house_interior",
-          cameraWritten: cam,
-          cameraSnapTargetRef: cam,
-          cameraJustSnappedRef: true,
-          smooth_follow_ran_this_frame: false,
-          snap_ran_this_frame: false,
-          code_path: "map_transition",
-          written_xy: cam,
-          world_transform_xy: { x: -cam.x, y: -cam.y },
-          world_transform_source: "cameraPos (set in flushSync)",
-        })
-        flushSync(() => {
-          setCurrentMapId("house_interior")
-          setCurrentHouseSection(pendingHouseSectionRef.current)
-          setPosition(newPos)
-          setDirection("up")
-          setCameraPos(cam)
-          setTransitionOpacity(0)
+        performMapTransition({
+          nextMapId: "house_interior",
+          nextPosition: interiorSpawnPosition,
+          nextSection: pendingHouseSectionRef.current,
         })
         transitionIntentRef.current = null
       } else {
-        const map = MAP_REGISTRY.overworld
-        const newPos = exitPosition
-        const cam = getCameraTarget(newPos, map, viewportSize)
-        cameraUpdateSourceRef.current = "map_transition"
-        cameraSnapTargetRef.current = cam
-        cameraJustSnappedRef.current = true
-        transitionLogFramesRef.current = 4
-        smoothFollowSkipFramesRef.current = 3
-        transitionDisplayCameraRef.current = cam
-        lastCameraWriteSourceRef.current = "map_transition"
-        lastCameraWriteXYRef.current = cam
-        oneFrameLabelRef.current = "SNAP APPLIED (flushSync)"
-        console.log("[CAMERA-DIAG] === TRANSITION FRAME (timeout) ===", {
-          timestamp: performance.now(),
-          currentMapId: "overworld",
-          cameraWritten: cam,
-          cameraSnapTargetRef: cam,
-          cameraJustSnappedRef: true,
-          smooth_follow_ran_this_frame: false,
-          snap_ran_this_frame: false,
-          code_path: "map_transition",
-          written_xy: cam,
-          world_transform_xy: { x: -cam.x, y: -cam.y },
-          world_transform_source: "cameraPos (set in flushSync)",
-        })
-        flushSync(() => {
-          setCurrentMapId("overworld")
-          setCurrentHouseSection(null)
-          setPosition(newPos)
-          setCameraPos(cam)
-          setTransitionOpacity(0)
+        performMapTransition({
+          nextMapId: "overworld",
+          nextPosition: exitPosition,
+          nextSection: null,
         })
         transitionIntentRef.current = null
         lastDoorTileRef.current = null
       }
     }, TRANSITION_DURATION_MS)
     return () => clearTimeout(t)
-  }, [transitionOpacity, exitPosition, interiorSpawnPosition, viewportSize.width, viewportSize.height])
+  }, [transitionOpacity, exitPosition, interiorSpawnPosition, performMapTransition])
 
   useEffect(() => {
     if (currentMapId !== "house_interior" || transitionOpacity > 0) return
@@ -903,10 +886,6 @@ export function GameWorld() {
   const targetCamera = getCameraTarget(position, currentMapData, viewportSize)
   const playerCenter = { x: position.x + 12, y: position.y + 12 }
 
-  lastCameraPosRef.current = cameraPos
-  lastMapIdRef.current = currentMapId
-  lastTargetCameraRef.current = targetCamera
-
   const displayCamera = transitionDisplayCameraRef.current ?? getCameraTarget(position, currentMapData, viewportSize)
 
   useLayoutEffect(() => {
@@ -959,19 +938,26 @@ export function GameWorld() {
               <InteriorTile key={`in-${x}-${y}`} type={tile as InteriorTileType} x={x} y={y} />
             ))
           )}
-        {currentMapData.npcs.map((npc) => (
-          <div
-            key={npc.id}
-            className="absolute"
-            style={{
-              left: npc.x * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
-              top: npc.y * TILE_SIZE + TILE_SIZE - SPRITE_HEIGHT,
-              zIndex: npc.y * TILE_SIZE + 40,
-            }}
-          >
-            <NpcSprite spriteType={npc.spriteType} />
-          </div>
-        ))}
+        {currentMapData.npcs.map((npc) => {
+          const width = npc.width ?? TILE_SIZE
+          const height = npc.height ?? TILE_SIZE
+          return (
+            <div
+              key={npc.id}
+              className="absolute"
+              style={{
+                left: npc.x * TILE_SIZE,
+                top: npc.y * TILE_SIZE,
+                width,
+                height,
+                zIndex: npc.y * TILE_SIZE + 40,
+                backgroundColor: "rgba(52, 211, 153, 0.9)", // teal block
+                border: "2px solid rgba(16, 185, 129, 1)",
+                boxSizing: "border-box",
+              }}
+            />
+          )
+        })}
         {/* Character */}
         <div 
           className="absolute"
@@ -1099,17 +1085,12 @@ export function GameWorld() {
         )}
       </div>
 
-      {/* Camera debug panel: always visible when cameraDebug is true (V to toggle) */}
+      {/* Camera debug panel (V to toggle) */}
       {cameraDebug && (
         <div className="absolute top-4 left-4 z-[10000] px-3 py-2 text-xs font-mono bg-black/90 text-green-300 rounded border border-green-500/50 max-w-[320px] overflow-auto max-h-[85vh]">
           <div className="font-bold text-cyan-300 mb-1">Camera debug (V to toggle)</div>
-          {(oneFrameLabelRef.current === "SNAP APPLIED" || oneFrameLabelRef.current === "SNAP APPLIED (flushSync)" || oneFrameLabelRef.current === "SMOOTH FOLLOW APPLIED" || oneFrameLabelRef.current === "SMOOTH FOLLOW SKIPPED (diagnostic)") && (
-            <div className="mb-1 px-1 py-0.5 bg-yellow-900/80 text-yellow-200 font-bold rounded">
-              {oneFrameLabelRef.current}
-            </div>
-          )}
           <div className="mb-1 px-1 py-0.5 bg-slate-800/80 text-slate-200 rounded">
-            WORLD TRANSFORM SOURCE: cameraPos
+            World transform: displayCamera (ref ?? getCameraTarget)
           </div>
           <div className="space-y-0.5">
             <div>1. currentMapId: <span className="text-white">{currentMapId}</span></div>
@@ -1117,13 +1098,10 @@ export function GameWorld() {
             <div>3. map px: <span className="text-white">{mapWidthPx}</span> × <span className="text-white">{mapHeightPx}</span></div>
             <div>4. player pos: <span className="text-white">{position.x.toFixed(1)}</span>, <span className="text-white">{position.y.toFixed(1)}</span></div>
             <div>5. player center: <span className="text-white">{playerCenter.x.toFixed(1)}</span>, <span className="text-white">{playerCenter.y.toFixed(1)}</span></div>
-            <div>6. camera: <span className="text-white">{cameraPos.x.toFixed(1)}</span>, <span className="text-white">{cameraPos.y.toFixed(1)}</span></div>
-            <div>7. target camera: <span className="text-white">{targetCamera.x.toFixed(1)}</span>, <span className="text-white">{targetCamera.y.toFixed(1)}</span></div>
-            <div>8. world transform (displayCamera): <span className="text-white">{(-displayCamera.x).toFixed(1)}</span>, <span className="text-white">{(-displayCamera.y).toFixed(1)}</span></div>
-            <div>9. transition in progress: <span className="text-white">{transitionIntentRef.current != null ? "yes" : "no"}</span> {transitionIntentRef.current != null && `(${transitionIntentRef.current})`}</div>
-            <div>10. transition opacity: <span className="text-white">{transitionOpacity}</span></div>
-            <div>11. last camera source: <span className="text-white">{cameraUpdateSourceRef.current}</span></div>
-            <div>12. last write: <span className="text-white">{lastCameraWriteSourceRef.current}</span> {lastCameraWriteXYRef.current && `(${lastCameraWriteXYRef.current.x.toFixed(1)}, ${lastCameraWriteXYRef.current.y.toFixed(1)})`}</div>
+            <div>6. target camera: <span className="text-white">{targetCamera.x.toFixed(1)}</span>, <span className="text-white">{targetCamera.y.toFixed(1)}</span></div>
+            <div>7. displayCamera: <span className="text-white">{displayCamera.x.toFixed(1)}</span>, <span className="text-white">{displayCamera.y.toFixed(1)}</span></div>
+            <div>8. transition in progress: <span className="text-white">{transitionIntentRef.current != null ? "yes" : "no"}</span> {transitionIntentRef.current != null && `(${transitionIntentRef.current})`}</div>
+            <div>9. transition opacity: <span className="text-white">{transitionOpacity}</span></div>
           </div>
         </div>
       )}
@@ -1364,11 +1342,6 @@ export function GameWorld() {
       )}
     </div>
   )
-}
-
-function NpcSprite({ spriteType }: { spriteType?: string }) {
-  // Reuse PixelCharacter for now; spriteType reserved for future visual variants
-  return <PixelCharacter direction="down" isWalking={false} walkFrame={0} />
 }
 
 function Tile({ type, x, y, isOverworldDoor, isRustling, isNight, overworldTiles }: { type: TileType; x: number; y: number; isOverworldDoor?: boolean; isRustling?: boolean; isNight?: boolean; overworldTiles?: number[][] }) {
