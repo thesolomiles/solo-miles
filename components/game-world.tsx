@@ -2,7 +2,16 @@
 
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react"
 import { flushSync } from "react-dom"
-import { PixelCharacter, FEET_OFFSET_Y, RENDER_OFFSET_X, SPRITE_OFFSET_X, SPRITE_OFFSET_Y } from "./pixel-character"
+import {
+  PixelCharacter,
+  FEET_OFFSET_Y,
+  RENDER_OFFSET_X,
+  PLAYER_SPRITE_OFFSET_X,
+  PLAYER_SPRITE_OFFSET_Y,
+  NPC_SPRITE_OFFSET_X,
+  NPC_SPRITE_OFFSET_Y,
+  RENDER_SIZE,
+} from "./pixel-character"
 
 type Direction = "down" | "up" | "left" | "right"
 
@@ -243,14 +252,16 @@ const OVERWORLD_NPCS: Npc[] = [
     ],
   },
   {
-    id: "collision_tester",
-    name: "Collision Tester",
+    id: "chad",
+    name: "Chad",
     mapId: "overworld",
-    x: 20,
-    y: 24,
+    x: 16,
+    y: 16,
+    facing: "down",
     dialogue: [
-      "You cannot walk through me.",
-      "Good. Collision works.",
+      "Hey, I'm Chad.",
+      "I'm a middle-age man",
+      "I think I'm a ninja",
     ],
   },
 ]
@@ -443,6 +454,8 @@ export function GameWorld() {
   const getTriggerInFront = useCallback(
     (pos: { x: number; y: number }, dir: Direction): Trigger | null => {
       const { width, height, triggers } = currentMapData
+
+      // 1) Tile-based trigger probe using a small band in front of the player (doors, signs, etc.).
       const left = pos.x + HITBOX_OFFSET_X
       const top = pos.y + HITBOX_OFFSET_Y
       const right = left + HITBOX_WIDTH
@@ -492,14 +505,40 @@ export function GameWorld() {
           if (trigger.type === "dialogue") return trigger
           if (trigger.type === "transition") return trigger
         }
-        const npc = currentMapData.npcs.find((n) => n.x === tileX && n.y === tileY)
-        if (npc != null) {
-          return { type: "dialogue", x: tileX, y: tileY, dialogue: npc.dialogue } satisfies DialogueTrigger
-        }
       }
+
+      // 2) NPC interaction: strictly tile adjacency based on the player's logic tile (32x32 grid),
+      //    not the rendered sprite box or scaled hitbox size.
+      //    Player logic tile is the 32x32 tile under the feet.
+      const playerCenterX = pos.x + TILE_SIZE / 2
+      const playerBottomY = pos.y + TILE_SIZE
+      let playerTileX = Math.floor(playerCenterX / TILE_SIZE)
+      let playerTileY = Math.floor(playerBottomY / TILE_SIZE)
+
+      let targetTileX = playerTileX
+      let targetTileY = playerTileY
+      if (dir === "up") targetTileY = playerTileY - 1
+      else if (dir === "down") targetTileY = playerTileY + 1
+      else if (dir === "left") targetTileX = playerTileX - 1
+      else if (dir === "right") targetTileX = playerTileX + 1
+
+      if (
+        targetTileX < 0 ||
+        targetTileX >= width ||
+        targetTileY < 0 ||
+        targetTileY >= height
+      ) {
+        return null
+      }
+
+      const npc = currentMapData.npcs.find((n) => n.x === targetTileX && n.y === targetTileY)
+      if (npc != null) {
+        return { type: "dialogue", x: targetTileX, y: targetTileY, dialogue: npc.dialogue } satisfies DialogueTrigger
+      }
+
       return null
     },
-    [currentMapData, currentMapId],
+    [currentMapData],
   )
 
   const handleInteract = useCallback(() => {
@@ -939,6 +978,38 @@ export function GameWorld() {
             ))
           )}
         {currentMapData.npcs.map((npc) => {
+          const tileX = npc.x * TILE_SIZE
+          const tileY = npc.y * TILE_SIZE
+          const isChad = npc.id === "chad"
+          if (isChad) {
+            return (
+              <div
+                key={npc.id}
+                className="absolute"
+                style={{
+                  left: tileX - RENDER_OFFSET_X + NPC_SPRITE_OFFSET_X,
+                  top: tileY - FEET_OFFSET_Y + NPC_SPRITE_OFFSET_Y,
+                  zIndex: npc.y * TILE_SIZE + 40,
+                  pointerEvents: "none",
+                }}
+              >
+                {/* Ground shadow for NPC (simple oval under feet) */}
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: (RENDER_SIZE - TILE_SIZE) / 1.1,
+                    top: RENDER_SIZE - 20,
+                    width: 28,
+                    height: 10,
+                    backgroundColor: "rgba(0,0,0,0.35)",
+                    borderRadius: "50%",
+                    filter: "blur(1px)",
+                  }}
+                />
+                <PixelCharacter direction={npc.facing ?? "down"} isWalking={false} walkFrame={0} />
+              </div>
+            )
+          }
           const width = npc.width ?? TILE_SIZE
           const height = npc.height ?? TILE_SIZE
           return (
@@ -946,8 +1017,8 @@ export function GameWorld() {
               key={npc.id}
               className="absolute"
               style={{
-                left: npc.x * TILE_SIZE,
-                top: npc.y * TILE_SIZE,
+                left: tileX,
+                top: tileY,
                 width,
                 height,
                 zIndex: npc.y * TILE_SIZE + 40,
@@ -958,15 +1029,28 @@ export function GameWorld() {
             />
           )
         })}
-        {/* Character: base offsets + sprite anchor tuning so feet sit on logic tile */}
+        {/* Character: base offsets + player sprite anchor so feet sit on logic tile */}
         <div 
           className="absolute"
           style={{ 
-            left: position.x - RENDER_OFFSET_X + SPRITE_OFFSET_X,
-            top: position.y - FEET_OFFSET_Y + SPRITE_OFFSET_Y,
+            left: position.x - RENDER_OFFSET_X + PLAYER_SPRITE_OFFSET_X,
+            top: position.y - FEET_OFFSET_Y + PLAYER_SPRITE_OFFSET_Y,
             zIndex: Math.floor(position.y + 40)
           }}
         >
+          {/* Ground shadow for player (simple oval under feet) */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: (RENDER_SIZE - TILE_SIZE) / .95,
+              top: RENDER_SIZE - 22,
+              width: 20,
+              height: 10,
+              backgroundColor: "rgba(0,0,0,0.35)",
+              borderRadius: "50%",
+              filter: "blur(1px)",
+            }}
+          />
           <PixelCharacter 
             direction={direction} 
             isWalking={isWalking} 
@@ -1013,7 +1097,7 @@ export function GameWorld() {
           </div>
         )}
 
-        {/* Debug overlay: door triggers, player hitbox, tile in front (toggle with B) */}
+        {/* Debug overlay: door triggers, player hitbox, tile in front, NPC info (toggle with B) */}
         {debugOverlay && (
           <>
             {currentMapId === "overworld" &&
@@ -1081,6 +1165,30 @@ export function GameWorld() {
                 />
               )
             })()}
+
+            {/* NPC debug: outline NPC tiles and list basic info */}
+            {currentMapData.npcs.map((npc, index) => (
+              <div
+                key={`debug-npc-${npc.id}`}
+                className="absolute pointer-events-none"
+                style={{
+                  left: npc.x * TILE_SIZE,
+                  top: npc.y * TILE_SIZE,
+                  width: TILE_SIZE,
+                  height: TILE_SIZE,
+                  border: "2px dashed rgba(255, 0, 255, 0.9)",
+                  backgroundColor: "rgba(255, 0, 255, 0.12)",
+                  zIndex: 10003,
+                }}
+              >
+                <div
+                  className="absolute -top-4 left-0 px-1 text-[9px] font-mono bg-black/80 text-pink-200 rounded"
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {index}: {npc.id} ({npc.x},{npc.y}) {npc.facing ?? ""}
+                </div>
+              </div>
+            ))}
           </>
         )}
       </div>

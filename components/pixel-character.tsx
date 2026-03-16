@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-const SHINOBI_BASE = "/sprites/shinobi"
+const DEFAULT_BASE = "/sprites/shinobi"
 /** Source sprite frame size (current assets are 48x48, 4 frames horizontally in a 192x48 sheet). */
 const FRAME_SIZE = 48
 /** Tile size for feet alignment. */
@@ -15,22 +15,18 @@ export const RENDER_OFFSET_X = (RENDER_SIZE - TILE_SIZE) / 2
 /** Vertical offset so feet stay on tile: renderY = tileY - FEET_OFFSET_Y. */
 export const FEET_OFFSET_Y = RENDER_SIZE - TILE_SIZE
 
-/** Visual-only: nudge sprite so feet align with logic tile. + right, + down. Tweak in one place. */
-export const SPRITE_OFFSET_X = 16
-export const SPRITE_OFFSET_Y = 48
+/** Visual-only: player sprite anchor (feet vs logic tile). + right, + down. Tweak in one place. */
+export const PLAYER_SPRITE_OFFSET_X = 12
+export const PLAYER_SPRITE_OFFSET_Y = 56
+
+/** Visual-only: NPC sprite anchor. Start equal to player, tweak separately if needed. */
+export const NPC_SPRITE_OFFSET_X = 10
+export const NPC_SPRITE_OFFSET_Y = 32
 
 const WALK_FRAMES = 4
 const IDLE_FRAMES = 4
 
 type Direction = "down" | "up" | "left" | "right"
-
-const SPRITE_PATHS = {
-  idle: `${SHINOBI_BASE}/shinobi.png`,
-  walkSouth: `${SHINOBI_BASE}/shinobi-walk-south.png`,
-  walkNorth: `${SHINOBI_BASE}/shinobi-walk-north.png`,
-  walkEast: `${SHINOBI_BASE}/shinobi-walk-east.png`,
-  walkWest: `${SHINOBI_BASE}/shinobi-walk-west.png`,
-} as const
 
 /** Idle sheet shinobi.png is 128x32; frame order is south, east, north, west (0,1,2,3). */
 const IDLE_FRAME_BY_DIRECTION: Record<Direction, number> = {
@@ -44,17 +40,21 @@ interface PixelCharacterProps {
   direction: Direction
   isWalking: boolean
   walkFrame: number
+  /** Optional sprite base folder, e.g. \"/sprites/NPC-CHAD\". Defaults to player sprite base. */
+  spriteBase?: string
+}
+function buildSpritePaths(base: string) {
+  return {
+    idle: `${base}/shinobi.png`,
+    walkSouth: `${base}/shinobi-walk-south.png`,
+    walkNorth: `${base}/shinobi-walk-north.png`,
+    walkEast: `${base}/shinobi-walk-east.png`,
+    walkWest: `${base}/shinobi-walk-west.png`,
+  } as const
 }
 
-const WALK_SHEET_BY_DIRECTION: Record<Direction, string> = {
-  down: SPRITE_PATHS.walkSouth,
-  up: SPRITE_PATHS.walkNorth,
-  right: SPRITE_PATHS.walkEast,
-  left: SPRITE_PATHS.walkWest,
-}
-
-function preloadShinobiSprites(onAllLoaded: () => void): void {
-  const urls = Object.values(SPRITE_PATHS)
+function preloadSpriteSet(paths: ReturnType<typeof buildSpritePaths>, onAllLoaded: () => void): void {
+  const urls = Object.values(paths)
   let loaded = 0
   urls.forEach((src) => {
     const img = new Image()
@@ -71,10 +71,19 @@ function preloadShinobiSprites(onAllLoaded: () => void): void {
 }
 
 export function PixelCharacter({ direction, isWalking, walkFrame }: PixelCharacterProps) {
+  const base = DEFAULT_BASE
+  const paths = buildSpritePaths(base)
+  const walkSheetByDirection: Record<Direction, string> = {
+    down: paths.walkSouth,
+    up: paths.walkNorth,
+    right: paths.walkEast,
+    left: paths.walkWest,
+  }
+
   const [spritesLoaded, setSpritesLoaded] = useState(false)
 
   useEffect(() => {
-    preloadShinobiSprites(() => setSpritesLoaded(true))
+    preloadSpriteSet(paths, () => setSpritesLoaded(true))
   }, [])
 
   if (!spritesLoaded) {
@@ -100,7 +109,7 @@ export function PixelCharacter({ direction, isWalking, walkFrame }: PixelCharact
         <div
           style={{
             ...frameStyle,
-            backgroundImage: `url(${WALK_SHEET_BY_DIRECTION[direction]})`,
+            backgroundImage: `url(${walkSheetByDirection[direction]})`,
             backgroundRepeat: "no-repeat",
             backgroundPosition: `${-frameIndex * RENDER_SIZE}px 0`,
             backgroundSize: `${WALK_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
@@ -110,7 +119,7 @@ export function PixelCharacter({ direction, isWalking, walkFrame }: PixelCharact
         <div
           style={{
             ...frameStyle,
-            backgroundImage: `url(${SPRITE_PATHS.idle})`,
+            backgroundImage: `url(${paths.idle})`,
             backgroundRepeat: "no-repeat",
             backgroundPosition: `${-idleFrameIndex * RENDER_SIZE}px 0`,
             backgroundSize: `${IDLE_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
