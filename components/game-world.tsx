@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react"
 import { flushSync } from "react-dom"
-import { PixelCharacter } from "./pixel-character"
+import { PixelCharacter, FEET_OFFSET_Y, RENDER_OFFSET_X, SPRITE_OFFSET_X, SPRITE_OFFSET_Y } from "./pixel-character"
 
 type Direction = "down" | "up" | "left" | "right"
 
@@ -958,12 +958,12 @@ export function GameWorld() {
             />
           )
         })}
-        {/* Character */}
+        {/* Character: base offsets + sprite anchor tuning so feet sit on logic tile */}
         <div 
           className="absolute"
           style={{ 
-            left: position.x,
-            top: position.y,
+            left: position.x - RENDER_OFFSET_X + SPRITE_OFFSET_X,
+            top: position.y - FEET_OFFSET_Y + SPRITE_OFFSET_Y,
             zIndex: Math.floor(position.y + 40)
           }}
         >

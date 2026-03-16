@@ -3,8 +3,24 @@
 import { useEffect, useState } from "react"
 
 const SHINOBI_BASE = "/sprites/shinobi"
+/** Source sprite frame size (assets are 32x32). */
 const FRAME_SIZE = 32
+/** Tile size for feet alignment. */
+const TILE_SIZE = 32
+
+/** On-screen render size: uniform scale (48x48), no stretch. */
+export const RENDER_SIZE = 48
+/** Horizontal offset to center sprite over tile: renderX = tileX - RENDER_OFFSET_X. */
+export const RENDER_OFFSET_X = (RENDER_SIZE - TILE_SIZE) / 2
+/** Vertical offset so feet stay on tile: renderY = tileY - FEET_OFFSET_Y. */
+export const FEET_OFFSET_Y = RENDER_SIZE - TILE_SIZE
+
+/** Visual-only: nudge sprite so feet align with logic tile. + right, + down. Tweak in one place. */
+export const SPRITE_OFFSET_X = 16
+export const SPRITE_OFFSET_Y = 48
+
 const WALK_FRAMES = 6
+const IDLE_FRAMES = 4
 
 type Direction = "down" | "up" | "left" | "right"
 
@@ -66,38 +82,38 @@ export function PixelCharacter({ direction, isWalking, walkFrame }: PixelCharact
   }
 
   const frameIndex = isWalking ? walkFrame % WALK_FRAMES : 0
+  const idleFrameIndex = IDLE_FRAME_BY_DIRECTION[direction]
+
+  const frameStyle: React.CSSProperties = {
+    width: RENDER_SIZE,
+    height: RENDER_SIZE,
+    overflow: "hidden",
+    imageRendering: "pixelated",
+  }
 
   return (
     <div
       className="relative flex-shrink-0"
-      style={{
-        width: FRAME_SIZE,
-        height: FRAME_SIZE,
-        imageRendering: "pixelated",
-      }}
+      style={{ position: "relative", width: RENDER_SIZE, height: RENDER_SIZE, flexShrink: 0 }}
     >
       {isWalking ? (
         <div
           style={{
-            width: FRAME_SIZE,
-            height: FRAME_SIZE,
-            overflow: "hidden",
+            ...frameStyle,
             backgroundImage: `url(${WALK_SHEET_BY_DIRECTION[direction]})`,
             backgroundRepeat: "no-repeat",
-            backgroundPosition: `${-frameIndex * FRAME_SIZE}px 0`,
-            backgroundSize: "auto 100%",
+            backgroundPosition: `${-frameIndex * RENDER_SIZE}px 0`,
+            backgroundSize: `${WALK_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
           }}
         />
       ) : (
         <div
           style={{
-            width: FRAME_SIZE,
-            height: FRAME_SIZE,
-            overflow: "hidden",
+            ...frameStyle,
             backgroundImage: `url(${SPRITE_PATHS.idle})`,
             backgroundRepeat: "no-repeat",
-            backgroundPosition: `${-IDLE_FRAME_BY_DIRECTION[direction] * FRAME_SIZE}px 0`,
-            backgroundSize: "auto 100%",
+            backgroundPosition: `${-idleFrameIndex * RENDER_SIZE}px 0`,
+            backgroundSize: `${IDLE_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
           }}
         />
       )}
