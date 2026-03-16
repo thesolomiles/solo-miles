@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react"
 
 const SHINOBI_BASE = "/sprites/shinobi"
-/** Source sprite frame size (assets are 32x32). */
-const FRAME_SIZE = 32
+/** Source sprite frame size (current assets are 48x48, 4 frames horizontally in a 192x48 sheet). */
+const FRAME_SIZE = 48
 /** Tile size for feet alignment. */
 const TILE_SIZE = 32
 
-/** On-screen render size: uniform scale (48x48), no stretch. */
-export const RENDER_SIZE = 48
+/** On-screen render size: uniform scale, 1.5x (72x72). */
+export const RENDER_SIZE = 72
 /** Horizontal offset to center sprite over tile: renderX = tileX - RENDER_OFFSET_X. */
 export const RENDER_OFFSET_X = (RENDER_SIZE - TILE_SIZE) / 2
 /** Vertical offset so feet stay on tile: renderY = tileY - FEET_OFFSET_Y. */
@@ -19,7 +19,7 @@ export const FEET_OFFSET_Y = RENDER_SIZE - TILE_SIZE
 export const SPRITE_OFFSET_X = 16
 export const SPRITE_OFFSET_Y = 48
 
-const WALK_FRAMES = 6
+const WALK_FRAMES = 4
 const IDLE_FRAMES = 4
 
 type Direction = "down" | "up" | "left" | "right"
