@@ -1050,7 +1050,7 @@ export function GameWorld() {
             direction={direction} 
             isWalking={isWalking} 
             walkFrame={walkFrame}
-            spriteBase={playerGender === "female" ? "/sprites/female-char" : "/sprites/shinobi"}
+            spriteBase={playerGender === "female" ? "/sprites/female-char" : "/sprites/male-char"}
           />
         </div>
 

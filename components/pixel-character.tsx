@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-const DEFAULT_BASE = "/sprites/shinobi"
+const DEFAULT_BASE = "/sprites/male-char"
 /** Source sprite frame size (current assets are 48x48, 4 frames horizontally in a 192x48 sheet). */
 const FRAME_SIZE = 48
 /** Tile size for feet alignment. */
@@ -45,7 +45,7 @@ interface PixelCharacterProps {
 }
 function buildSpritePaths(base: string) {
   // Support multiple character packs with different filenames.
-  // male: /sprites/shinobi/*
+  // male: /sprites/male-char/*
   // female: /sprites/female-char/*
   if (base.endsWith("/female-char")) {
     return {
@@ -54,6 +54,15 @@ function buildSpritePaths(base: string) {
       walkNorth: `${base}/female-walk-north.png`,
       walkEast: `${base}/female-walk-east.png`,
       walkWest: `${base}/female-walk-west.png`,
+    } as const
+  }
+  if (base.endsWith("/male-char")) {
+    return {
+      idle: `${base}/male-player-idle.png`,
+      walkSouth: `${base}/male-walk-south.png`,
+      walkNorth: `${base}/male-walk-north.png`,
+      walkEast: `${base}/male-walk-east.png`,
+      walkWest: `${base}/male-walk-west.png`,
     } as const
   }
   return {
