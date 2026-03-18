@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react"
+import { memo, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react"
 import { flushSync } from "react-dom"
 import {
   PixelCharacter,
@@ -337,10 +337,25 @@ export function GameWorld() {
   const lastAreaRef = useRef<string>("")
   const [debugOverlay, setDebugOverlay] = useState(false)
   const [cameraDebug, setCameraDebug] = useState(false)
+  const [playerGender, setPlayerGender] = useState<"male" | "female">("male")
   /** Set on transition complete; used for world transform on first render so first paint is correct. Cleared after use. */
   const transitionDisplayCameraRef = useRef<{ x: number; y: number } | null>(null)
 
   const isMobile = viewportSize.width < 768
+  // Persist player gender across reloads
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("playerGender")
+      if (saved === "male" || saved === "female") setPlayerGender(saved)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("playerGender", playerGender)
+    } catch {}
+  }, [playerGender])
+
   const BASE_MOVE_SPEED = 3
   const MAX_MOBILE_MOVE_SPEED = 3
   const mobileMoveSpeed = useRef<number>(BASE_MOVE_SPEED)
@@ -946,11 +961,36 @@ export function GameWorld() {
   const targetCamera = getCameraTarget(position, currentMapData, viewportSize)
   const playerCenter = { x: position.x + 12, y: position.y + 12 }
 
-  const displayCamera = transitionDisplayCameraRef.current ?? getCameraTarget(position, currentMapData, viewportSize)
+  const rawDisplayCamera =
+    transitionDisplayCameraRef.current ?? getCameraTarget(position, currentMapData, viewportSize)
+  // Pixel-art stability: snap camera to whole pixels for rendering (logic remains unchanged).
+  const displayCamera = { x: Math.round(rawDisplayCamera.x), y: Math.round(rawDisplayCamera.y) }
 
   useLayoutEffect(() => {
     if (transitionDisplayCameraRef.current != null) transitionDisplayCameraRef.current = null
   }, [currentMapId])
+
+  // Heavy render: memoize static map layers so they don't rebuild on every movement tick.
+  const staticMapLayer = useMemo(() => {
+    if (currentMapId === "overworld") {
+      const tiles = currentMapData.tiles as TileType[][]
+      const doors = currentMapData.doors
+      return (
+        <OverworldStaticLayer tiles={tiles} doors={doors} />
+      )
+    }
+    return <InteriorStaticLayer tiles={currentMapData.tiles as number[][]} />
+  }, [currentMapId, currentMapData.tiles, currentMapData.doors])
+
+  // Rustling is dynamic; render only rustling tiles as an overlay so the whole map doesn't rerender.
+  const rustlingOverlay = useMemo(() => {
+    if (currentMapId !== "overworld") return null
+    return <RustlingGrassOverlay rustlingTiles={rustlingTiles} />
+  }, [currentMapId, rustlingTiles])
+
+  const npcLayer = useMemo(() => {
+    return <NpcLayer npcs={currentMapData.npcs} />
+  }, [currentMapData.npcs])
 
   return (
     <div className="relative w-full h-screen overflow-hidden" style={{ backgroundColor: currentMapId === "overworld" ? "#5AAF3A" : "#8B7355" }}>
@@ -976,85 +1016,14 @@ export function GameWorld() {
           imageRendering: "pixelated",
         }}
       >
-        {/* Render tiles: overworld or interior */}
-        {currentMapId === "overworld" &&
-          (currentMapData.tiles as TileType[][]).map((row, y) =>
-            row.map((tile, x) => (
-              <Tile
-                key={`ow-${x}-${y}`}
-                type={tile}
-                x={x}
-                y={y}
-                isOverworldDoor={isDoorAt(currentMapData.doors, x, y)}
-                isRustling={rustlingTiles.has(`${x}-${y}`)}
-                isNight={false}
-                overworldTiles={currentMapData.tiles as number[][]}
-              />
-            ))
-          )}
-        {currentMapId === "house_interior" &&
-          currentMapData.tiles.map((row, y) =>
-            row.map((tile, x) => (
-              <InteriorTile key={`in-${x}-${y}`} type={tile as InteriorTileType} x={x} y={y} />
-            ))
-          )}
-        {currentMapData.npcs.map((npc) => {
-          const tileX = npc.x * TILE_SIZE
-          const tileY = npc.y * TILE_SIZE
-          const isChad = npc.id === "chad"
-          if (isChad) {
-            return (
-              <div
-                key={npc.id}
-                className="absolute"
-                style={{
-                  left: tileX - RENDER_OFFSET_X + NPC_SPRITE_OFFSET_X,
-                  top: tileY - FEET_OFFSET_Y + NPC_SPRITE_OFFSET_Y,
-                  zIndex: npc.y * TILE_SIZE + 40,
-                  pointerEvents: "none",
-                }}
-              >
-                {/* Ground shadow for NPC (simple oval under feet) */}
-                <div
-                  className="absolute pointer-events-none"
-                  style={{
-                    left: (RENDER_SIZE - TILE_SIZE) / 1.1,
-                    top: RENDER_SIZE - 20,
-                    width: 28,
-                    height: 10,
-                    backgroundColor: "rgba(0,0,0,0.35)",
-                    borderRadius: "50%",
-                    filter: "blur(1px)",
-                  }}
-                />
-                <PixelCharacter
-                  direction={npc.facing ?? "down"}
-                  isWalking={false}
-                  walkFrame={0}
-                  spriteBase={npc.spriteBase}
-                />
-              </div>
-            )
-          }
-          const width = npc.width ?? TILE_SIZE
-          const height = npc.height ?? TILE_SIZE
-          return (
-            <div
-              key={npc.id}
-              className="absolute"
-              style={{
-                left: tileX,
-                top: tileY,
-                width,
-                height,
-                zIndex: npc.y * TILE_SIZE + 40,
-                backgroundColor: "rgba(52, 211, 153, 0.9)", // teal block
-                border: "2px solid rgba(16, 185, 129, 1)",
-                boxSizing: "border-box",
-              }}
-            />
-          )
-        })}
+        {/* Static map tiles (memoized) */}
+        {staticMapLayer}
+
+        {/* Dynamic tile overlays (memoized) */}
+        {rustlingOverlay}
+
+        {/* NPCs (memoized) */}
+        {npcLayer}
         {/* Character: base offsets + player sprite anchor so feet sit on logic tile */}
         <div 
           className="absolute"
@@ -1081,6 +1050,7 @@ export function GameWorld() {
             direction={direction} 
             isWalking={isWalking} 
             walkFrame={walkFrame}
+            spriteBase={playerGender === "female" ? "/sprites/female-char" : "/sprites/shinobi"}
           />
         </div>
 
@@ -1239,6 +1209,34 @@ export function GameWorld() {
           </div>
         </div>
       )}
+
+      {/* Player gender toggle */}
+      <div className="absolute top-4 right-4 z-[1200] flex gap-2">
+        <button
+          type="button"
+          onClick={() => setPlayerGender("male")}
+          className="px-3 py-2 text-xs font-mono rounded"
+          style={{
+            backgroundColor: playerGender === "male" ? "rgba(255, 224, 102, 0.95)" : "rgba(0,0,0,0.6)",
+            color: playerGender === "male" ? "#1A1A1A" : "rgba(255,255,255,0.85)",
+            border: "1px solid rgba(255, 224, 102, 0.6)",
+          }}
+        >
+          Male
+        </button>
+        <button
+          type="button"
+          onClick={() => setPlayerGender("female")}
+          className="px-3 py-2 text-xs font-mono rounded"
+          style={{
+            backgroundColor: playerGender === "female" ? "rgba(255, 224, 102, 0.95)" : "rgba(0,0,0,0.6)",
+            color: playerGender === "female" ? "#1A1A1A" : "rgba(255,255,255,0.85)",
+            border: "1px solid rgba(255, 224, 102, 0.6)",
+          }}
+        >
+          Female
+        </button>
+      </div>
       
       {/* Debug overlay hint */}
       {debugOverlay && (
@@ -1583,6 +1581,143 @@ function InteriorTile({ type, x, y }: { type: InteriorTileType; x: number; y: nu
       return <div style={{ ...style, backgroundColor: "#A0826D" }} />
   }
 }
+
+const MemoTile = memo(Tile)
+const MemoInteriorTile = memo(InteriorTile)
+
+const OverworldStaticLayer = memo(function OverworldStaticLayer({
+  tiles,
+  doors,
+}: {
+  tiles: TileType[][]
+  doors: Door[] | undefined
+}) {
+  return (
+    <>
+      {tiles.map((row, y) =>
+        row.map((tile, x) => (
+          <MemoTile
+            key={`ow-${x}-${y}`}
+            type={tile}
+            x={x}
+            y={y}
+            isOverworldDoor={isDoorAt(doors, x, y)}
+            isRustling={false}
+            isNight={false}
+            overworldTiles={tiles as number[][]}
+          />
+        )),
+      )}
+    </>
+  )
+})
+
+const InteriorStaticLayer = memo(function InteriorStaticLayer({ tiles }: { tiles: number[][] }) {
+  return (
+    <>
+      {tiles.map((row, y) =>
+        row.map((tile, x) => (
+          <MemoInteriorTile key={`in-${x}-${y}`} type={tile as InteriorTileType} x={x} y={y} />
+        )),
+      )}
+    </>
+  )
+})
+
+const RustlingGrassOverlay = memo(function RustlingGrassOverlay({ rustlingTiles }: { rustlingTiles: Set<string> }) {
+  // Only render rustling tiles (tall grass) to avoid rerendering the whole map.
+  return (
+    <>
+      {Array.from(rustlingTiles).map((key) => {
+        const [xs, ys] = key.split("-")
+        const x = Number(xs)
+        const y = Number(ys)
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+        // Render a rustling tall grass tile on top of the static one.
+        return (
+          <TallGrassTile
+            key={`rustle-${key}`}
+            style={{
+              position: "absolute",
+              left: x * TILE_SIZE,
+              top: y * TILE_SIZE,
+              width: TILE_SIZE,
+              height: TILE_SIZE,
+              imageRendering: "pixelated",
+              pointerEvents: "none",
+              zIndex: 60,
+            }}
+            isRustling={true}
+          />
+        )
+      })}
+    </>
+  )
+})
+
+const NpcLayer = memo(function NpcLayer({ npcs }: { npcs: Npc[] }) {
+  return (
+    <>
+      {npcs.map((npc) => {
+        const tileX = npc.x * TILE_SIZE
+        const tileY = npc.y * TILE_SIZE
+        const isChad = npc.id === "chad"
+        if (isChad) {
+          return (
+            <div
+              key={npc.id}
+              className="absolute"
+              style={{
+                left: tileX - RENDER_OFFSET_X + NPC_SPRITE_OFFSET_X,
+                top: tileY - FEET_OFFSET_Y + NPC_SPRITE_OFFSET_Y,
+                zIndex: npc.y * TILE_SIZE + 40,
+                pointerEvents: "none",
+              }}
+            >
+              {/* Ground shadow for NPC (simple oval under feet) */}
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  left: (RENDER_SIZE - TILE_SIZE) / 1.1,
+                  top: RENDER_SIZE - 20,
+                  width: 28,
+                  height: 10,
+                  backgroundColor: "rgba(0,0,0,0.35)",
+                  borderRadius: "50%",
+                  filter: "blur(1px)",
+                }}
+              />
+              <PixelCharacter
+                direction={npc.facing ?? "down"}
+                isWalking={false}
+                walkFrame={0}
+                spriteBase={npc.spriteBase}
+              />
+            </div>
+          )
+        }
+        const width = npc.width ?? TILE_SIZE
+        const height = npc.height ?? TILE_SIZE
+        return (
+          <div
+            key={npc.id}
+            className="absolute"
+            style={{
+              left: tileX,
+              top: tileY,
+              width,
+              height,
+              zIndex: npc.y * TILE_SIZE + 40,
+              backgroundColor: "rgba(52, 211, 153, 0.9)", // teal block
+              border: "2px solid rgba(16, 185, 129, 1)",
+              boxSizing: "border-box",
+            }}
+          />
+        )
+      })}
+    </>
+  )
+})
 
 function GrassTile({ style, variant }: { style: React.CSSProperties; variant: number }) {
   return (

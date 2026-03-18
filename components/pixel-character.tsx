@@ -44,6 +44,18 @@ interface PixelCharacterProps {
   spriteBase?: string
 }
 function buildSpritePaths(base: string) {
+  // Support multiple character packs with different filenames.
+  // male: /sprites/shinobi/*
+  // female: /sprites/female-char/*
+  if (base.endsWith("/female-char")) {
+    return {
+      idle: `${base}/female-player-idle.png`,
+      walkSouth: `${base}/female-walk-south.png`,
+      walkNorth: `${base}/female-walk-north.png`,
+      walkEast: `${base}/female-walk-east.png`,
+      walkWest: `${base}/female-walk-west.png`,
+    } as const
+  }
   return {
     idle: `${base}/shinobi.png`,
     walkSouth: `${base}/shinobi-walk-south.png`,
