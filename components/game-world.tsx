@@ -587,6 +587,13 @@ export function GameWorld() {
     })
   }, [])
 
+  const previousDialogue = useCallback(() => {
+    setDialogueState(prev => {
+      if (prev == null) return null
+      return { ...prev, index: Math.max(0, prev.index - 1) }
+    })
+  }, [])
+
   const isInteractableInFront = useMemo(
     () => getTriggerInFront(position, direction) != null,
     [position, direction, getTriggerInFront],
@@ -701,6 +708,21 @@ export function GameWorld() {
         }
         return
       }
+      if (dialogueOpen && (e.key === "Enter" || e.key === "Return")) {
+        advanceDialogue()
+        e.preventDefault()
+        return
+      }
+      if (dialogueOpen && e.key === "ArrowLeft") {
+        previousDialogue()
+        e.preventDefault()
+        return
+      }
+      if (dialogueOpen && e.key === "ArrowRight") {
+        advanceDialogue()
+        e.preventDefault()
+        return
+      }
       if (e.key === "e" || e.key === "E") {
         if (dialogueOpen) {
           closeDialogue()
@@ -711,6 +733,8 @@ export function GameWorld() {
         return
       }
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d", "W", "A", "S", "D"].includes(e.key)) {
+        // When dialogue is open, arrow keys are used for dialogue navigation instead of movement.
+        if (dialogueOpen) return
         e.preventDefault()
         keysPressed.current.add(e.key)
       }
@@ -737,7 +761,7 @@ export function GameWorld() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [updateMovement, dialogueOpen, closeDialogue, handleInteract])
+  }, [updateMovement, dialogueOpen, closeDialogue, handleInteract, advanceDialogue, previousDialogue])
 
   const interiorSpawnPosition = useMemo(() => {
     const map = MAP_REGISTRY.house_interior
@@ -1444,8 +1468,8 @@ export function GameWorld() {
               }}
             >
               {dialogueState != null && dialogueState.index + 1 < dialogueState.lines.length
-                ? "Next (E)"
-                : "Close (E / Esc)"}
+                ? "Next"
+                : "End conversation"}
             </button>
           </div>
         </div>
