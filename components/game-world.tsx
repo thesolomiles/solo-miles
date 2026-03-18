@@ -100,13 +100,14 @@ type Trigger = DialogueTrigger | TransitionTrigger
 export interface Npc {
   id: string
   name: string
-  mapId: MapId
   x: number
   y: number
   width?: number
   height?: number
   facing?: Direction
   dialogue: string[]
+  /** Optional sprite base folder for this NPC, e.g. \"/sprites/NPC-CHAD\". */
+  spriteBase?: string
 }
 
 function triggerContains(trigger: Trigger, tileX: number, tileY: number): boolean {
@@ -238,49 +239,6 @@ const INTERIOR_TRIGGERS: Trigger[] = [
   { type: "transition", x: 4, y: 7, width: 2, height: 1, targetMap: "overworld" },
 ]
 
-const OVERWORLD_NPCS: Npc[] = [
-  {
-    id: "overworld_greeter",
-    name: "Greeter",
-    mapId: "overworld",
-    x: 18,
-    y: 24,
-    dialogue: [
-      "Welcome to the prototype.",
-      "Press E to talk to people.",
-      "Doors and NPCs now share the same interaction rhythm.",
-    ],
-  },
-  {
-    id: "chad",
-    name: "Chad",
-    mapId: "overworld",
-    x: 16,
-    y: 16,
-    facing: "down",
-    dialogue: [
-      "Hey, I'm Chad.",
-      "I'm a middle-age man",
-      "I think I'm a ninja",
-    ],
-  },
-]
-
-const INTERIOR_NPCS: Npc[] = [
-  {
-    id: "interior_tester",
-    name: "Room Tester",
-    mapId: "house_interior",
-    x: 4,
-    y: 4,
-    dialogue: [
-      "You made it inside.",
-      "This room will later hold your About section.",
-      "Map-local NPCs are working.",
-    ],
-  },
-]
-
 // Map registry: all maps in one place (extend with more overworld areas or interiors)
 const MAP_REGISTRY: Record<MapId, MapEntry> = {
   overworld: {
@@ -291,7 +249,32 @@ const MAP_REGISTRY: Record<MapId, MapEntry> = {
     collisionTiles: OVERWORLD_COLLISION,
     triggers: OVERWORLD_TRIGGERS,
     doors: OVERWORLD_DOORS,
-    npcs: OVERWORLD_NPCS,
+    npcs: [
+      {
+        id: "overworld_greeter",
+        name: "Greeter",
+        x: 18,
+        y: 24,
+        dialogue: [
+          "Welcome to the prototype.",
+          "Press E to talk to people.",
+          "Doors and NPCs now share the same interaction rhythm.",
+        ],
+      },
+      {
+        id: "chad",
+        name: "Chad",
+        x: 16,
+        y: 16,
+        facing: "down",
+        dialogue: [
+          "Hey, I'm Chad.",
+          "I'm a middle-age man",
+          "I think I'm a ninja",
+        ],
+        spriteBase: "/sprites/NPC-CHAD",
+      },
+    ],
   },
   house_interior: {
     id: "house_interior",
@@ -300,7 +283,21 @@ const MAP_REGISTRY: Record<MapId, MapEntry> = {
     tiles: INTERIOR_TILES as number[][],
     collisionTiles: INTERIOR_COLLISION,
     triggers: INTERIOR_TRIGGERS,
-    npcs: INTERIOR_NPCS,
+    npcs: [
+      {
+        id: "room_tester",
+        name: "Room Tester",
+        x: 4,
+        y: 4,
+        facing: "down",
+        dialogue: [
+          "You made it inside.",
+          "This room will later hold your About section.",
+          "Map-local NPCs are working.",
+        ],
+        spriteBase: "/sprites/NPC-CHAD",
+      },
+    ],
     label: "House",
   },
 }
@@ -1006,7 +1003,12 @@ export function GameWorld() {
                     filter: "blur(1px)",
                   }}
                 />
-                <PixelCharacter direction={npc.facing ?? "down"} isWalking={false} walkFrame={0} />
+                <PixelCharacter
+                  direction={npc.facing ?? "down"}
+                  isWalking={false}
+                  walkFrame={0}
+                  spriteBase={npc.spriteBase}
+                />
               </div>
             )
           }

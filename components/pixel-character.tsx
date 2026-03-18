@@ -70,8 +70,8 @@ function preloadSpriteSet(paths: ReturnType<typeof buildSpritePaths>, onAllLoade
   })
 }
 
-export function PixelCharacter({ direction, isWalking, walkFrame }: PixelCharacterProps) {
-  const base = DEFAULT_BASE
+export function PixelCharacter({ direction, isWalking, walkFrame, spriteBase }: PixelCharacterProps) {
+  const base = spriteBase ?? DEFAULT_BASE
   const paths = buildSpritePaths(base)
   const walkSheetByDirection: Record<Direction, string> = {
     down: paths.walkSouth,
@@ -80,18 +80,36 @@ export function PixelCharacter({ direction, isWalking, walkFrame }: PixelCharact
     left: paths.walkWest,
   }
 
+  function isValidFrame(dir: Direction, frame: number): boolean {
+    return dir != null && Number.isFinite(frame) && frame >= 0
+  }
+
   const [spritesLoaded, setSpritesLoaded] = useState(false)
+  const [lastValidDirection, setLastValidDirection] = useState<Direction>(direction)
+  const [lastValidFrame, setLastValidFrame] = useState<number>(walkFrame)
 
   useEffect(() => {
     preloadSpriteSet(paths, () => setSpritesLoaded(true))
   }, [])
 
-  if (!spritesLoaded) {
-    return <PlaceholderCharacter direction={direction} isWalking={isWalking} walkFrame={walkFrame} />
-  }
+  useEffect(() => {
+    if (isValidFrame(direction, walkFrame)) {
+      setLastValidDirection(direction)
+      setLastValidFrame(walkFrame)
+    }
+  }, [direction, walkFrame])
 
-  const frameIndex = isWalking ? walkFrame % WALK_FRAMES : 0
-  const idleFrameIndex = IDLE_FRAME_BY_DIRECTION[direction]
+  // Keep component mounted; avoid returning null on load.
+  // If sprites aren't loaded yet, we render the same DOM structure with no backgroundImage.
+
+  const safeDirection = isValidFrame(direction, walkFrame) ? direction : lastValidDirection
+  const safeFrame = isValidFrame(direction, walkFrame) ? walkFrame : lastValidFrame
+
+  const clampedWalkFrame = Math.max(0, Math.min(Math.floor(safeFrame), WALK_FRAMES - 1))
+  const walkFrameIndex = clampedWalkFrame
+
+  const idleFrameIndex = IDLE_FRAME_BY_DIRECTION[safeDirection]
+  const clampedIdleFrameIndex = Math.max(0, Math.min(idleFrameIndex, IDLE_FRAMES - 1))
 
   const frameStyle: React.CSSProperties = {
     width: RENDER_SIZE,
@@ -100,32 +118,61 @@ export function PixelCharacter({ direction, isWalking, walkFrame }: PixelCharact
     imageRendering: "pixelated",
   }
 
+  const hiddenLayerStyle: React.CSSProperties = {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    opacity: 0,
+    pointerEvents: "none",
+  }
+
+  const visibleLayerStyle: React.CSSProperties = {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    opacity: 1,
+    pointerEvents: "none",
+  }
+
+  const walkLayerStyle = (dir: Direction): React.CSSProperties => ({
+    ...frameStyle,
+    backgroundImage: spritesLoaded ? `url(${walkSheetByDirection[dir]})` : undefined,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: `${-walkFrameIndex * RENDER_SIZE}px 0`,
+    backgroundSize: `${WALK_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
+  })
+
+  const idleStyle: React.CSSProperties = {
+    ...frameStyle,
+    backgroundImage: spritesLoaded ? `url(${paths.idle})` : undefined,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: `${-clampedIdleFrameIndex * RENDER_SIZE}px 0`,
+    backgroundSize: `${IDLE_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
+  }
+
   return (
     <div
       className="relative flex-shrink-0"
       style={{ position: "relative", width: RENDER_SIZE, height: RENDER_SIZE, flexShrink: 0 }}
     >
-      {isWalking ? (
-        <div
-          style={{
-            ...frameStyle,
-            backgroundImage: `url(${walkSheetByDirection[direction]})`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: `${-frameIndex * RENDER_SIZE}px 0`,
-            backgroundSize: `${WALK_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            ...frameStyle,
-            backgroundImage: `url(${paths.idle})`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: `${-idleFrameIndex * RENDER_SIZE}px 0`,
-            backgroundSize: `${IDLE_FRAMES * RENDER_SIZE}px ${RENDER_SIZE}px`,
-          }}
-        />
-      )}
+      {/* Idle layer (single sheet; backgroundImage stable) */}
+      <div style={isWalking ? hiddenLayerStyle : visibleLayerStyle}>
+        <div style={idleStyle} />
+      </div>
+
+      {/* Walk layers (4 sheets kept mounted; switch by opacity only) */}
+      <div style={!isWalking ? hiddenLayerStyle : safeDirection === "down" ? visibleLayerStyle : hiddenLayerStyle}>
+        <div style={walkLayerStyle("down")} />
+      </div>
+      <div style={!isWalking ? hiddenLayerStyle : safeDirection === "up" ? visibleLayerStyle : hiddenLayerStyle}>
+        <div style={walkLayerStyle("up")} />
+      </div>
+      <div style={!isWalking ? hiddenLayerStyle : safeDirection === "left" ? visibleLayerStyle : hiddenLayerStyle}>
+        <div style={walkLayerStyle("left")} />
+      </div>
+      <div style={!isWalking ? hiddenLayerStyle : safeDirection === "right" ? visibleLayerStyle : hiddenLayerStyle}>
+        <div style={walkLayerStyle("right")} />
+      </div>
     </div>
   )
 }
