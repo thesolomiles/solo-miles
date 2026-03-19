@@ -76,6 +76,7 @@ interface DialogueTrigger extends BaseTrigger {
   type: "dialogue"
   dialogue: string[]
   avatarSrc?: string
+  speakerName?: string
 }
 
 // Portfolio section that a house interior can represent (plug in real content later)
@@ -269,8 +270,7 @@ const MAP_REGISTRY: Record<MapId, MapEntry> = {
         y: 16,
         facing: "down",
         dialogue: [
-          "Hey, I'm Chad.",
-          "I'm a middle-age man",
+          "Hey, I'm Chad.\nI'm a middle-age man",
           "I think I'm a ninja",
         ],
         spriteBase: "/sprites/NPC-CHAD",
@@ -317,7 +317,7 @@ export function GameWorld() {
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0 })
   const [viewportSize, setViewportSize] = useState({ width: 960, height: 640 })
   const [rustlingTiles, setRustlingTiles] = useState<Set<string>>(new Set())
-  const [dialogueState, setDialogueState] = useState<{ lines: string[]; index: number; avatarSrc?: string } | null>(null)
+  const [dialogueState, setDialogueState] = useState<{ lines: string[]; index: number; avatarSrc?: string; speakerName?: string } | null>(null)
   const dialogueOpen = dialogueState !== null
   const currentDialogueLine = dialogueState?.lines[dialogueState.index] ?? null
   const [currentMapId, setCurrentMapId] = useState<MapId>("overworld")
@@ -552,6 +552,7 @@ export function GameWorld() {
           y: targetTileY,
           dialogue: npc.dialogue,
           avatarSrc: npc.spriteBase ? `${npc.spriteBase}/avatar.png` : undefined,
+          speakerName: npc.name,
         } satisfies DialogueTrigger
       }
 
@@ -565,7 +566,12 @@ export function GameWorld() {
     const trigger = getTriggerInFront(position, direction)
     if (trigger == null) return
     if (trigger.type === "dialogue" && trigger.dialogue.length > 0) {
-      setDialogueState({ lines: trigger.dialogue, index: 0, avatarSrc: trigger.avatarSrc })
+      setDialogueState({
+        lines: trigger.dialogue,
+        index: 0,
+        avatarSrc: trigger.avatarSrc,
+        speakerName: trigger.speakerName,
+      })
       return
     }
     if (trigger.type === "transition") {
@@ -1457,8 +1463,8 @@ export function GameWorld() {
       {/* Dialogue modal */}
       {dialogueOpen && currentDialogueLine != null && (
         <div
-          className="fixed inset-0 z-[2000] flex items-center justify-center p-4"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.6)" }}
+          className="fixed inset-0 z-[2000] flex items-end justify-center px-3 pb-4 pt-8"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
           onClick={advanceDialogue}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -1475,57 +1481,86 @@ export function GameWorld() {
           aria-label="Dialogue"
         >
           <div
-            className="relative max-w-md rounded-lg px-6 py-5 shadow-xl"
-            style={{
-              backgroundColor: "rgba(30, 30, 40, 0.98)",
-              border: "2px solid #555",
-              color: "#eee",
-            }}
+            className="relative w-full max-w-3xl"
             onClick={(e) => {
               e.stopPropagation()
               advanceDialogue()
             }}
           >
-            {dialogueState?.avatarSrc && (
-              <img
-                src={dialogueState.avatarSrc}
-                alt="NPC avatar"
-                width={120}
-                height={120}
-                className="absolute left-1/2 -top-30 -translate-x-1/2 pointer-events-none"
+            {/* Outer frame */}
+            <div
+              className="relative"
+              style={{
+                border: "4px solid #C0C0C0",
+                boxShadow: "0 0 0 2px #202020, inset 0 0 0 2px #505050",
+                backgroundColor: "#101018",
+              }}
+            >
+              {/* Avatar positioned to the left, outside the top of the frame */}
+              {dialogueState?.avatarSrc && (
+                <img
+                  src={dialogueState.avatarSrc}
+                  alt="NPC avatar"
+                  width={240}
+                  height={240}
+                  className="absolute -top-60 -left-4 pointer-events-none"
+                  style={{ imageRendering: "pixelated", zIndex: -1 }}
+                />
+              )}
+
+              {/* Nameplate */}
+              {dialogueState?.speakerName && (
+                <div
+                  className="absolute -top-5 left-4 px-3 py-1"
+                  style={{
+                    backgroundColor: "#C09010",
+                    border: "2px solid #F8E060",
+                    color: "#FFF6B0",
+                    fontFamily: "\"Inconsolata\", \"Courier New\", monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.16em",
+                  }}
+                >
+                  {dialogueState.speakerName.toUpperCase()}
+                </div>
+              )}
+
+              {/* Inner content panel */}
+              <div
+                className="px-4 py-3 sm:px-5 sm:py-4 relative"
                 style={{
-                  imageRendering: "pixelated",
+                  border: "2px solid #3A3A3A",
+                  backgroundColor: "#181820",
+                  color: "#FFFFFF",
+                  fontFamily: "\"Inconsolata\", \"Courier New\", monospace",
                 }}
-              />
-            )}
-            <p
-              className="text-center text-sm leading-relaxed"
-              style={{
-                fontFamily: "\"Inconsolata\", \"Courier New\", monospace",
-                letterSpacing: "0.2px",
-              }}
-            >
-              {currentDialogueLine}
-            </p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                advanceDialogue()
-              }}
-              className="mt-4 w-full rounded py-2 text-xs"
-              style={{
-                backgroundColor: "rgba(255, 255, 255, 0.12)",
-                color: "#FFE066",
-                border: "1px solid #888",
-                fontFamily: "\"Inconsolata\", \"Courier New\", monospace",
-                letterSpacing: "0.2px",
-              }}
-            >
-              {dialogueState != null && dialogueState.index + 1 < dialogueState.lines.length
-                ? "Next"
-                : "End conversation"}
-            </button>
+              >
+                <p
+                  className="text-xs sm:text-sm leading-snug sm:leading-snug text-left"
+                  style={{
+                    letterSpacing: "0.2px",
+                    whiteSpace: "pre-line",
+                  }}
+                >
+                  {currentDialogueLine}
+                </p>
+
+                {/* Advance hint */}
+                <span
+                  className="text-[10px] sm:text-[11px] opacity-80"
+                  style={{
+                    color: "#F8E060",
+                    position: "absolute",
+                    top: 6,
+                    right: 8,
+                  }}
+                >
+                  {dialogueState != null && dialogueState.index + 1 < dialogueState.lines.length
+                    ? (isMobile ? "Tap to continue" : "Press E")
+                    : (isMobile ? "Tap to close" : "Press E")}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
