@@ -75,6 +75,7 @@ interface BaseTrigger {
 interface DialogueTrigger extends BaseTrigger {
   type: "dialogue"
   dialogue: string[]
+  avatarSrc?: string
 }
 
 // Portfolio section that a house interior can represent (plug in real content later)
@@ -316,7 +317,7 @@ export function GameWorld() {
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0 })
   const [viewportSize, setViewportSize] = useState({ width: 960, height: 640 })
   const [rustlingTiles, setRustlingTiles] = useState<Set<string>>(new Set())
-  const [dialogueState, setDialogueState] = useState<{ lines: string[]; index: number } | null>(null)
+  const [dialogueState, setDialogueState] = useState<{ lines: string[]; index: number; avatarSrc?: string } | null>(null)
   const dialogueOpen = dialogueState !== null
   const currentDialogueLine = dialogueState?.lines[dialogueState.index] ?? null
   const [currentMapId, setCurrentMapId] = useState<MapId>("overworld")
@@ -545,7 +546,13 @@ export function GameWorld() {
 
       const npc = currentMapData.npcs.find((n) => n.x === targetTileX && n.y === targetTileY)
       if (npc != null) {
-        return { type: "dialogue", x: targetTileX, y: targetTileY, dialogue: npc.dialogue } satisfies DialogueTrigger
+        return {
+          type: "dialogue",
+          x: targetTileX,
+          y: targetTileY,
+          dialogue: npc.dialogue,
+          avatarSrc: npc.spriteBase ? `${npc.spriteBase}/avatar.png` : undefined,
+        } satisfies DialogueTrigger
       }
 
       return null
@@ -558,7 +565,7 @@ export function GameWorld() {
     const trigger = getTriggerInFront(position, direction)
     if (trigger == null) return
     if (trigger.type === "dialogue" && trigger.dialogue.length > 0) {
-      setDialogueState({ lines: trigger.dialogue, index: 0 })
+      setDialogueState({ lines: trigger.dialogue, index: 0, avatarSrc: trigger.avatarSrc })
       return
     }
     if (trigger.type === "transition") {
@@ -613,6 +620,36 @@ export function GameWorld() {
     () => getTriggerInFront(position, direction) != null,
     [position, direction, getTriggerInFront],
   )
+
+  // For NPCs, show the interaction hint above the NPC's tile (logic tile), not above the player sprite.
+  const npcHintTile = useMemo(() => {
+    const { width, height, npcs } = currentMapData
+
+    const playerCenterX = position.x + TILE_SIZE / 2
+    const playerBottomY = position.y + TILE_SIZE
+    const playerTileX = Math.floor(playerCenterX / TILE_SIZE)
+    const playerTileY = Math.floor(playerBottomY / TILE_SIZE)
+
+    let targetTileX = playerTileX
+    let targetTileY = playerTileY
+    if (direction === "up") targetTileY = playerTileY - 1
+    else if (direction === "down") targetTileY = playerTileY + 1
+    else if (direction === "left") targetTileX = playerTileX - 1
+    else if (direction === "right") targetTileX = playerTileX + 1
+
+    if (
+      targetTileX < 0 ||
+      targetTileX >= width ||
+      targetTileY < 0 ||
+      targetTileY >= height
+    ) {
+      return null
+    }
+
+    const npc = npcs.find((n) => n.x === targetTileX && n.y === targetTileY)
+    if (!npc) return null
+    return { x: targetTileX, y: targetTileY }
+  }, [currentMapData, position.x, position.y, direction])
 
   const onInteractAction = useCallback(() => {
     if (dialogueOpen) advanceDialogue()
@@ -1069,15 +1106,15 @@ export function GameWorld() {
           />
         )}
 
-        {/* Interaction hint (facing an interactable, no dialogue open) */}
-        {isInteractableInFront && !dialogueOpen && (
+        {/* Interaction hint (NPC in front, no dialogue open) */}
+        {npcHintTile && !dialogueOpen && (
           <div
             className="absolute pointer-events-none"
             style={{
-              left: position.x + SPRITE_WIDTH / 2 - 28,
-              top: position.y - 22,
-              width: 56,
-              zIndex: Math.floor(position.y + 50),
+              left: npcHintTile.x * TILE_SIZE + TILE_SIZE / 2 - 36,
+              top: npcHintTile.y * TILE_SIZE - 48,
+              width: 72,
+              zIndex: Math.floor(npcHintTile.y * TILE_SIZE + 50),
               backgroundColor: "rgba(0, 0, 0, 0.85)",
               color: "#FFE066",
               border: "2px solid #FFE066",
@@ -1089,7 +1126,7 @@ export function GameWorld() {
               imageRendering: "pixelated",
             }}
           >
-            {isMobile ? "Tap ○" : "Press E"}
+            {isMobile ? "Tap ○ to Talk" : "Press 'E' to Talk"}
           </div>
         )}
 
@@ -1449,7 +1486,25 @@ export function GameWorld() {
               advanceDialogue()
             }}
           >
-            <p className="text-center font-mono text-sm leading-relaxed">
+            {dialogueState?.avatarSrc && (
+              <img
+                src={dialogueState.avatarSrc}
+                alt="NPC avatar"
+                width={120}
+                height={120}
+                className="absolute left-1/2 -top-30 -translate-x-1/2 pointer-events-none"
+                style={{
+                  imageRendering: "pixelated",
+                }}
+              />
+            )}
+            <p
+              className="text-center text-sm leading-relaxed"
+              style={{
+                fontFamily: "\"Inconsolata\", \"Courier New\", monospace",
+                letterSpacing: "0.2px",
+              }}
+            >
               {currentDialogueLine}
             </p>
             <button
@@ -1458,11 +1513,13 @@ export function GameWorld() {
                 e.stopPropagation()
                 advanceDialogue()
               }}
-              className="mt-4 w-full rounded py-2 font-mono text-xs"
+              className="mt-4 w-full rounded py-2 text-xs"
               style={{
                 backgroundColor: "rgba(255, 255, 255, 0.12)",
                 color: "#FFE066",
                 border: "1px solid #888",
+                fontFamily: "\"Inconsolata\", \"Courier New\", monospace",
+                letterSpacing: "0.2px",
               }}
             >
               {dialogueState != null && dialogueState.index + 1 < dialogueState.lines.length
