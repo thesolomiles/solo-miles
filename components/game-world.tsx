@@ -319,6 +319,10 @@ export function GameWorld() {
   const [rustlingTiles, setRustlingTiles] = useState<Set<string>>(new Set())
   const [dialogueState, setDialogueState] = useState<{ lines: string[]; index: number; avatarSrc?: string; speakerName?: string } | null>(null)
   const dialogueOpen = dialogueState !== null
+  const dialogueOpenRef = useRef(false)
+  useEffect(() => {
+    dialogueOpenRef.current = dialogueOpen
+  }, [dialogueOpen])
   const currentDialogueLine = dialogueState?.lines[dialogueState.index] ?? null
   const [currentMapId, setCurrentMapId] = useState<MapId>("overworld")
   const [exitPosition, setExitPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -561,6 +565,17 @@ export function GameWorld() {
     [currentMapData],
   )
 
+  const beginEnterHouseTransition = useCallback((trigger: TransitionTrigger) => {
+    pendingHouseSectionRef.current = trigger.section ?? "about"
+    const spawn = trigger.exitSpawnTile ?? { x: trigger.x, y: trigger.y + 1 }
+    setExitPosition({
+      x: spawn.x * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
+      y: (spawn.y + 1) * TILE_SIZE - HITBOX_OFFSET_Y - HITBOX_HEIGHT,
+    })
+    transitionIntentRef.current = "enter_house"
+    setTransitionOpacity(1)
+  }, [])
+
   const handleInteract = useCallback(() => {
     if (dialogueOpen) return
     const trigger = getTriggerInFront(position, direction)
@@ -576,20 +591,13 @@ export function GameWorld() {
     }
     if (trigger.type === "transition") {
       if (trigger.targetMap === "house_interior") {
-        pendingHouseSectionRef.current = trigger.section ?? "about"
-        // exitSpawnTile derived from Door: { x: door.x, y: door.y + 1 } (tile below door)
-        const spawn = trigger.exitSpawnTile ?? { x: trigger.x, y: trigger.y + 1 }
-        setExitPosition({
-          x: spawn.x * TILE_SIZE + TILE_SIZE / 2 - SPRITE_WIDTH / 2,
-          y: (spawn.y + 1) * TILE_SIZE - HITBOX_OFFSET_Y - HITBOX_HEIGHT,
-        })
-        transitionIntentRef.current = "enter_house"
+        beginEnterHouseTransition(trigger)
       } else {
         transitionIntentRef.current = "exit_house"
+        setTransitionOpacity(1)
       }
-      setTransitionOpacity(1)
     }
-  }, [dialogueOpen, position, direction, getTriggerInFront])
+  }, [dialogueOpen, position, direction, getTriggerInFront, beginEnterHouseTransition])
 
   const getTransitionTriggerAt = useCallback(
     (tileX: number, tileY: number): TransitionTrigger | null => {
@@ -742,12 +750,37 @@ export function GameWorld() {
       setPosition(prev => {
         const newX = dx !== 0 && canMoveTo(prev.x + dx, prev.y) ? prev.x + dx : prev.x
         const newY = dy !== 0 && canMoveTo(prev.x, prev.y + dy) ? prev.y + dy : prev.y
-        return { x: newX, y: newY }
+        const newPos = { x: newX, y: newY }
+
+        // Auto-enter house when walking toward a door (same probe + facing rules as interact)
+        if (
+          currentMapId === "overworld" &&
+          transitionIntentRef.current === null &&
+          !dialogueOpenRef.current
+        ) {
+          const moveDir: Direction =
+            dy !== 0 ? (dy < 0 ? "up" : "down") : dx < 0 ? "left" : "right"
+          const trigger = getTriggerInFront(newPos, moveDir)
+          if (
+            trigger?.type === "transition" &&
+            trigger.targetMap === "house_interior" &&
+            (trigger.facingRequired == null || trigger.facingRequired === moveDir)
+          ) {
+            const t = trigger
+            queueMicrotask(() => {
+              if (dialogueOpenRef.current) return
+              if (transitionIntentRef.current !== null) return
+              beginEnterHouseTransition(t)
+            })
+          }
+        }
+
+        return newPos
       })
     }
 
     animationRef.current = requestAnimationFrame(updateMovement)
-  }, [canMoveTo, isMobile, BASE_MOVE_SPEED])
+  }, [canMoveTo, isMobile, BASE_MOVE_SPEED, currentMapId, getTriggerInFront, beginEnterHouseTransition])
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
