@@ -7,3 +7,8 @@ node_modules
 .next
 node_modules
 .next
+
+# Raw downloads cached by scripts/generate-jlpt-decks.mjs (Tanos CSVs,
+# JMdict JSON dump) — regeneratable, not needed in git; only the final
+# data/generated/jlpt-decks.json output is committed.
+data/generated/.cache

@@ -3,19 +3,60 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useRef, useState, type UIEventHandler } from 'react'
-import { DECKS } from '@/data/n5-decks'
+import type { Card, Kind, Level } from '@/lib/jlpt-decks'
+import { KIND_META } from '@/lib/jlpt-decks'
 import { Button } from './button'
 import { Tag } from './tag'
 
 const JP_SERIF = "'Hiragino Mincho ProN','Yu Mincho',serif"
+const BATCH_SIZE = 10
 
-// "Verbs" -> "Verb", "Adjectives" -> "Adjective", "Nouns" -> "Noun"
-function singularize(name: string) {
-  return name.replace(/s$/, '')
+function shuffledIndices(length: number) {
+  const arr = Array.from({ length }, (_, i) => i)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
 }
 
-export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
-  const deck = DECKS.find((d) => d.slug === deckSlug) ?? DECKS[0]
+/** Pick up to BATCH_SIZE random indices not already in `seen`. If fewer than
+ * BATCH_SIZE cards remain unseen, the whole pool is "recycled" (seen is
+ * effectively reset) so a session never just runs dry once a large pool has
+ * been mostly explored. */
+function pickBatch(poolSize: number, seen: Set<number>): number[] {
+  const unseen = shuffledIndices(poolSize).filter((i) => !seen.has(i))
+  if (unseen.length >= BATCH_SIZE) return unseen.slice(0, BATCH_SIZE)
+  seen.clear()
+  return shuffledIndices(poolSize).slice(0, Math.min(BATCH_SIZE, poolSize))
+}
+
+export function FlashcardApp({
+  cards,
+  formLabels,
+  level,
+  kind,
+}: {
+  cards: Card[]
+  formLabels: string[]
+  level: Level
+  kind: Kind
+}) {
+  const kindMeta = KIND_META[kind]
+  const seenRef = useRef<Set<number>>(new Set())
+  // Math.random() can't run in the initial render (it runs once during SSR
+  // and again during client hydration, producing two different "random"
+  // batches and a hydration mismatch) — start with a deterministic batch
+  // that matches on both server and client, then shuffle for real in an
+  // effect that only ever runs on the client, after hydration.
+  const [batch, setBatch] = useState<number[]>(() => Array.from({ length: Math.min(BATCH_SIZE, cards.length) }, (_, idx) => idx))
+
+  useEffect(() => {
+    const first = pickBatch(cards.length, seenRef.current)
+    for (const idx of first) seenRef.current.add(idx)
+    setBatch(first)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [i, setI] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -26,10 +67,8 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const cards = deck.cards
-  const total = cards.length
-  const done = i >= total
-  const card = cards[Math.min(i, total - 1)]
+  const done = i >= batch.length
+  const card = done ? null : cards[batch[i]]
 
   const flip = () => setFlipped((f) => !f)
 
@@ -47,13 +86,13 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }
 
-  const restart = () => {
+  const continueWithMore = () => {
+    const next = pickBatch(cards.length, seenRef.current)
+    for (const idx of next) seenRef.current.add(idx)
+    setBatch(next)
     setI(0)
     setFlipped(false)
     setScrolled(false)
-    setKnown(0)
-    setLearning(0)
-    setRun(0)
   }
 
   useEffect(() => {
@@ -118,7 +157,7 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
             }}
           >
             <span>←</span>
-            <span>N5 · {deck.name}</span>
+            <span>{level} · {kindMeta.name}</span>
           </Link>
         </div>
 
@@ -174,21 +213,21 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
                 textWrap: 'balance',
               }}
             >
-              {run >= 3 ? 'Nice — you were on a roll' : 'That is the whole deck'}
+              {run >= 3 ? 'Nice — you were on a roll' : '10 down, keep going'}
             </div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-sm)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
               {known} known · {learning} still learning
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <Button variant="accent" size="lg" iconRight="arrow-up-right" onClick={restart}>
-                Go again
+              <Button variant="accent" size="lg" iconRight="arrow-up-right" onClick={continueWithMore}>
+                Continue with 10 more
               </Button>
             </div>
             <Link
               href="/projects/japanese-flashcards"
               style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-sm)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', textDecoration: 'none' }}
             >
-              Choose another deck
+              Switch deck
             </Link>
           </div>
         ) : (
@@ -238,10 +277,10 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
                       textWrap: 'balance',
                     }}
                   >
-                    {card.en}
+                    {card!.en}
                   </div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-sm)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                    {singularize(deck.name)} · JLPT N5
+                    {kindMeta.singular} · JLPT {level}
                   </div>
                   <div style={{ position: 'absolute', bottom: 22, left: 0, right: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>
                     Tap the card to flip it
@@ -281,12 +320,14 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
                         textAlign: 'center',
                       }}
                     >
-                      <div style={{ fontFamily: JP_SERIF, fontSize: 15, letterSpacing: '0.04em', color: 'var(--clay-500)' }}>{card.kana}</div>
-                      <div style={{ fontFamily: JP_SERIF, fontSize: 50, lineHeight: 1.1, color: 'var(--text-strong)' }}>{card.kanji}</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-md)', color: 'var(--text-body)' }}>{card.romaji}</div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-                        <Tag tone="neutral" size="sm">{card.group}</Tag>
-                      </div>
+                      <div style={{ fontFamily: JP_SERIF, fontSize: 15, letterSpacing: '0.04em', color: 'var(--clay-500)' }}>{card!.kana}</div>
+                      <div style={{ fontFamily: JP_SERIF, fontSize: 50, lineHeight: 1.1, color: 'var(--text-strong)' }}>{card!.kanji}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-md)', color: 'var(--text-body)' }}>{card!.romaji}</div>
+                      {card!.group && (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+                          <Tag tone="neutral" size="sm">{card!.group}</Tag>
+                        </div>
+                      )}
                     </div>
                     <div style={{ padding: '0 22px 26px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, paddingBottom: 8, borderBottom: '2px solid var(--line-strong)' }}>
@@ -296,13 +337,13 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
                         <div style={{ height: 1, flex: 1 }} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {card.forms.map(([jp, romaji], n) => (
+                        {card!.forms.map(([jp, romaji], n) => (
                           <div
                             key={n}
                             style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, padding: '11px 0', borderBottom: '1px solid var(--line-hairline)' }}
                           >
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-xs)', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', flex: 'none' }}>
-                              {deck.formLabels[n]}
+                              {formLabels[n]}
                             </div>
                             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 2 }}>
                               <div style={{ fontFamily: JP_SERIF, fontSize: 21, lineHeight: 1.2, color: 'var(--text-strong)' }}>{jp}</div>
