@@ -1,7 +1,12 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-const NAV_LINKS = ['My Career', 'Cycling', 'Side Projects', 'Shop']
+const NAV_LINKS = [
+  { label: 'My Career', href: '#' },
+  { label: 'Cycling', href: '#' },
+  { label: 'Side Projects', href: '/projects' },
+  { label: 'Shop', href: '#' },
+]
 
 export function SiteNav() {
   return (
@@ -19,14 +24,14 @@ export function SiteNav() {
         </Link>
 
         <nav className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {NAV_LINKS.map((label) => (
-            <a
+          {NAV_LINKS.map(({ label, href }) => (
+            <Link
               key={label}
-              href="#"
+              href={href}
               className="flex items-center px-3.5 py-2 text-[13px] tracking-[0.18em] text-paper-000 uppercase no-underline transition-colors hover:text-hivis-400"
             >
               {label}
-            </a>
+            </Link>
           ))}
           <span className="mx-2.5 hidden h-5 w-px bg-white/15 sm:block" />
           <a

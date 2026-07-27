@@ -1,14 +1,17 @@
+import Link from 'next/link'
+
 export type WorkCardData = {
   id: string
   title: string
   desc: string
   cta: string
+  href?: string
 }
 
-export function WorkCard({ id, title, desc, cta }: WorkCardData) {
+export function WorkCard({ id, title, desc, cta, href = '#' }: WorkCardData) {
   return (
-    <a
-      href="#"
+    <Link
+      href={href}
       className="group relative flex flex-col gap-3.5 overflow-hidden rounded-card p-3.5 text-paper-000 no-underline shadow-[inset_0_1px_0_rgba(255,255,255,.09)]"
       style={{
         background:
@@ -46,6 +49,6 @@ export function WorkCard({ id, title, desc, cta }: WorkCardData) {
         <span>{cta}</span>
         <span>→</span>
       </span>
-    </a>
+    </Link>
   )
 }
