@@ -176,32 +176,39 @@
   }
 }
 
-/* Contour draw-in: each path's stroke-dasharray/offset is set inline to its own
-   real path length (--path-length, baked in at generation time in
+/* Contour background sequence, one continuous motion for the whole 10s cycle
+   (kept in sync with CYCLE_MS / FADE_OUT_MS in components/home/topo-cycle.tsx)
+   — never a static moment, and the outgoing/incoming mountains never overlap
+   in time (so two different topographs are never visible at once):
+     0.0s - 1.2s   outgoing mountain fades out completely (opacity, see topo-cycle.tsx)
+     1.2s - 3.6s   incoming mountain's lines draw in, starting the instant the
+                   old one has fully disappeared
+     3.3s - 10.0s  incoming mountain zooms slowly and continuously (small
+                   overlap with the draw's tail is the same mountain, so it's
+                   fine), running right up to the next swap.
+   Each path's stroke-dasharray/offset is set inline to its own real path
+   length (--path-length, baked in at generation time in
    scripts/generate-topo-contours.mjs), so every line — regardless of length —
-   finishes drawing together at the end of the animation. */
+   finishes drawing together. */
 .topo-line {
   stroke-dasharray: var(--path-length);
   stroke-dashoffset: var(--path-length);
-  animation: sm-topo-draw 2.6s cubic-bezier(.2, .8, .2, 1) forwards;
+  animation: sm-topo-draw 2.4s cubic-bezier(.2, .8, .2, 1) 1.2s forwards;
 }
 
 @keyframes sm-topo-draw {
   to { stroke-dashoffset: 0; }
 }
 
-/* Gentle zoom-toward-viewer while the contour draws in, same duration as the
-   draw so both settle together; holds the zoomed-in scale for the rest of
-   the cycle via the "forwards" fill. */
 .topo-zoom {
   transform-origin: 50% 50%;
-  animation: sm-topo-zoom 2.6s cubic-bezier(.2, .8, .2, 1) forwards;
+  animation: sm-topo-zoom 6.7s linear 3.3s forwards;
   will-change: transform;
 }
 
 @keyframes sm-topo-zoom {
   from { transform: scale(1); }
-  to { transform: scale(1.06); }
+  to { transform: scale(1.05); }
 }
 
 @media (prefers-reduced-motion: reduce) {

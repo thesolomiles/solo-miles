@@ -9,6 +9,7 @@
 import { contours } from 'd3-contour'
 import { writeFile, mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const GRID_SIZE = 50 // ASSUMPTION: 50x50 grid as suggested by the task; override via --grid=N
 const RADIUS_KM = 15 // ASSUMPTION: ~15km radius around each summit; override via --radius=N
@@ -18,12 +19,10 @@ const API_URL = 'https://api.opentopodata.org/v1/aster30m'
 const BATCH_SIZE = 100 // OpenTopoData public API max locations per request
 const REQUEST_DELAY_MS = 1100 // stay under the public API's 1 req/sec limit
 
-const MOUNTAINS = [
-  { slug: 'utsukushigahara', name: 'Utsukushigahara, Nagano, Japan', lat: 36.15, lon: 138.18 },
-  { slug: 'taebaeksan', name: 'Taebaeksan, South Korea', lat: 37.10, lon: 128.92 },
-  { slug: 'aso', name: 'Mount Aso, Kumamoto, Japan', lat: 32.88, lon: 131.10 },
-  { slug: 'shibu-pass', name: 'Shibu Pass (Shibu Tōge), Nagano, Japan', lat: 36.72, lon: 138.52 },
-]
+// Single source of truth, shared with the app (lib/mountains.ts reads the
+// same file) — the dynamic footer coordinates come from here too.
+const dataDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data')
+const MOUNTAINS = JSON.parse(await readFile(path.join(dataDir, 'mountains.json'), 'utf8'))
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -167,7 +166,7 @@ function contoursToSvg(features, gridSize, scale) {
 }
 
 async function generateOne(mountain) {
-  console.log(`\n${mountain.name} (${mountain.lat}, ${mountain.lon})`)
+  console.log(`\n${mountain.place} (${mountain.lat}, ${mountain.lon})`)
   const points = buildGrid(mountain.lat, mountain.lon, RADIUS_KM, GRID_SIZE)
 
   const cacheDir = path.join(process.cwd(), 'public', 'topo', '.cache')
