@@ -1,15 +1,22 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Archivo, IBM_Plex_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const archivo = Archivo({
+  subsets: ['latin'],
+  weight: ['400', '700', '800'],
+  variable: '--font-archivo',
+})
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-ibm-plex-mono',
+})
 
 export const metadata: Metadata = {
-  title: 'Pixel Adventure - 16-bit Side Scroller',
-  description: 'A Pokémon-like 2D side-scrolling experience with pixel art graphics',
-  generator: 'v0.app',
+  title: "Solomiles — I'm Leonard.",
+  description: 'Career, cycling, side projects, YouTube, and shop — the work of Leonard, Solomiles.',
   icons: {
     icon: [
       {
@@ -35,7 +42,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${archivo.variable} ${ibmPlexMono.variable}`}>
       <body className="font-sans antialiased">
         {children}
         <Analytics />

@@ -37,16 +37,34 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  
-  /* 16-bit color palette */
-  --sky-light: #87CEEB;
-  --sky-dark: #4A90C2;
-  --grass-light: #7CCD5A;
-  --grass-dark: #4A8B2C;
-  --dirt: #8B6914;
-  --dirt-dark: #5C4A1E;
-  --tree-trunk: #654321;
-  --tree-leaves: #228B22;
+
+  /* --- Solomiles design system: base palette --- */
+  --sm-ink-900: #0E1113; --sm-ink-800: #171B1F; --sm-ink-700: #252B31; --sm-ink-600: #39424A;
+  --sm-ink-500: #59636C; --sm-ink-400: #7C868F; --sm-ink-300: #9BA5AD; --sm-ink-200: #C2C9CE; --sm-ink-100: #DFE3E6;
+
+  --sm-paper-000: #FDFCF7; --sm-paper-100: #F5F2E9; --sm-paper-200: #EAE5D8; --sm-paper-300: #DCD5C3; --sm-paper-400: #C4BCA6;
+
+  --sm-hivis-600: #A8C222; --sm-hivis-500: #C6E23C; --sm-hivis-400: #D8F250; --sm-hivis-200: #ECF8A8; --sm-hivis-100: #F6FBD6;
+  --sm-clay-700: #A63A17; --sm-clay-600: #C74A20; --sm-clay-500: #E0552B; --sm-clay-300: #F0A98C; --sm-clay-100: #FAE3D9;
+  --sm-steel-700: #2B4C63; --sm-steel-500: #41708F; --sm-steel-300: #9BBACC; --sm-steel-100: #E2EBF1;
+
+  --sm-green-500: #3F7A4F; --sm-green-100: #DEEBE0;
+  --sm-amber-500: #D9931E; --sm-amber-100: #F8EBD2;
+  --sm-red-500: #B93A2B; --sm-red-100: #F6DFDB;
+
+  /* True-black page background used by the dark homepage, darker than ink-900 */
+  --sm-void: #020303;
+
+  /* --- Solomiles design system: fonts --- */
+  --sm-font-display: var(--font-archivo), "Helvetica Neue", Helvetica, sans-serif;
+  --sm-font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* --- Solomiles design system: radius --- */
+  --sm-radius-card: 10px;
+  --sm-radius-media: 6px;
+
+  /* --- Solomiles design system: layout --- */
+  --sm-page-max: 1240px;
 }
 
 .dark {
@@ -85,8 +103,34 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--sm-font-display);
+  --font-display: var(--sm-font-display);
+  --font-mono: var(--sm-font-mono);
+
+  --color-ink-900: var(--sm-ink-900); --color-ink-800: var(--sm-ink-800); --color-ink-700: var(--sm-ink-700); --color-ink-600: var(--sm-ink-600);
+  --color-ink-500: var(--sm-ink-500); --color-ink-400: var(--sm-ink-400); --color-ink-300: var(--sm-ink-300); --color-ink-200: var(--sm-ink-200); --color-ink-100: var(--sm-ink-100);
+
+  --color-paper-000: var(--sm-paper-000); --color-paper-100: var(--sm-paper-100); --color-paper-200: var(--sm-paper-200);
+  --color-paper-300: var(--sm-paper-300); --color-paper-400: var(--sm-paper-400);
+
+  --color-hivis-600: var(--sm-hivis-600); --color-hivis-500: var(--sm-hivis-500); --color-hivis-400: var(--sm-hivis-400);
+  --color-hivis-200: var(--sm-hivis-200); --color-hivis-100: var(--sm-hivis-100);
+  --color-clay-700: var(--sm-clay-700); --color-clay-600: var(--sm-clay-600); --color-clay-500: var(--sm-clay-500);
+  --color-clay-300: var(--sm-clay-300); --color-clay-100: var(--sm-clay-100);
+  --color-steel-700: var(--sm-steel-700); --color-steel-500: var(--sm-steel-500); --color-steel-300: var(--sm-steel-300); --color-steel-100: var(--sm-steel-100);
+
+  --color-green-500: var(--sm-green-500); --color-green-100: var(--sm-green-100);
+  --color-amber-500: var(--sm-amber-500); --color-amber-100: var(--sm-amber-100);
+  --color-red-500: var(--sm-red-500); --color-red-100: var(--sm-red-100);
+  --color-void: var(--sm-void);
+
+  --radius-card: var(--sm-radius-card);
+  --radius-media: var(--sm-radius-media);
+
+  --container-page: var(--sm-page-max);
+
+  --animate-sm-drift: sm-drift 34s ease-in-out infinite;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -131,5 +175,22 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@keyframes sm-drift {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-14px, -9px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes sm-pip {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: .12; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sm-drift, .animate-sm-pip {
+    animation-duration: 0s !important;
   }
 }
