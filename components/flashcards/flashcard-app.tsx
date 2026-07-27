@@ -1,35 +1,16 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { useEffect, useRef, useState, type UIEventHandler } from 'react'
-import { DECKS, FORM_LABELS, type Deck } from '@/data/n5-verbs'
+import { DECKS, FORM_LABELS } from '@/data/n5-verbs'
 import { Button } from './button'
-import { IconButton } from './icon-button'
 import { Tag } from './tag'
 
 const JP_SERIF = "'Hiragino Mincho ProN','Yu Mincho',serif"
 
-const LEVELS = [
-  { id: 'N5', blurb: 'Beginner — the first 800 words.' },
-  { id: 'N4', blurb: 'Everyday conversation, 1500 words.' },
-  { id: 'N3', blurb: 'Bridging to fluent reading.' },
-  { id: 'N2', blurb: 'News, work, and long-form text.' },
-  { id: 'N1', blurb: 'Academic and idiomatic Japanese.' },
-] as const
-
-type LevelId = (typeof LEVELS)[number]['id']
-
-// Only N5 verbs are actually populated; other JLPT levels are shown in the
-// picker (matching the source design's level switcher) but not built yet.
-function decksForLevel(level: LevelId): Deck[] {
-  if (level === 'N5') return DECKS
-  return []
-}
-
-export function FlashcardApp() {
-  const [level, setLevel] = useState<LevelId>('N5')
-  const [deckSlug, setDeckSlug] = useState<string>(DECKS[0].slug)
-  const [pickerOpen, setPickerOpen] = useState(false)
+export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
+  const deck = DECKS.find((d) => d.slug === deckSlug) ?? DECKS[0]
 
   const [i, setI] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -40,7 +21,6 @@ export function FlashcardApp() {
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const deck = DECKS.find((d) => d.slug === deckSlug) ?? DECKS[0]
   const verbs = deck.verbs
   const total = verbs.length
   const done = i >= total
@@ -71,12 +51,6 @@ export function FlashcardApp() {
     setRun(0)
   }
 
-  const selectDeck = (slug: string) => {
-    setDeckSlug(slug)
-    setPickerOpen(false)
-    restart()
-  }
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === ' ' || e.key === 'Enter') {
@@ -89,7 +63,7 @@ export function FlashcardApp() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckSlug, i])
+  }, [i])
 
   const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
     if (!scrolled && e.currentTarget.scrollTop > 12) setScrolled(true)
@@ -121,10 +95,9 @@ export function FlashcardApp() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <Image src="/solomiles/logo-horizontal-white.svg" alt="The Solomiles" width={140} height={22} style={{ height: 22, width: 'auto', display: 'block' }} />
-          <div
-            onClick={() => setPickerOpen((o) => !o)}
+          <Link
+            href="/projects/japanese-flashcards"
             style={{
-              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
@@ -136,157 +109,13 @@ export function FlashcardApp() {
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               color: 'var(--text-strong)',
+              textDecoration: 'none',
             }}
           >
-            <span>{level} · {deck.name}</span>
-            <span
-              style={{
-                fontSize: 9,
-                display: 'inline-block',
-                transform: pickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform .18s cubic-bezier(.2,.8,.2,1)',
-              }}
-            >
-              ▾
-            </span>
-          </div>
+            <span>←</span>
+            <span>N5 · {deck.name}</span>
+          </Link>
         </div>
-
-        {pickerOpen && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
-            <div
-              onClick={() => setPickerOpen(false)}
-              style={{ position: 'absolute', inset: 0, background: 'var(--surface-overlay)', backdropFilter: 'blur(3px)' }}
-            />
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                maxWidth: 430,
-                background: 'var(--surface-card)',
-                borderTop: '2px solid var(--hivis-400)',
-                boxShadow: 'var(--shadow-overlay)',
-                padding: '18px 20px calc(22px + env(safe-area-inset-bottom))',
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 18,
-                maxHeight: '86vh',
-                animation: 'sheetUp .28s cubic-bezier(.2,.8,.2,1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, lineHeight: 0.95, letterSpacing: '-0.03em', textTransform: 'uppercase', color: 'var(--text-strong)' }}>
-                    Pick a deck
-                  </div>
-                  <div style={{ fontSize: 'var(--body-sm)', lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                    {(LEVELS.find((l) => l.id === level) ?? LEVELS[0]).blurb}
-                  </div>
-                </div>
-                <IconButton icon="x" label="Close" variant="outline" onClick={() => setPickerOpen(false)} />
-              </div>
-
-              <div className="sm-scroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '0 -20px', padding: '0 20px' }}>
-                {LEVELS.map((lvl) => {
-                  const active = lvl.id === level
-                  return (
-                    <div
-                      key={lvl.id}
-                      onClick={() => setLevel(lvl.id)}
-                      style={{
-                        cursor: 'pointer',
-                        flex: 'none',
-                        padding: '7px 14px',
-                        borderRadius: 'var(--radius-control)',
-                        background: active ? 'var(--hivis-400)' : 'transparent',
-                        color: active ? 'var(--ink-900)' : 'var(--text-muted)',
-                        border: '1px solid ' + (active ? 'var(--hivis-400)' : 'var(--line-hairline)'),
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 'var(--mono-sm)',
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      JLPT {lvl.id}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div
-                className="sm-scroll"
-                style={{
-                  overflowY: 'auto',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 1,
-                  background: 'var(--line-hairline)',
-                  border: '1px solid var(--line-hairline)',
-                }}
-              >
-                {(() => {
-                  const levelDecks = decksForLevel(level)
-                  const items = levelDecks.length > 0 ? levelDecks : [null]
-                  return items.map((d, idx) => {
-                    const ready = !!d
-                    const active = ready && d!.slug === deckSlug
-                    return (
-                      <div
-                        key={d ? d.slug : idx}
-                        onClick={ready ? () => selectDeck(d!.slug) : undefined}
-                        style={{
-                          cursor: ready ? 'pointer' : 'default',
-                          background: active ? 'var(--surface-raised)' : 'var(--surface-card)',
-                          padding: 14,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 14,
-                          minHeight: 120,
-                          boxSizing: 'border-box',
-                          opacity: ready ? 1 : 0.5,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 2,
-                            background: active ? 'var(--hivis-400)' : 'var(--surface-inverse)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontFamily: JP_SERIF,
-                            fontSize: 24,
-                            color: active ? 'var(--ink-900)' : 'var(--text-faint)',
-                          }}
-                        >
-                          {ready ? d!.glyph : '動'}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 'auto' }}>
-                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--heading-xs)', letterSpacing: '-0.015em', color: 'var(--text-strong)' }}>
-                            {ready ? d!.name : 'Verbs'}
-                          </div>
-                          <div
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: 'var(--mono-xs)',
-                              letterSpacing: '0.06em',
-                              textTransform: 'uppercase',
-                              color: active ? 'var(--clay-500)' : 'var(--text-faint)',
-                            }}
-                          >
-                            {ready ? `${d!.verbs.length} cards` : 'Not built yet'}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })
-                })()}
-              </div>
-            </div>
-          </div>
-        )}
 
         {done ? (
           <div
@@ -345,9 +174,17 @@ export function FlashcardApp() {
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-sm)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
               {known} known · {learning} still learning
             </div>
-            <Button variant="accent" size="lg" iconRight="arrow-up-right" onClick={restart}>
-              Go again
-            </Button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <Button variant="accent" size="lg" iconRight="arrow-up-right" onClick={restart}>
+                Go again
+              </Button>
+            </div>
+            <Link
+              href="/projects/japanese-flashcards"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-sm)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', textDecoration: 'none' }}
+            >
+              Choose another deck
+            </Link>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
@@ -399,7 +236,7 @@ export function FlashcardApp() {
                     {verb.en}
                   </div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-sm)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                    Verb · JLPT {level}
+                    Verb · JLPT N5
                   </div>
                   <div style={{ position: 'absolute', bottom: 22, left: 0, right: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>
                     Tap the card to flip it
