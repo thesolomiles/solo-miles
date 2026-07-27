@@ -65,6 +65,48 @@
 
   /* --- Solomiles design system: layout --- */
   --sm-page-max: 1240px;
+
+  /* --- Solomiles design system: semantic (dark-default), typography scale,
+     radius/shadow/motion — added for the flashcards study tool, which is
+     built from the design system's own inline-style token vocabulary rather
+     than Tailwind utilities, to stay a faithful port of the source design. */
+  --font-ui: var(--sm-font-display);
+
+  --surface-page: var(--sm-ink-900);
+  --surface-card: var(--sm-ink-800);
+  --surface-sunken: #0A0D0F;
+  --surface-raised: var(--sm-ink-700);
+  --surface-inverse: #07090B;
+  --surface-overlay: rgba(6, 8, 9, .72);
+
+  --text-strong: var(--sm-paper-000);
+  --text-body: var(--sm-ink-100);
+  --text-muted: var(--sm-ink-300);
+  --text-faint: var(--sm-ink-400);
+  --text-link: var(--sm-paper-000);
+  --text-link-hover: var(--sm-clay-500);
+
+  --line-hairline: rgba(255, 255, 255, .14);
+  --line-strong: rgba(255, 255, 255, .42);
+
+  --control-solid-bg: var(--sm-paper-000);
+  --control-solid-fg: var(--sm-ink-900);
+  --control-solid-hover: var(--sm-paper-200);
+  --control-ghost-hover: rgba(255, 255, 255, .08);
+  --control-disabled-bg: var(--sm-ink-700);
+
+  --heading-xs: 17px;
+  --body-sm: 14px;
+  --mono-md: 14px; --mono-sm: 12px; --mono-xs: 11px;
+  --label-size: 11px; --label-tracking: 0.14em;
+
+  --radius-control: 4px;
+  --radius-pill: 999px;
+  --shadow-overlay: 0 24px 60px rgba(0, 0, 0, .6);
+
+  --dur-fast: 120ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --transition-control: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .dark {
@@ -220,4 +262,19 @@
     animation: none !important;
     transform: none !important;
   }
+}
+
+/* Flashcards study tool (design system inline-style vocabulary) */
+.sm-scroll { scrollbar-width: none; }
+.sm-scroll::-webkit-scrollbar { display: none; }
+.sm-grain { background-image: radial-gradient(rgba(255, 255, 255, .07) 1px, transparent 1px); background-size: 3px 3px; }
+
+@keyframes nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
