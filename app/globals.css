@@ -190,9 +190,27 @@
   to { stroke-dashoffset: 0; }
 }
 
+/* Gentle zoom-toward-viewer while the contour draws in, same duration as the
+   draw so both settle together; holds the zoomed-in scale for the rest of
+   the cycle via the "forwards" fill. */
+.topo-zoom {
+  transform-origin: 50% 50%;
+  animation: sm-topo-zoom 2.6s cubic-bezier(.2, .8, .2, 1) forwards;
+  will-change: transform;
+}
+
+@keyframes sm-topo-zoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.06); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .topo-line {
     animation: none !important;
     stroke-dashoffset: 0 !important;
+  }
+  .topo-zoom {
+    animation: none !important;
+    transform: none !important;
   }
 }

@@ -8,7 +8,7 @@ export type TopoMountain = {
 }
 
 const CYCLE_MS = 10000
-const FADE_MS = 700
+const FADE_MS = 2200
 
 export function TopoCycle({ mountains }: { mountains: TopoMountain[] }) {
   const [index, setIndex] = useState(0)
@@ -29,12 +29,12 @@ export function TopoCycle({ mountains }: { mountains: TopoMountain[] }) {
         <div
           key={mountain.slug}
           aria-hidden
-          className="absolute inset-0 transition-opacity"
+          className="absolute inset-0 overflow-hidden transition-opacity ease-in-out"
           style={{ opacity: i === index ? 1 : 0, transitionDuration: `${FADE_MS}ms` }}
         >
           <div
             key={i === index ? `${mountain.slug}-${tick}` : mountain.slug}
-            className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+            className="topo-zoom h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
             dangerouslySetInnerHTML={{ __html: mountain.svg }}
           />
         </div>
