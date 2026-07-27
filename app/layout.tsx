@@ -18,21 +18,10 @@ export const metadata: Metadata = {
   title: "Solomiles — I'm Leonard.",
   description: 'Career, cycling, side projects, YouTube, and shop — the work of Leonard, Solomiles.',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: {
+      url: '/solomiles/logo-vertical-black.svg',
+      type: 'image/svg+xml',
+    },
   },
 }
 
