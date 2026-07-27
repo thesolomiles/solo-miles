@@ -1,10 +1,28 @@
-export function TopoBackground() {
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { TopoCycle } from './topo-cycle'
+
+// Order matches the ride order given for the background cycle.
+const MOUNTAIN_SLUGS = ['utsukushigahara', 'taebaeksan', 'aso', 'shibu-pass'] as const
+
+async function loadMountains() {
+  const dir = path.join(process.cwd(), 'public', 'topo')
+  return Promise.all(
+    MOUNTAIN_SLUGS.map(async (slug) => ({
+      slug,
+      svg: await readFile(path.join(dir, `${slug}.svg`), 'utf8'),
+    })),
+  )
+}
+
+export async function TopoBackground() {
+  const mountains = await loadMountains()
+
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        className="animate-sm-drift absolute -inset-[60px] bg-cover bg-no-repeat opacity-50"
-        style={{ backgroundImage: 'url(/solomiles/topo.svg)', backgroundPosition: 'center 46%' }}
-      />
+      <div className="absolute inset-0 text-ink-300 opacity-50">
+        <TopoCycle mountains={mountains} />
+      </div>
       <div
         className="absolute inset-0"
         style={{
