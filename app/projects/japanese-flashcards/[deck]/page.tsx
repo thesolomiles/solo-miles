@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { FlashcardApp } from '@/components/flashcards/flashcard-app'
-import { DECKS } from '@/data/n5-verbs'
+import { DECKS } from '@/data/n5-decks'
 
 export function generateStaticParams() {
   return DECKS.map((deck) => ({ deck: deck.slug }))

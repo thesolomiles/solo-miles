@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { DECKS } from '@/data/n5-verbs'
+import { DECKS } from '@/data/n5-decks'
 
 const LEVELS = [
   { id: 'N5', note: 'Beginner' },
@@ -72,7 +72,7 @@ export function ChooseDeck() {
                   <span className="text-[13px]">→</span>
                 </span>
                 <span className="text-[11px] tracking-[0.16em] uppercase">{deck.name}</span>
-                <span className="text-[10px] tracking-[0.14em] tabular-nums uppercase opacity-60">{deck.verbs.length} cards</span>
+                <span className="text-[10px] tracking-[0.14em] tabular-nums uppercase opacity-60">{deck.cards.length} cards</span>
               </button>
             ) : (
               <div

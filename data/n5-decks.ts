@@ -1,7 +1,28 @@
-// JLPT N5 verb data for the flashcards study tool.
+// JLPT N5 flashcard data: verbs, adjectives, and nouns.
 //
-// Each verb carries its 9 key inflected forms, in this fixed order:
-export const FORM_LABELS = [
+// Each deck carries its own form-label set, since the grammatical forms that
+// make sense differ by kind (verbs conjugate on their own; na-adjectives and
+// nouns both inflect via the だ/です copula; i-adjectives conjugate directly).
+
+export type Card = {
+  en: string
+  kanji: string
+  kana: string
+  romaji: string
+  group: string
+  /** One [kanji/kana form, romaji] pair per the owning deck's formLabels, in the same order. */
+  forms: [string, string][]
+}
+
+export type Deck = {
+  slug: string
+  name: string
+  glyph: string
+  formLabels: readonly string[]
+  cards: Card[]
+}
+
+const VERB_FORM_LABELS = [
   'Polite',
   'Polite past',
   'Polite neg.',
@@ -13,31 +34,37 @@ export const FORM_LABELS = [
   'Progressive',
 ] as const
 
-export type VerbGroup = 'Godan' | 'Ichidan' | 'Irregular'
+// Adjectives and nouns both inflect via the だ/です copula rather than
+// conjugating on their own (i-adjectives are the exception — they conjugate
+// directly, without a copula — but are given the same label set here so
+// every card in the deck lines up in the same 8 rows).
+const ADJECTIVE_FORM_LABELS = [
+  'Polite',
+  'Polite past',
+  'Polite neg.',
+  'Plain neg.',
+  'Plain past',
+  'Plain past neg.',
+  'Te-form',
+  'Adverbial',
+] as const
 
-export type Verb = {
-  en: string
-  kanji: string
-  kana: string
-  romaji: string
-  group: string
-  /** One [kanji/kana form, romaji] pair per FORM_LABELS entry, in the same order. */
-  forms: [string, string][]
-}
-
-export type Deck = {
-  slug: string
-  name: string
-  glyph: string
-  group: VerbGroup
-  verbs: Verb[]
-}
+const NOUN_FORM_LABELS = [
+  'Plain',
+  'Polite',
+  'Polite past',
+  'Polite neg.',
+  'Plain neg.',
+  'Plain past',
+  'Plain past neg.',
+  'Te-form',
+] as const
 
 // --- Godan (u-verb) conjugation shape, for reference while reading the data:
 //   -masu / -mashita / -masen / plain neg (-anai) / plain past (euphonic) /
 //   te-form (euphonic) / potential (-eru) / volitional (-ou) / progressive (-te iru)
 
-const godanVerbs: Verb[] = [
+const godanVerbs: Card[] = [
   {
     en: 'to drink',
     kanji: '飲む', kana: 'のむ', romaji: 'nomu', group: 'Godan',
@@ -148,7 +175,7 @@ const godanVerbs: Verb[] = [
   },
 ]
 
-const ichidanVerbs: Verb[] = [
+const ichidanVerbs: Card[] = [
   {
     en: 'to eat',
     kanji: '食べる', kana: 'たべる', romaji: 'taberu', group: 'Ichidan',
@@ -241,7 +268,7 @@ const ichidanVerbs: Verb[] = [
   },
 ]
 
-const irregularVerbs: Verb[] = [
+const irregularVerbs: Card[] = [
   {
     en: 'to do',
     kanji: 'する', kana: 'する', romaji: 'suru', group: 'Irregular',
@@ -289,8 +316,209 @@ const irregularVerbs: Verb[] = [
   },
 ]
 
+// --- Adjectives -------------------------------------------------------
+// i-adjectives conjugate directly (stem + くない/かった/etc.); na-adjectives
+// take な only when modifying a noun directly, and otherwise inflect via the
+// だ/です copula, same as nouns. 良い (ii/yoi) is the one true irregular:
+// the plain-present is read "ii", but every other form uses the "yo-" stem
+// (there is no such word as "ikunai" — it's "yokunai"). きれい looks like an
+// i-adjective (ends in い) but is grammatically a na-adjective — a classic
+// N5 trap, flagged via its group tag below.
+
+const adjectives: Card[] = [
+  {
+    en: 'big',
+    kanji: '大きい', kana: 'おおきい', romaji: 'ookii', group: 'I-adjective',
+    forms: [
+      ['大きいです', 'ookii desu'], ['大きかったです', 'ookikatta desu'], ['大きくないです', 'ookikunai desu'],
+      ['大きくない', 'ookikunai'], ['大きかった', 'ookikatta'], ['大きくなかった', 'ookikunakatta'],
+      ['大きくて', 'ookikute'], ['大きく', 'ookiku'],
+    ],
+  },
+  {
+    en: 'small',
+    kanji: '小さい', kana: 'ちいさい', romaji: 'chiisai', group: 'I-adjective',
+    forms: [
+      ['小さいです', 'chiisai desu'], ['小さかったです', 'chiisakatta desu'], ['小さくないです', 'chiisakunai desu'],
+      ['小さくない', 'chiisakunai'], ['小さかった', 'chiisakatta'], ['小さくなかった', 'chiisakunakatta'],
+      ['小さくて', 'chiisakute'], ['小さく', 'chiisaku'],
+    ],
+  },
+  {
+    en: 'new',
+    kanji: '新しい', kana: 'あたらしい', romaji: 'atarashii', group: 'I-adjective',
+    forms: [
+      ['新しいです', 'atarashii desu'], ['新しかったです', 'atarashikatta desu'], ['新しくないです', 'atarashikunai desu'],
+      ['新しくない', 'atarashikunai'], ['新しかった', 'atarashikatta'], ['新しくなかった', 'atarashikunakatta'],
+      ['新しくて', 'atarashikute'], ['新しく', 'atarashiku'],
+    ],
+  },
+  {
+    en: 'old (things)',
+    kanji: '古い', kana: 'ふるい', romaji: 'furui', group: 'I-adjective',
+    forms: [
+      ['古いです', 'furui desu'], ['古かったです', 'furukatta desu'], ['古くないです', 'furukunai desu'],
+      ['古くない', 'furukunai'], ['古かった', 'furukatta'], ['古くなかった', 'furukunakatta'],
+      ['古くて', 'furukute'], ['古く', 'furuku'],
+    ],
+  },
+  {
+    en: 'good',
+    kanji: '良い', kana: 'いい', romaji: 'ii', group: 'I-adjective · irregular stem',
+    forms: [
+      ['いいです', 'ii desu'], ['よかったです', 'yokatta desu'], ['よくないです', 'yokunai desu'],
+      ['よくない', 'yokunai'], ['よかった', 'yokatta'], ['よくなかった', 'yokunakatta'],
+      ['よくて', 'yokute'], ['よく', 'yoku'],
+    ],
+  },
+  {
+    en: 'busy',
+    kanji: '忙しい', kana: 'いそがしい', romaji: 'isogashii', group: 'I-adjective',
+    forms: [
+      ['忙しいです', 'isogashii desu'], ['忙しかったです', 'isogashikatta desu'], ['忙しくないです', 'isogashikunai desu'],
+      ['忙しくない', 'isogashikunai'], ['忙しかった', 'isogashikatta'], ['忙しくなかった', 'isogashikunakatta'],
+      ['忙しくて', 'isogashikute'], ['忙しく', 'isogashiku'],
+    ],
+  },
+  {
+    en: 'quiet',
+    kanji: '静か', kana: 'しずか', romaji: 'shizuka', group: 'Na-adjective',
+    forms: [
+      ['静かです', 'shizuka desu'], ['静かでした', 'shizuka deshita'], ['静かじゃないです', 'shizuka janai desu'],
+      ['静かじゃない', 'shizuka janai'], ['静かだった', 'shizuka datta'], ['静かじゃなかった', 'shizuka janakatta'],
+      ['静かで', 'shizuka de'], ['静かに', 'shizuka ni'],
+    ],
+  },
+  {
+    en: 'healthy, energetic, fine',
+    kanji: '元気', kana: 'げんき', romaji: 'genki', group: 'Na-adjective',
+    forms: [
+      ['元気です', 'genki desu'], ['元気でした', 'genki deshita'], ['元気じゃないです', 'genki janai desu'],
+      ['元気じゃない', 'genki janai'], ['元気だった', 'genki datta'], ['元気じゃなかった', 'genki janakatta'],
+      ['元気で', 'genki de'], ['元気に', 'genki ni'],
+    ],
+  },
+  {
+    en: 'pretty, clean',
+    kanji: '綺麗', kana: 'きれい', romaji: 'kirei', group: 'Na-adjective · looks i-adjective',
+    forms: [
+      ['きれいです', 'kirei desu'], ['きれいでした', 'kirei deshita'], ['きれいじゃないです', 'kirei janai desu'],
+      ['きれいじゃない', 'kirei janai'], ['きれいだった', 'kirei datta'], ['きれいじゃなかった', 'kirei janakatta'],
+      ['きれいで', 'kirei de'], ['きれいに', 'kirei ni'],
+    ],
+  },
+  {
+    en: 'to like, fond of',
+    kanji: '好き', kana: 'すき', romaji: 'suki', group: 'Na-adjective',
+    forms: [
+      ['好きです', 'suki desu'], ['好きでした', 'suki deshita'], ['好きじゃないです', 'suki janai desu'],
+      ['好きじゃない', 'suki janai'], ['好きだった', 'suki datta'], ['好きじゃなかった', 'suki janakatta'],
+      ['好きで', 'suki de'], ['好きに', 'suki ni'],
+    ],
+  },
+]
+
+// --- Nouns --------------------------------------------------------------
+// Nouns don't conjugate; what inflects is the だ/です copula attached when
+// using the noun as a predicate ("It's a student" / 学生です). Same pattern
+// as na-adjectives, minus な and the adverbial form (a noun has no adverbial
+// use), plus an explicit plain-だ row.
+
+const nouns: Card[] = [
+  {
+    en: 'student',
+    kanji: '学生', kana: 'がくせい', romaji: 'gakusei', group: 'Person',
+    forms: [
+      ['学生だ', 'gakusei da'], ['学生です', 'gakusei desu'], ['学生でした', 'gakusei deshita'],
+      ['学生じゃないです', 'gakusei janai desu'], ['学生じゃない', 'gakusei janai'], ['学生だった', 'gakusei datta'],
+      ['学生じゃなかった', 'gakusei janakatta'], ['学生で', 'gakusei de'],
+    ],
+  },
+  {
+    en: 'teacher',
+    kanji: '先生', kana: 'せんせい', romaji: 'sensei', group: 'Person',
+    forms: [
+      ['先生だ', 'sensei da'], ['先生です', 'sensei desu'], ['先生でした', 'sensei deshita'],
+      ['先生じゃないです', 'sensei janai desu'], ['先生じゃない', 'sensei janai'], ['先生だった', 'sensei datta'],
+      ['先生じゃなかった', 'sensei janakatta'], ['先生で', 'sensei de'],
+    ],
+  },
+  {
+    en: 'school',
+    kanji: '学校', kana: 'がっこう', romaji: 'gakkou', group: 'Place',
+    forms: [
+      ['学校だ', 'gakkou da'], ['学校です', 'gakkou desu'], ['学校でした', 'gakkou deshita'],
+      ['学校じゃないです', 'gakkou janai desu'], ['学校じゃない', 'gakkou janai'], ['学校だった', 'gakkou datta'],
+      ['学校じゃなかった', 'gakkou janakatta'], ['学校で', 'gakkou de'],
+    ],
+  },
+  {
+    en: 'company',
+    kanji: '会社', kana: 'かいしゃ', romaji: 'kaisha', group: 'Place',
+    forms: [
+      ['会社だ', 'kaisha da'], ['会社です', 'kaisha desu'], ['会社でした', 'kaisha deshita'],
+      ['会社じゃないです', 'kaisha janai desu'], ['会社じゃない', 'kaisha janai'], ['会社だった', 'kaisha datta'],
+      ['会社じゃなかった', 'kaisha janakatta'], ['会社で', 'kaisha de'],
+    ],
+  },
+  {
+    en: 'house, home',
+    kanji: '家', kana: 'いえ', romaji: 'ie', group: 'Place',
+    forms: [
+      ['家だ', 'ie da'], ['家です', 'ie desu'], ['家でした', 'ie deshita'],
+      ['家じゃないです', 'ie janai desu'], ['家じゃない', 'ie janai'], ['家だった', 'ie datta'],
+      ['家じゃなかった', 'ie janakatta'], ['家で', 'ie de'],
+    ],
+  },
+  {
+    en: 'friend',
+    kanji: '友達', kana: 'ともだち', romaji: 'tomodachi', group: 'Person',
+    forms: [
+      ['友達だ', 'tomodachi da'], ['友達です', 'tomodachi desu'], ['友達でした', 'tomodachi deshita'],
+      ['友達じゃないです', 'tomodachi janai desu'], ['友達じゃない', 'tomodachi janai'], ['友達だった', 'tomodachi datta'],
+      ['友達じゃなかった', 'tomodachi janakatta'], ['友達で', 'tomodachi de'],
+    ],
+  },
+  {
+    en: 'book',
+    kanji: '本', kana: 'ほん', romaji: 'hon', group: 'Object',
+    forms: [
+      ['本だ', 'hon da'], ['本です', 'hon desu'], ['本でした', 'hon deshita'],
+      ['本じゃないです', 'hon janai desu'], ['本じゃない', 'hon janai'], ['本だった', 'hon datta'],
+      ['本じゃなかった', 'hon janakatta'], ['本で', 'hon de'],
+    ],
+  },
+  {
+    en: 'water',
+    kanji: '水', kana: 'みず', romaji: 'mizu', group: 'Food & drink',
+    forms: [
+      ['水だ', 'mizu da'], ['水です', 'mizu desu'], ['水でした', 'mizu deshita'],
+      ['水じゃないです', 'mizu janai desu'], ['水じゃない', 'mizu janai'], ['水だった', 'mizu datta'],
+      ['水じゃなかった', 'mizu janakatta'], ['水で', 'mizu de'],
+    ],
+  },
+  {
+    en: 'cat',
+    kanji: '猫', kana: 'ねこ', romaji: 'neko', group: 'Animal',
+    forms: [
+      ['猫だ', 'neko da'], ['猫です', 'neko desu'], ['猫でした', 'neko deshita'],
+      ['猫じゃないです', 'neko janai desu'], ['猫じゃない', 'neko janai'], ['猫だった', 'neko datta'],
+      ['猫じゃなかった', 'neko janakatta'], ['猫で', 'neko de'],
+    ],
+  },
+  {
+    en: 'car',
+    kanji: '車', kana: 'くるま', romaji: 'kuruma', group: 'Object',
+    forms: [
+      ['車だ', 'kuruma da'], ['車です', 'kuruma desu'], ['車でした', 'kuruma deshita'],
+      ['車じゃないです', 'kuruma janai desu'], ['車じゃない', 'kuruma janai'], ['車だった', 'kuruma datta'],
+      ['車じゃなかった', 'kuruma janakatta'], ['車で', 'kuruma de'],
+    ],
+  },
+]
+
 export const DECKS: Deck[] = [
-  { slug: 'godan', name: 'Godan verbs', glyph: '動', group: 'Godan', verbs: godanVerbs },
-  { slug: 'ichidan', name: 'Ichidan verbs', glyph: '動', group: 'Ichidan', verbs: ichidanVerbs },
-  { slug: 'irregular', name: 'Irregular verbs', glyph: '動', group: 'Irregular', verbs: irregularVerbs },
+  { slug: 'verbs', name: 'Verbs', glyph: '動', formLabels: VERB_FORM_LABELS, cards: [...godanVerbs, ...ichidanVerbs, ...irregularVerbs] },
+  { slug: 'adjectives', name: 'Adjectives', glyph: '形', formLabels: ADJECTIVE_FORM_LABELS, cards: adjectives },
+  { slug: 'nouns', name: 'Nouns', glyph: '名', formLabels: NOUN_FORM_LABELS, cards: nouns },
 ]

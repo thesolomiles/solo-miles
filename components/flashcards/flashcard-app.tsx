@@ -3,11 +3,16 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useRef, useState, type UIEventHandler } from 'react'
-import { DECKS, FORM_LABELS } from '@/data/n5-verbs'
+import { DECKS } from '@/data/n5-decks'
 import { Button } from './button'
 import { Tag } from './tag'
 
 const JP_SERIF = "'Hiragino Mincho ProN','Yu Mincho',serif"
+
+// "Verbs" -> "Verb", "Adjectives" -> "Adjective", "Nouns" -> "Noun"
+function singularize(name: string) {
+  return name.replace(/s$/, '')
+}
 
 export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
   const deck = DECKS.find((d) => d.slug === deckSlug) ?? DECKS[0]
@@ -21,10 +26,10 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const verbs = deck.verbs
-  const total = verbs.length
+  const cards = deck.cards
+  const total = cards.length
   const done = i >= total
-  const verb = verbs[Math.min(i, total - 1)]
+  const card = cards[Math.min(i, total - 1)]
 
   const flip = () => setFlipped((f) => !f)
 
@@ -233,10 +238,10 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
                       textWrap: 'balance',
                     }}
                   >
-                    {verb.en}
+                    {card.en}
                   </div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-sm)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                    Verb · JLPT N5
+                    {singularize(deck.name)} · JLPT N5
                   </div>
                   <div style={{ position: 'absolute', bottom: 22, left: 0, right: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>
                     Tap the card to flip it
@@ -276,11 +281,11 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
                         textAlign: 'center',
                       }}
                     >
-                      <div style={{ fontFamily: JP_SERIF, fontSize: 15, letterSpacing: '0.04em', color: 'var(--clay-500)' }}>{verb.kana}</div>
-                      <div style={{ fontFamily: JP_SERIF, fontSize: 50, lineHeight: 1.1, color: 'var(--text-strong)' }}>{verb.kanji}</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-md)', color: 'var(--text-body)' }}>{verb.romaji}</div>
+                      <div style={{ fontFamily: JP_SERIF, fontSize: 15, letterSpacing: '0.04em', color: 'var(--clay-500)' }}>{card.kana}</div>
+                      <div style={{ fontFamily: JP_SERIF, fontSize: 50, lineHeight: 1.1, color: 'var(--text-strong)' }}>{card.kanji}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-md)', color: 'var(--text-body)' }}>{card.romaji}</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-                        <Tag tone="neutral" size="sm">{verb.group}</Tag>
+                        <Tag tone="neutral" size="sm">{card.group}</Tag>
                       </div>
                     </div>
                     <div style={{ padding: '0 22px 26px' }}>
@@ -291,13 +296,13 @@ export function FlashcardApp({ deckSlug }: { deckSlug: string }) {
                         <div style={{ height: 1, flex: 1 }} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {verb.forms.map(([jp, romaji], n) => (
+                        {card.forms.map(([jp, romaji], n) => (
                           <div
                             key={n}
                             style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, padding: '11px 0', borderBottom: '1px solid var(--line-hairline)' }}
                           >
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--mono-xs)', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', flex: 'none' }}>
-                              {FORM_LABELS[n]}
+                              {deck.formLabels[n]}
                             </div>
                             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 2 }}>
                               <div style={{ fontFamily: JP_SERIF, fontSize: 21, lineHeight: 1.2, color: 'var(--text-strong)' }}>{jp}</div>
