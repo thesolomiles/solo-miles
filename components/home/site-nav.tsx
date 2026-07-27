@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-const NAV_LINKS = ['Home', 'Design', 'Shop', 'Bike', 'Projects']
+const NAV_LINKS = ['My Career', 'Cycling', 'Side Projects', 'Shop']
 
 export function SiteNav() {
   return (
