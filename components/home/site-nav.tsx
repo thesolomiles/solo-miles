@@ -5,12 +5,41 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 
-const NAV_LINKS = [
+const NAV_LINKS: { label: string; href?: string }[] = [
   { label: 'My Career', href: '/career' },
-  { label: 'Cycling', href: '#' },
+  { label: 'Cycling' },
   { label: 'Side Projects', href: '/projects' },
-  { label: 'Shop', href: '#' },
+  { label: 'Shop' },
 ]
+
+function NavLink({ label, href, onClick, className = '' }: { label: string; href?: string; onClick?: () => void; className?: string }) {
+  if (!href) {
+    return (
+      <span
+        aria-disabled
+        className={
+          'flex cursor-not-allowed items-center px-3.5 py-2 text-[13px] tracking-[0.18em] text-ink-200/50 uppercase ' +
+          className
+        }
+      >
+        {label}
+      </span>
+    )
+  }
+
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={
+        'flex items-center px-3.5 py-2 text-[13px] tracking-[0.18em] text-paper-000 uppercase no-underline transition-colors hover:text-hivis-400 ' +
+        className
+      }
+    >
+      {label}
+    </Link>
+  )
+}
 
 function YoutubeLink({ className }: { className?: string }) {
   return (
@@ -60,13 +89,7 @@ export function SiteNav() {
 
         <nav className="hidden min-w-0 flex-wrap items-center gap-1.5 sm:flex">
           {NAV_LINKS.map(({ label, href }) => (
-            <Link
-              key={label}
-              href={href}
-              className="flex items-center px-3.5 py-2 text-[13px] tracking-[0.18em] text-paper-000 uppercase no-underline transition-colors hover:text-hivis-400"
-            >
-              {label}
-            </Link>
+            <NavLink key={label} label={label} href={href} />
           ))}
           <span className="mx-2.5 hidden h-5 w-px bg-white/15 sm:block" />
           <YoutubeLink />
@@ -75,14 +98,7 @@ export function SiteNav() {
         {open && (
           <nav className="absolute inset-x-0 top-full z-10 mt-3 flex flex-col gap-1 border border-white/15 bg-void/95 p-2 backdrop-blur-sm sm:hidden">
             {NAV_LINKS.map(({ label, href }) => (
-              <Link
-                key={label}
-                href={href}
-                onClick={() => setOpen(false)}
-                className="px-3.5 py-2.5 text-[13px] tracking-[0.18em] text-paper-000 uppercase no-underline transition-colors hover:text-hivis-400"
-              >
-                {label}
-              </Link>
+              <NavLink key={label} label={label} href={href} onClick={() => setOpen(false)} className="py-2.5" />
             ))}
             <span className="my-1 h-px w-full bg-white/15" />
             <YoutubeLink className="px-3.5 py-2.5" />

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 
 export type WorkCardData = {
   id: string
@@ -8,26 +9,26 @@ export type WorkCardData = {
   href?: string
 }
 
-export function WorkCard({ id, title, desc, cta, href = '#' }: WorkCardData) {
-  return (
-    <Link
-      href={href}
-      className="group relative flex flex-col gap-3.5 overflow-hidden rounded-card p-3.5 text-paper-000 no-underline shadow-[inset_0_1px_0_rgba(255,255,255,.09)]"
-      style={{
-        background:
-          'linear-gradient(160deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.018) 55%, rgba(255,255,255,.008) 100%)',
-        backdropFilter: 'blur(14px) saturate(1.1)',
-        WebkitBackdropFilter: 'blur(14px) saturate(1.1)',
-      }}
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0 shadow-[inset_0_1px_0_rgba(255,255,255,.16)] transition-opacity duration-200 ease-out group-hover:opacity-100"
-        style={{
-          background:
-            'linear-gradient(160deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.035) 60%, rgba(255,255,255,.012) 100%)',
-        }}
-      />
+export function WorkCard({ id, title, desc, cta, href }: WorkCardData) {
+  const disabled = !href
+
+  const surfaceClassName = cn(
+    'group relative flex flex-col gap-3.5 overflow-hidden rounded-card p-3.5 text-paper-000 no-underline shadow-[inset_0_1px_0_rgba(255,255,255,.09)]',
+    disabled && 'cursor-not-allowed opacity-50 grayscale',
+  )
+
+  const content = (
+    <>
+      {!disabled && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-0 shadow-[inset_0_1px_0_rgba(255,255,255,.16)] transition-opacity duration-200 ease-out group-hover:opacity-100"
+          style={{
+            background:
+              'linear-gradient(160deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.035) 60%, rgba(255,255,255,.012) 100%)',
+          }}
+        />
+      )}
 
       <span
         className="relative block aspect-4/3 overflow-hidden rounded-media bg-cover bg-center shadow-[inset_0_1px_0_rgba(255,255,255,.07)]"
@@ -45,10 +46,36 @@ export function WorkCard({ id, title, desc, cta, href = '#' }: WorkCardData) {
         <span className="text-xs leading-[1.6] text-ink-200">{desc}</span>
       </span>
 
-      <span className="mt-auto flex items-center gap-2 text-[11px] tracking-[0.18em] text-hivis-400 uppercase">
-        <span>{cta}</span>
-        <span>→</span>
+      <span
+        className={cn(
+          'mt-auto flex items-center gap-2 text-[11px] tracking-[0.18em] uppercase',
+          disabled ? 'text-ink-200' : 'text-hivis-400',
+        )}
+      >
+        <span>{disabled ? 'Coming soon' : cta}</span>
+        {!disabled && <span>→</span>}
       </span>
+    </>
+  )
+
+  const style = {
+    background:
+      'linear-gradient(160deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.018) 55%, rgba(255,255,255,.008) 100%)',
+    backdropFilter: 'blur(14px) saturate(1.1)',
+    WebkitBackdropFilter: 'blur(14px) saturate(1.1)',
+  }
+
+  if (disabled) {
+    return (
+      <div aria-disabled className={surfaceClassName} style={style}>
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <Link href={href} className={surfaceClassName} style={style}>
+      {content}
     </Link>
   )
 }
