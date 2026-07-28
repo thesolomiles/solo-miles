@@ -11,6 +11,7 @@ export type WorkCardData = {
 
 export function WorkCard({ id, title, desc, cta, href }: WorkCardData) {
   const disabled = !href
+  const external = href?.startsWith('http')
 
   const surfaceClassName = cn(
     'group relative flex flex-col gap-3.5 overflow-hidden rounded-card p-3.5 text-paper-000 no-underline shadow-[inset_0_1px_0_rgba(255,255,255,.09)]',
@@ -74,7 +75,12 @@ export function WorkCard({ id, title, desc, cta, href }: WorkCardData) {
   }
 
   return (
-    <Link href={href} className={surfaceClassName} style={style}>
+    <Link
+      href={href}
+      className={surfaceClassName}
+      style={style}
+      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    >
       {content}
     </Link>
   )
