@@ -72,6 +72,12 @@
      than Tailwind utilities, to stay a faithful port of the source design. */
   --font-ui: var(--sm-font-display);
 
+  --ink-900: var(--sm-ink-900);
+  --hivis-400: var(--sm-hivis-400);
+  --hivis-500: var(--sm-hivis-500);
+  --clay-500: var(--sm-clay-500);
+  --clay-300: var(--sm-clay-300);
+
   --surface-page: var(--sm-ink-900);
   --surface-card: var(--sm-ink-800);
   --surface-sunken: #0A0D0F;

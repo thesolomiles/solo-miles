@@ -116,16 +116,17 @@ export function FlashcardApp({
   return (
     <div
       style={{
+        position: 'relative',
         minHeight: '100vh',
         display: 'flex',
         justifyContent: 'center',
-        background: 'var(--surface-page)',
         fontFamily: 'var(--font-ui)',
         color: 'var(--text-body)',
       }}
     >
       <div
         style={{
+          position: 'relative',
           width: '100%',
           maxWidth: 430,
           display: 'flex',
@@ -135,6 +136,7 @@ export function FlashcardApp({
           gap: 16,
           borderLeft: '1px solid var(--line-hairline)',
           borderRight: '1px solid var(--line-hairline)',
+          background: 'var(--surface-overlay)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
