@@ -15,7 +15,9 @@ const NAV_LINKS = [
 function YoutubeLink({ className }: { className?: string }) {
   return (
     <a
-      href="#"
+      href="https://www.youtube.com/@thesolomiles"
+      target="_blank"
+      rel="noopener noreferrer"
       className={
         'flex items-center gap-2 text-[11px] tracking-[0.2em] text-ink-200 uppercase no-underline transition-colors hover:text-hivis-400 ' +
         className

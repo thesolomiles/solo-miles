@@ -140,7 +140,9 @@ export function FlashcardApp({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <Image src="/solomiles/logo-horizontal-white.svg" alt="The Solomiles" width={140} height={22} style={{ height: 22, width: 'auto', display: 'block' }} />
+          <Link href="/" style={{ display: 'flex' }}>
+            <Image src="/solomiles/logo-horizontal-white.svg" alt="The Solomiles" width={140} height={22} style={{ height: 22, width: 'auto', display: 'block' }} />
+          </Link>
           <Link
             href="/projects/japanese-flashcards"
             style={{
