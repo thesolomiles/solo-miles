@@ -268,6 +268,20 @@
     animation: none !important;
     transform: none !important;
   }
+  .sm-pip {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Career page: "current role" status pip */
+.sm-pip {
+  animation: sm-pip-blink 1.6s steps(1, end) infinite;
+}
+
+@keyframes sm-pip-blink {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: .15; }
 }
 
 /* Flashcards study tool (design system inline-style vocabulary) */
