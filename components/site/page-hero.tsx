@@ -10,6 +10,7 @@ export function PageHero({
   description,
   headingClassName,
   descriptionClassName,
+  className,
   children,
 }: {
   eyebrow: string
@@ -17,10 +18,11 @@ export function PageHero({
   description: ReactNode
   headingClassName?: string
   descriptionClassName?: string
+  className?: string
   children?: ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 pt-8 pb-10 text-center sm:pt-16">
+    <div className={cn('flex flex-col items-center gap-3 pt-8 pb-10 text-center sm:pt-16', className)}>
       <span className="text-[11px] tracking-[0.22em] text-hivis-400 uppercase">{eyebrow}</span>
       <h1
         className={cn(

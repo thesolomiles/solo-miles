@@ -1,11 +1,9 @@
 import type { Metadata } from 'next'
 import { SiteFooter } from '@/components/home/site-footer'
 import { SiteNav } from '@/components/home/site-nav'
-import { TopoActiveMountainProvider } from '@/components/home/topo-active-context'
-import { TopoBackground } from '@/components/home/topo-background'
-import { CyclingHero } from '@/components/cycling/cycling-hero'
+import { CyclingActiveRideProvider } from '@/components/cycling/cycling-active-ride-context'
+import { CyclingMapBackground } from '@/components/cycling/cycling-map-background'
 import { CyclingSplit } from '@/components/cycling/cycling-split'
-import { MOUNTAINS } from '@/lib/mountains'
 
 export const metadata: Metadata = {
   title: 'Cycling — Solomiles',
@@ -14,21 +12,18 @@ export const metadata: Metadata = {
 
 export default function CyclingPage() {
   return (
-    <TopoActiveMountainProvider count={MOUNTAINS.length}>
-      <div className="relative grid min-h-screen grid-rows-[auto_1fr_auto] overflow-hidden bg-void font-mono text-paper-000">
-        <TopoBackground />
+    <CyclingActiveRideProvider>
+      <div className="relative grid h-screen grid-rows-[auto_1fr_auto] overflow-hidden bg-void font-mono text-paper-000">
+        <CyclingMapBackground />
 
         <SiteNav />
 
-        <main className="relative flex flex-col items-center px-5 py-16 sm:px-8">
-          <div className="flex w-full max-w-page flex-col">
-            <CyclingHero />
-            <CyclingSplit />
-          </div>
+        <main className="pointer-events-none relative flex min-h-0 flex-col items-start overflow-hidden px-5 pt-6 pb-6 sm:px-8 sm:pt-8">
+          <CyclingSplit />
         </main>
 
-        <SiteFooter />
+        <SiteFooter showCoords={false} />
       </div>
-    </TopoActiveMountainProvider>
+    </CyclingActiveRideProvider>
   )
 }

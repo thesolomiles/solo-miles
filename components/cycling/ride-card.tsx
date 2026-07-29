@@ -21,7 +21,7 @@ export function RideCard({
       onFocus={onActivate}
       onBlur={onDeactivate}
       className={cn(
-        'group relative flex flex-col gap-4 overflow-hidden rounded-card p-4.5 text-paper-000 no-underline shadow-[inset_0_1px_0_rgba(255,255,255,.09)] transition-shadow duration-200',
+        'group relative flex shrink-0 flex-col gap-4 overflow-hidden rounded-card p-4.5 text-paper-000 no-underline shadow-[inset_0_1px_0_rgba(255,255,255,.09)] transition-shadow duration-200',
         active && 'shadow-[inset_0_0_0_1px_rgba(216,242,80,.45),inset_0_1px_0_rgba(255,255,255,.09)]',
       )}
       style={{
