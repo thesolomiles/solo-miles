@@ -272,6 +272,19 @@
     animation: none !important;
     opacity: 1 !important;
   }
+  .cycling-marker-pulse {
+    animation: none !important;
+  }
+}
+
+/* Cycling page: idle glow pulse on each map marker */
+.cycling-marker-pulse {
+  animation: sm-marker-pulse 2.6s ease-out infinite;
+}
+
+@keyframes sm-marker-pulse {
+  0% { r: 8; opacity: 0.55; }
+  70%, 100% { r: 20; opacity: 0; }
 }
 
 /* Career page: "current role" status pip */

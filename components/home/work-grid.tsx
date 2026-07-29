@@ -2,7 +2,7 @@ import { WorkCard, type WorkCardData } from './work-card'
 
 const CARDS: WorkCardData[] = [
   { id: '01', title: 'My Career', desc: 'Career-related stuff.', cta: 'Find out more', href: '/career' },
-  { id: '02', title: 'Cycling', desc: 'My rides.', cta: 'See more' },
+  { id: '02', title: 'Cycling', desc: 'My rides.', cta: 'See more', href: '/cycling' },
   { id: '03', title: 'Side Projects', desc: "Things that I've been building.", cta: 'Busybody', href: '/projects' },
   {
     id: '04',
