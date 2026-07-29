@@ -1,16 +1,18 @@
+import { PageHero } from '@/components/site/page-hero'
+
 export function CareerHero() {
   return (
-    <div className="flex flex-col items-center gap-3 pt-8 pb-10 text-center sm:pt-16">
-      <span className="text-[11px] tracking-[0.22em] text-hivis-400 uppercase">01 — My career</span>
-      <h1 className="m-0 max-w-[16ch] font-display text-[42px] leading-[0.92] font-extrabold tracking-[-0.03em] text-paper-000 uppercase sm:text-[54px] md:text-[64px]">
-        Year 12.
-        <br />
-        Still hands-on.
-      </h1>
-      <p className="m-0 mt-1 max-w-[60ch] font-display text-[15px] leading-[1.6] text-ink-200 text-pretty sm:text-base">
-        I started in architecture and ended up designing software. Six roles, five companies, all of it in Singapore —
-        mostly startups, mostly hands-on. I lead teams now and still draw the screens.
-      </p>
+    <PageHero
+      eyebrow="01 — My career"
+      heading={
+        <>
+          Year 12.
+          <br />
+          Still hands-on.
+        </>
+      }
+      description="I'm a digital product designer. Core design principles stem from my days in architecture school. Been at startups for 12 years, now I lead design teams and still draw the screens."
+    >
       <a
         href="/solomiles/leonard-goh-resume.pdf"
         download
@@ -18,6 +20,6 @@ export function CareerHero() {
       >
         Résumé PDF ↓
       </a>
-    </div>
+    </PageHero>
   )
 }
