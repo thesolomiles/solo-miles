@@ -19,6 +19,8 @@ apt-get install -y caddy
 
 id -u coach &>/dev/null || useradd --system --create-home --shell /usr/sbin/nologin coach
 
+git config --global --add safe.directory "$APP_DIR"
+
 if [ ! -d "$APP_DIR" ]; then
   git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
 else
