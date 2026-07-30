@@ -4,7 +4,7 @@
 set -euo pipefail
 
 DOMAIN="${DOMAIN:-coach.thesolomiles.com}"
-REPO_URL="${REPO_URL:-git@github.com:thesolomiles/solo-miles.git}"
+REPO_URL="${REPO_URL:-https://github.com/thesolomiles/solo-miles.git}"
 BRANCH="${BRANCH:-projects-page}"
 APP_DIR=/opt/solo-miles
 

@@ -38,10 +38,10 @@ git push origin projects-page
 SSH into the box as root, then:
 
 ```bash
-REPO_URL=git@github.com:thesolomiles/solo-miles.git BRANCH=projects-page bash -c "$(curl -fsSL https://raw.githubusercontent.com/thesolomiles/solo-miles/projects-page/coach/deploy/provision.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/thesolomiles/solo-miles/projects-page/coach/deploy/provision.sh)"
 ```
 
-(`DOMAIN` defaults to `coach.thesolomiles.com` - only pass `DOMAIN=...` if you want something else.)
+(`DOMAIN`, `REPO_URL`, and `BRANCH` all have sensible defaults baked in - only override them if you need something different, e.g. `DOMAIN=other.example.com ./provision.sh`.)
 
 It'll stop partway and tell you to add `coach/.env` on the server - see step 5.
 
