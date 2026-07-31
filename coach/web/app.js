@@ -2,11 +2,6 @@ const PERSONA_LABEL = { coach: "Coach", nutritionist: "Nutritionist" };
 
 const CHAT_STORAGE_KEY = "coach_onboarding_chat_v1";
 
-const INTRO_TEXT =
-  "Hey, I'm your Coach - I'll handle training and, with the nutrition side too, your fueling. " +
-  "Tell me what you're working with: what you're training for, how it's been going, your setup. " +
-  "I'll ask whatever else I need as we go.";
-
 let currentRole = null;
 let chatMessages = [];
 let chatDraft = {};
@@ -86,13 +81,43 @@ function renderChat(container) {
 
   function renderLog() {
     log.innerHTML = "";
-    log.appendChild(el("div", { class: "bubble coach", text: INTRO_TEXT }));
     chatMessages.forEach((m) => {
       log.appendChild(el("div", { class: `bubble ${m.role === "user" ? "user" : "coach"}`, text: m.content }));
     });
     log.scrollTop = log.scrollHeight;
   }
-  renderLog();
+
+  function setInputEnabled(enabled) {
+    sendBtn.disabled = !enabled;
+    textarea.disabled = !enabled;
+  }
+
+  async function open() {
+    setInputEnabled(false);
+    const typing = el("div", { class: "bubble coach typing", text: "..." });
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+
+    try {
+      const resp = await fetch("/onboarding/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [], draft: chatDraft }),
+      });
+      if (!resp.ok) throw new Error("bad response");
+      const data = await resp.json();
+      chatMessages.push({ role: "assistant", content: data.reply });
+      chatDraft = data.draft || chatDraft;
+      saveChat();
+      renderLog();
+    } catch (e) {
+      typing.remove();
+      log.appendChild(el("div", { class: "bubble coach", text: "Something went wrong loading your coach - refresh to try again." }));
+    } finally {
+      setInputEnabled(true);
+      textarea.focus();
+    }
+  }
 
   async function send() {
     const text = textarea.value.trim();
@@ -103,8 +128,7 @@ function renderChat(container) {
     saveChat();
     renderLog();
 
-    sendBtn.disabled = true;
-    textarea.disabled = true;
+    setInputEnabled(false);
     const typing = el("div", { class: "bubble coach typing", text: "..." });
     log.appendChild(typing);
     log.scrollTop = log.scrollHeight;
@@ -129,8 +153,7 @@ function renderChat(container) {
       typing.remove();
       log.appendChild(el("div", { class: "bubble coach", text: "Something went wrong - try sending that again." }));
     } finally {
-      sendBtn.disabled = false;
-      textarea.disabled = false;
+      setInputEnabled(true);
       textarea.focus();
     }
   }
@@ -142,7 +165,13 @@ function renderChat(container) {
       send();
     }
   });
-  textarea.focus();
+
+  if (chatMessages.length === 0) {
+    open();
+  } else {
+    renderLog();
+    textarea.focus();
+  }
 }
 
 function daysUntil(dateStr) {

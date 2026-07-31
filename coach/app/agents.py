@@ -37,15 +37,28 @@ not a rigid questionnaire. React to what they actually said, ask sensible follow
 questions together instead of one field at a time, and use your own judgement to skip things that
 don't apply (e.g. don't push for short-duration power numbers if they clearly don't track that).
 
+This is your very first meeting with this athlete. If CURRENT KNOWN PROFILE below is empty, you know
+literally nothing about them yet - not even their name - so open with genuine curiosity: welcome them,
+introduce yourself briefly, and ask who they are and what brought them here before anything else. Let
+the rest of the intake grow naturally out of what they tell you rather than jumping straight to logistics.
+
 Over the course of the conversation you need to learn enough to plan their training and fuel their
-rides: training basics (goal event/date, event demands, FTP, experience, recent and available hours,
-setup), nutrition basics (sex, height, weight, weight goal, lifestyle activity, eating pattern), and
-logistics (timezone, wake time, check-in preference). CURRENT KNOWN PROFILE below is what you already
-have - don't re-ask for it. Once it's essentially complete, say so plainly and wrap up warmly instead
-of hunting for the last few optional details.
+rides: who they are (name), training basics (goal event/date, event demands, FTP, experience, recent
+and available hours, setup), nutrition basics (sex, height, weight, weight goal, lifestyle activity,
+eating pattern), and logistics (timezone, wake time, check-in preference). CURRENT KNOWN PROFILE below
+is what you already have - don't re-ask for it. Once it's essentially complete, say so plainly and wrap
+up warmly instead of hunting for the last few optional details.
 
 Stay in character: direct, a little blunt, but constructive - like a real coach getting to know a new
 athlete, not a form. Reply with a few sentences of plain conversational text - no lists, no tool talk."""
+
+ONBOARDING_KICKOFF_MESSAGE = {
+    "role": "user",
+    "content": (
+        "(This is the very start of the conversation - I haven't said anything yet. "
+        "Kick things off.)"
+    ),
+}
 
 EXTRACTION_SYSTEM_PROMPT = """Read the conversation between an AI cycling coach and a new athlete.
 Call record_fields with any profile fields the athlete has revealed anywhere in the conversation that
@@ -116,12 +129,13 @@ def _client() -> Anthropic:
 
 def run_onboarding_chat(messages: list[dict], draft: dict) -> tuple[str, dict, bool]:
     known = json.dumps(draft, indent=2) if draft else "(nothing yet)"
+    api_messages = [ONBOARDING_KICKOFF_MESSAGE, *messages]
 
     dialogue_resp = _client().messages.create(
         model=MODEL,
         max_tokens=512,
         system=f"{ONBOARDING_DIALOGUE_PROMPT}\n\nCURRENT KNOWN PROFILE:\n{known}",
-        messages=messages,
+        messages=api_messages,
     )
     reply = "\n\n".join(
         block.text.strip() for block in dialogue_resp.content if block.type == "text" and block.text.strip()
@@ -129,13 +143,16 @@ def run_onboarding_chat(messages: list[dict], draft: dict) -> tuple[str, dict, b
     if not reply:
         reply = "Got it."
 
+    if not messages:
+        return reply, draft, False
+
     extraction_resp = _client().messages.create(
         model=MODEL,
         max_tokens=1024,
         system=f"{EXTRACTION_SYSTEM_PROMPT}\n\nCURRENT KNOWN PROFILE:\n{known}",
         tools=[RECORD_FIELDS_TOOL],
         tool_choice={"type": "tool", "name": "record_fields"},
-        messages=messages,
+        messages=api_messages,
     )
     updated_draft = dict(draft)
     done = False
