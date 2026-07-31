@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.agents import run_coach, run_nutritionist
+from app.agents import run_coach, run_nutritionist, run_onboarding_chat
 from app.auth import (
     GUEST_PROFILES,
     check_owner_credentials,
@@ -23,7 +23,7 @@ from app.profile import (
     is_onboarding_complete,
     upsert_onboarding_profile,
 )
-from app.schemas import LoginPayload, OnboardingPayload
+from app.schemas import LoginPayload, OnboardingChatPayload, OnboardingPayload
 from app.strava_client import build_authorize_url, exchange_code_for_tokens
 from app.sync import sync_intervals, sync_strava
 
@@ -100,6 +100,14 @@ def onboarding_status(session=Depends(require_session)):
         return {"completed": bool(GUEST_PROFILES.get(session["guest_id"], {}).get("onboarding_completed_at"))}
     with db_session() as conn:
         return {"completed": is_onboarding_complete(conn)}
+
+
+@app.post("/onboarding/chat")
+def onboarding_chat_route(payload: OnboardingChatPayload, session=Depends(require_session)):
+    reply, draft, done = run_onboarding_chat(
+        [m.dict() for m in payload.messages], payload.draft
+    )
+    return {"reply": reply, "draft": draft, "done": done}
 
 
 @app.post("/onboarding/complete")

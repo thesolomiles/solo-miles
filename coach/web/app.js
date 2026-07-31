@@ -1,343 +1,35 @@
-const STORAGE_KEY = "coach_onboarding_draft_v1";
-const STEP_STORAGE_KEY = "coach_onboarding_step_v1";
-
 const PERSONA_LABEL = { coach: "Coach", nutritionist: "Nutritionist" };
 
-const STEPS = [
-  {
-    type: "message",
-    persona: "coach",
-    text:
-      "Hey, I'm your Coach. I'll be looking after your training - planning your sessions, " +
-      "watching your load, telling you straight when something needs to change. Before we " +
-      "start, I want to actually understand what you're working with.",
-    cta: "Let's go",
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What's your name?",
-    fields: [{ key: "name", type: "text", placeholder: "Your name" }],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What's your age?",
-    fields: [{ key: "age", type: "number", placeholder: "Age" }],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What's your goal event, and when is it?",
-    fields: [
-      { key: "goal_event", type: "text", placeholder: "e.g. Century ride" },
-      { key: "goal_date", type: "date" },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt:
-      "What does that event demand - steady sustained effort (like a TT), punchy repeated " +
-      "hard efforts (like ZRL/crit racing), or a mix?",
-    fields: [
-      {
-        key: "event_demand_type",
-        type: "radio",
-        options: [
-          ["steady", "Steady, sustained effort"],
-          ["punchy", "Punchy, repeated hard efforts"],
-          ["mixed", "A mix of both"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What's your current FTP, and when did you last test it?",
-    fields: [
-      { key: "ftp", type: "number", placeholder: "FTP (watts)" },
-      { key: "ftp_test_method", type: "text", placeholder: "How you tested it (e.g. 20min test, ramp test)" },
-      { key: "ftp_test_date", type: "date" },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "Do you know your short-duration power? (5s / 1min / 5min)",
-    optionalNote: true,
-    fields: [
-      { key: "power_5s", type: "number", placeholder: "5 sec power (W)", optional: true },
-      { key: "power_1min", type: "number", placeholder: "1 min power (W)", optional: true },
-      { key: "power_5min", type: "number", placeholder: "5 min power (W)", optional: true },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "How would you describe your riding experience?",
-    fields: [
-      {
-        key: "experience_level",
-        type: "radio",
-        options: [
-          ["beginner", "Beginner"],
-          ["intermediate", "Intermediate"],
-          ["advanced", "Advanced"],
-          ["competitive", "Competitive"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What does a typical recent week look like - hours, sessions?",
-    fields: [
-      { key: "recent_weekly_hours", type: "number", placeholder: "Hours/week recently" },
-      {
-        key: "recent_structure_notes",
-        type: "textarea",
-        placeholder: "e.g. 3 rides, mostly Z2, one harder group ride",
-        optional: true,
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt:
-      "Going forward, how many hours/week can you realistically train, and is that spread " +
-      "evenly or weekend-heavy?",
-    fields: [
-      { key: "available_hours", type: "number", placeholder: "Hours/week available" },
-      {
-        key: "hours_distribution",
-        type: "radio",
-        options: [
-          ["even", "Spread evenly"],
-          ["weekend_heavy", "Weekend-heavy"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What's your setup - trainer, outdoor, or both? Power meter or estimated power?",
-    fields: [
-      {
-        key: "training_setup",
-        type: "radio",
-        options: [
-          ["trainer", "Trainer only"],
-          ["outdoor", "Outdoor only"],
-          ["both", "Both"],
-        ],
-      },
-      {
-        key: "power_source",
-        type: "radio",
-        options: [
-          ["meter", "Power meter"],
-          ["estimated", "Estimated"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "Any constraints right now - injuries, travel, work, other commitments?",
-    optionalNote: true,
-    fields: [
-      {
-        key: "constraints",
-        type: "textarea",
-        placeholder: "e.g. none, or knee niggle, travelling next month",
-        optional: true,
-      },
-    ],
-  },
-  {
-    type: "message",
-    persona: "coach",
-    text:
-      "Good, that's everything I need for now. I'm going to hand you to the Nutritionist - " +
-      "she'll sort out your fueling side, since that's half the job.",
-    cta: "Continue",
-  },
-  {
-    type: "message",
-    persona: "nutritionist",
-    text:
-      "Hey, I'm your Nutritionist. Training's only half the equation - what you eat and when " +
-      "decides whether it actually sticks. Quick questions.",
-    cta: "Let's go",
-  },
-  {
-    type: "form",
-    persona: "nutritionist",
-    prompt: "What's your sex? (needed for calorie/BMR calculation)",
-    fields: [
-      {
-        key: "sex",
-        type: "radio",
-        options: [
-          ["male", "Male"],
-          ["female", "Female"],
-          ["other", "Other / prefer not to say"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "nutritionist",
-    prompt: "Height and weight?",
-    fields: [
-      { key: "height_cm", type: "number", placeholder: "Height (cm)" },
-      { key: "weight_kg", type: "number", placeholder: "Weight (kg)" },
-    ],
-  },
-  {
-    type: "form",
-    persona: "nutritionist",
-    prompt: "Any goal on weight - maintain, lose, gain?",
-    fields: [
-      {
-        key: "weight_goal",
-        type: "radio",
-        options: [
-          ["maintain", "Maintain"],
-          ["lose", "Lose"],
-          ["gain", "Gain"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "nutritionist",
-    prompt: "What's your day-to-day like outside training - desk job, on your feet, in between?",
-    fields: [
-      {
-        key: "lifestyle_activity_level",
-        type: "radio",
-        options: [
-          ["desk_job", "Desk job"],
-          ["on_feet", "On my feet"],
-          ["in_between", "In between"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "nutritionist",
-    prompt: "Any allergies, restrictions, or foods you don't eat?",
-    optionalNote: true,
-    fields: [
-      {
-        key: "dietary_restrictions",
-        type: "textarea",
-        placeholder: "e.g. none, vegetarian, lactose intolerant",
-        optional: true,
-      },
-    ],
-  },
-  {
-    type: "form",
-    persona: "nutritionist",
-    prompt: "How do you actually eat on a normal day - big meals, grazing, in between?",
-    fields: [
-      {
-        key: "eating_pattern",
-        type: "radio",
-        options: [
-          ["big_meals", "Big meals"],
-          ["grazing", "Grazing / small frequent meals"],
-          ["in_between", "In between"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "message",
-    persona: "coach",
-    text: "Last bit from me - just the practical stuff so we don't annoy you.",
-    cta: "Continue",
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What timezone are you in?",
-    fields: [{ key: "timezone", type: "timezone" }],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt: "What time do you usually wake up?",
-    fields: [{ key: "wake_time", type: "time" }],
-  },
-  {
-    type: "form",
-    persona: "coach",
-    prompt:
-      "Do you want check-ins on everything (meals, snacks, mid-ride, all of it), or lighter " +
-      "touch, just the big moments?",
-    fields: [
-      {
-        key: "checkin_intensity",
-        type: "radio",
-        options: [
-          ["everything", "Everything"],
-          ["big_moments_only", "Just the big moments"],
-        ],
-      },
-    ],
-  },
-  {
-    type: "close",
-    persona: "coach",
-    text: "Good. We've got what we need - see you tomorrow morning.",
-    cta: "Finish",
-  },
-];
+const CHAT_STORAGE_KEY = "coach_onboarding_chat_v1";
 
-const TOTAL_QUESTIONS = STEPS.filter((s) => s.type === "form").length;
+const INTRO_TEXT =
+  "Hey, I'm your Coach - I'll handle training and, with the nutrition side too, your fueling. " +
+  "Tell me what you're working with: what you're training for, how it's been going, your setup. " +
+  "I'll ask whatever else I need as we go.";
 
-let answers = {};
-let stepIndex = 0;
 let currentRole = null;
+let chatMessages = [];
+let chatDraft = {};
 
-function loadDraft() {
+function loadChat() {
   try {
-    answers = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    const saved = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "{}");
+    chatMessages = saved.messages || [];
+    chatDraft = saved.draft || {};
   } catch (e) {
-    answers = {};
+    chatMessages = [];
+    chatDraft = {};
   }
-  stepIndex = parseInt(localStorage.getItem(STEP_STORAGE_KEY) || "0", 10) || 0;
-  if (stepIndex >= STEPS.length) stepIndex = 0;
 }
 
-function saveDraft() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
-  localStorage.setItem(STEP_STORAGE_KEY, String(stepIndex));
+function saveChat() {
+  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: chatMessages, draft: chatDraft }));
 }
 
-function clearDraft() {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(STEP_STORAGE_KEY);
-}
-
-function questionNumberFor(index) {
-  let n = 0;
-  for (let i = 0; i <= index; i++) {
-    if (STEPS[i].type === "form") n++;
-  }
-  return n;
+function clearChat() {
+  localStorage.removeItem(CHAT_STORAGE_KEY);
+  chatMessages = [];
+  chatDraft = {};
 }
 
 function el(tag, attrs, children) {
@@ -359,199 +51,98 @@ function renderPersonaHeader(persona) {
   return el("div", { class: "persona" }, [avatar, name]);
 }
 
-function fieldIsFilled(field) {
-  const v = answers[field.key];
-  return v !== undefined && v !== null && String(v).trim() !== "";
-}
-
-function canAdvance(step) {
-  if (step.type !== "form") return true;
-  return step.fields.every((f) => f.optional || fieldIsFilled(f));
-}
-
-function renderField(field, onChange) {
-  const wrapper = el("div", { class: "field" });
-
-  if (field.type === "radio") {
-    const group = el("div", { class: "radio-group" });
-    const optionEls = [];
-    field.options.forEach(([value, label]) => {
-      const selected = answers[field.key] === value;
-      const option = el("label", { class: `radio-option${selected ? " selected" : ""}` });
-      const input = el("input", { type: "radio", name: field.key });
-      input.checked = selected;
-      input.addEventListener("change", () => {
-        answers[field.key] = value;
-        optionEls.forEach((o) => o.classList.remove("selected"));
-        option.classList.add("selected");
-        onChange();
-      });
-      option.appendChild(input);
-      option.appendChild(el("span", { text: label }));
-      group.appendChild(option);
-      optionEls.push(option);
-    });
-    wrapper.appendChild(group);
-    return wrapper;
-  }
-
-  if (field.type === "textarea") {
-    const textarea = el("textarea", { placeholder: field.placeholder || "" });
-    textarea.value = answers[field.key] || "";
-    textarea.addEventListener("input", () => {
-      answers[field.key] = textarea.value;
-      onChange();
-    });
-    wrapper.appendChild(textarea);
-    return wrapper;
-  }
-
-  if (field.type === "timezone") {
-    const select = el("select", {});
-    let zones = [];
-    if (typeof Intl.supportedValuesOf === "function") {
-      zones = Intl.supportedValuesOf("timeZone");
-    }
-    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (!answers[field.key]) answers[field.key] = detected;
-    if (zones.length === 0) zones = [detected];
-    zones.forEach((z) => {
-      const opt = el("option", { value: z, text: z });
-      if (z === answers[field.key]) opt.selected = true;
-      select.appendChild(opt);
-    });
-    select.addEventListener("change", () => {
-      answers[field.key] = select.value;
-      onChange();
-    });
-    wrapper.appendChild(select);
-    return wrapper;
-  }
-
-  // text, number, date, time
-  const input = el("input", { type: field.type, placeholder: field.placeholder || "" });
-  if (answers[field.key] !== undefined && answers[field.key] !== null) {
-    input.value = answers[field.key];
-  }
-  input.addEventListener("input", () => {
-    answers[field.key] = field.type === "number" ? input.value : input.value;
-    onChange();
-  });
-  wrapper.appendChild(input);
-  return wrapper;
-}
-
-function renderStep(container) {
-  container.innerHTML = "";
-  const step = STEPS[stepIndex];
-  const card = el("div", { class: "card" });
-
-  if (step.type === "form") {
-    card.appendChild(el("div", { class: "progress", text: `Question ${questionNumberFor(stepIndex)} of ${TOTAL_QUESTIONS}` }));
-  }
-
-  card.appendChild(renderPersonaHeader(step.persona));
-
-  if (step.type === "message" || step.type === "close") {
-    card.classList.add("message-screen");
-    card.appendChild(el("div", { class: `bubble ${step.persona}`, text: step.text }));
-    const nextBtn = el("button", { class: "primary", text: step.cta });
-    nextBtn.addEventListener("click", () => {
-      if (step.type === "close") {
-        submitOnboarding();
-      } else {
-        stepIndex++;
-        saveDraft();
-        renderStep(container);
-      }
-    });
-    const nav = el("div", { class: "nav-row" }, [backButton(container), nextBtn]);
-    card.appendChild(nav);
-  } else {
-    const promptText = step.prompt + (step.optionalNote ? " (optional - you can skip this)" : "");
-    card.appendChild(el("div", { class: "prompt", text: promptText }));
-
-    const rerenderNav = () => updateNextButtonState(nextBtn, step);
-
-    step.fields.forEach((field) => {
-      card.appendChild(renderField(field, rerenderNav));
-    });
-
-    const nextBtn = el("button", { class: "primary", text: "Next" });
-    nextBtn.addEventListener("click", () => {
-      stepIndex++;
-      saveDraft();
-      renderStep(container);
-    });
-    updateNextButtonState(nextBtn, step);
-
-    const navChildren = [backButton(container), nextBtn];
-    const nav = el("div", { class: "nav-row" }, navChildren);
-    card.appendChild(nav);
-  }
-
-  container.appendChild(card);
-}
-
-function updateNextButtonState(btn, step) {
-  btn.disabled = !canAdvance(step);
-}
-
-function backButton(container) {
-  const btn = el("button", { class: "secondary", text: "Back" });
-  if (stepIndex === 0) {
-    btn.style.visibility = "hidden";
-  }
-  btn.addEventListener("click", () => {
-    if (stepIndex > 0) {
-      stepIndex--;
-      saveDraft();
-      renderStep(container);
-    }
-  });
-  return btn;
-}
-
-function buildPayload() {
-  const powerCurve = {};
-  if (answers.power_5s) powerCurve["5s"] = Number(answers.power_5s);
-  if (answers.power_1min) powerCurve["1min"] = Number(answers.power_1min);
-  if (answers.power_5min) powerCurve["5min"] = Number(answers.power_5min);
-
-  const payload = { ...answers };
-  delete payload.power_5s;
-  delete payload.power_1min;
-  delete payload.power_5min;
-  payload.power_curve_json = Object.keys(powerCurve).length ? JSON.stringify(powerCurve) : null;
-
-  if (payload.age) payload.age = parseInt(payload.age, 10);
-  if (payload.ftp) payload.ftp = parseInt(payload.ftp, 10);
-  if (payload.recent_weekly_hours) payload.recent_weekly_hours = parseFloat(payload.recent_weekly_hours);
-  if (payload.available_hours) payload.available_hours = parseFloat(payload.available_hours);
-  if (payload.height_cm) payload.height_cm = parseFloat(payload.height_cm);
-  if (payload.weight_kg) payload.weight_kg = parseFloat(payload.weight_kg);
-
-  return payload;
-}
-
-async function submitOnboarding() {
-  const payload = buildPayload();
+async function finishChatOnboarding() {
   const resp = await fetch("/onboarding/complete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(chatDraft),
   });
   if (!resp.ok) {
     alert("Something went wrong saving your profile. Please try again.");
     return;
   }
-  clearDraft();
+  clearChat();
   boot();
 }
 
-function renderWizard(container) {
-  loadDraft();
-  renderStep(container);
+function renderChat(container) {
+  loadChat();
+  container.innerHTML = "";
+
+  const card = el("div", { class: "card chat-card" });
+  card.appendChild(renderPersonaHeader("coach"));
+
+  const log = el("div", { class: "chat-log" });
+  card.appendChild(log);
+
+  const inputRow = el("div", { class: "chat-input-row" });
+  const textarea = el("textarea", { class: "chat-input", placeholder: "Type your reply..." });
+  const sendBtn = el("button", { class: "primary chat-send-btn", text: "Send" });
+  inputRow.appendChild(textarea);
+  inputRow.appendChild(sendBtn);
+  card.appendChild(inputRow);
+
+  container.appendChild(card);
+
+  function renderLog() {
+    log.innerHTML = "";
+    log.appendChild(el("div", { class: "bubble coach", text: INTRO_TEXT }));
+    chatMessages.forEach((m) => {
+      log.appendChild(el("div", { class: `bubble ${m.role === "user" ? "user" : "coach"}`, text: m.content }));
+    });
+    log.scrollTop = log.scrollHeight;
+  }
+  renderLog();
+
+  async function send() {
+    const text = textarea.value.trim();
+    if (!text || sendBtn.disabled) return;
+
+    chatMessages.push({ role: "user", content: text });
+    textarea.value = "";
+    saveChat();
+    renderLog();
+
+    sendBtn.disabled = true;
+    textarea.disabled = true;
+    const typing = el("div", { class: "bubble coach typing", text: "..." });
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+
+    try {
+      const resp = await fetch("/onboarding/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: chatMessages, draft: chatDraft }),
+      });
+      if (!resp.ok) throw new Error("bad response");
+      const data = await resp.json();
+      chatMessages.push({ role: "assistant", content: data.reply });
+      chatDraft = data.draft || chatDraft;
+      saveChat();
+      renderLog();
+      if (data.done) {
+        await finishChatOnboarding();
+        return;
+      }
+    } catch (e) {
+      typing.remove();
+      log.appendChild(el("div", { class: "bubble coach", text: "Something went wrong - try sending that again." }));
+    } finally {
+      sendBtn.disabled = false;
+      textarea.disabled = false;
+      textarea.focus();
+    }
+  }
+
+  sendBtn.addEventListener("click", send);
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  textarea.focus();
 }
 
 function daysUntil(dateStr) {
@@ -740,7 +331,7 @@ function renderTopBar(container) {
   const logout = el("button", { class: "topbar-logout", text: "Log out" });
   logout.addEventListener("click", async () => {
     await fetch("/auth/logout", { method: "POST" });
-    clearDraft();
+    clearChat();
     currentRole = null;
     boot();
   });
@@ -792,7 +383,7 @@ function renderLogin(container) {
     if (resp.ok) {
       const data = await resp.json();
       currentRole = data.role;
-      if (isGuest) clearDraft();
+      if (isGuest) clearChat();
       boot();
     } else {
       error.textContent = "Wrong username or password.";
@@ -824,7 +415,7 @@ async function boot() {
     if (status.completed) {
       renderDashboard(content, currentRole);
     } else {
-      renderWizard(content);
+      renderChat(content);
     }
   } catch (e) {
     container.innerHTML = '<div class="loading">Could not reach the server.</div>';

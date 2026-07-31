@@ -380,6 +380,52 @@ button.secondary:hover {
   font-size: 17px;
 }
 
+/* Onboarding chat */
+.chat-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.chat-log .bubble {
+  margin-bottom: 14px;
+  max-width: 88%;
+  white-space: pre-wrap;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bubble.typing {
+  color: var(--text-muted);
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-top: 8px;
+}
+
+.chat-input {
+  flex: 1;
+  min-height: 46px;
+  max-height: 140px;
+  resize: none;
+}
+
+.chat-send-btn {
+  flex-shrink: 0;
+}
+
 /* Dashboard */
 .dashboard {
   width: 100%;

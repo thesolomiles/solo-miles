@@ -42,3 +42,13 @@ class LoginPayload(BaseModel):
     mode: str  # "owner" | "guest"
     username: Optional[str] = None
     password: Optional[str] = None
+
+
+class ChatMessage(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
+class OnboardingChatPayload(BaseModel):
+    messages: list[ChatMessage]
+    draft: dict = {}

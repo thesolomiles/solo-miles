@@ -31,8 +31,123 @@ silently. Keep responses concise: numbers plus the reasoning behind them, not
 a full report every time."""
 
 
+ONBOARDING_DIALOGUE_PROMPT = """You are Coach, an AI cycling coach and nutrition advisor running a
+conversational intake with a new athlete - the same free-flowing back-and-forth as a normal chat,
+not a rigid questionnaire. React to what they actually said, ask sensible follow-ups, group related
+questions together instead of one field at a time, and use your own judgement to skip things that
+don't apply (e.g. don't push for short-duration power numbers if they clearly don't track that).
+
+Over the course of the conversation you need to learn enough to plan their training and fuel their
+rides: training basics (goal event/date, event demands, FTP, experience, recent and available hours,
+setup), nutrition basics (sex, height, weight, weight goal, lifestyle activity, eating pattern), and
+logistics (timezone, wake time, check-in preference). CURRENT KNOWN PROFILE below is what you already
+have - don't re-ask for it. Once it's essentially complete, say so plainly and wrap up warmly instead
+of hunting for the last few optional details.
+
+Stay in character: direct, a little blunt, but constructive - like a real coach getting to know a new
+athlete, not a form. Reply with a few sentences of plain conversational text - no lists, no tool talk."""
+
+EXTRACTION_SYSTEM_PROMPT = """Read the conversation between an AI cycling coach and a new athlete.
+Call record_fields with any profile fields the athlete has revealed anywhere in the conversation that
+aren't already in CURRENT KNOWN PROFILE below - only new or updated ones, omit the rest.
+
+Set ready_to_finish to true only once these essentials are covered: name, goal_event, goal_date,
+event_demand_type, ftp, experience_level, recent_weekly_hours, available_hours, hours_distribution,
+training_setup, power_source, sex, height_cm, weight_kg, weight_goal, lifestyle_activity_level,
+eating_pattern, timezone, wake_time, checkin_intensity. Optional fields (short-duration power, recent
+structure notes, constraints, dietary restrictions) don't block finishing - leave ready_to_finish
+false if any essential is still missing from CURRENT KNOWN PROFILE plus what you're recording now."""
+
+RECORD_FIELDS_TOOL = {
+    "name": "record_fields",
+    "description": "Save profile fields learned from the conversation, and whether intake is essentially complete.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer"},
+            "goal_event": {"type": "string"},
+            "goal_date": {"type": "string", "description": "ISO date, YYYY-MM-DD"},
+            "event_demand_type": {"type": "string", "enum": ["steady", "punchy", "mixed"]},
+            "ftp": {"type": "integer"},
+            "ftp_test_method": {"type": "string"},
+            "ftp_test_date": {"type": "string", "description": "ISO date, YYYY-MM-DD"},
+            "power_curve_json": {
+                "type": "string",
+                "description": (
+                    'JSON object string of any short-duration power the athlete knows, e.g. '
+                    '{"5s": 1000, "1min": 400, "5min": 320}'
+                ),
+            },
+            "experience_level": {
+                "type": "string",
+                "enum": ["beginner", "intermediate", "advanced", "competitive"],
+            },
+            "recent_weekly_hours": {"type": "number"},
+            "recent_structure_notes": {"type": "string"},
+            "available_hours": {"type": "number"},
+            "hours_distribution": {"type": "string", "enum": ["even", "weekend_heavy"]},
+            "training_setup": {"type": "string", "enum": ["trainer", "outdoor", "both"]},
+            "power_source": {"type": "string", "enum": ["meter", "estimated"]},
+            "constraints": {"type": "string"},
+            "sex": {"type": "string", "enum": ["male", "female", "other"]},
+            "height_cm": {"type": "number"},
+            "weight_kg": {"type": "number"},
+            "weight_goal": {"type": "string", "enum": ["maintain", "lose", "gain"]},
+            "lifestyle_activity_level": {
+                "type": "string",
+                "enum": ["desk_job", "on_feet", "in_between"],
+            },
+            "dietary_restrictions": {"type": "string"},
+            "eating_pattern": {"type": "string", "enum": ["big_meals", "grazing", "in_between"]},
+            "timezone": {"type": "string"},
+            "wake_time": {"type": "string", "description": "24h HH:MM"},
+            "checkin_intensity": {"type": "string", "enum": ["everything", "big_moments_only"]},
+            "ready_to_finish": {"type": "boolean"},
+        },
+        "required": ["ready_to_finish"],
+    },
+}
+
+
 def _client() -> Anthropic:
     return Anthropic(api_key=settings.anthropic_api_key)
+
+
+def run_onboarding_chat(messages: list[dict], draft: dict) -> tuple[str, dict, bool]:
+    known = json.dumps(draft, indent=2) if draft else "(nothing yet)"
+
+    dialogue_resp = _client().messages.create(
+        model=MODEL,
+        max_tokens=512,
+        system=f"{ONBOARDING_DIALOGUE_PROMPT}\n\nCURRENT KNOWN PROFILE:\n{known}",
+        messages=messages,
+    )
+    reply = "\n\n".join(
+        block.text.strip() for block in dialogue_resp.content if block.type == "text" and block.text.strip()
+    )
+    if not reply:
+        reply = "Got it."
+
+    extraction_resp = _client().messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        system=f"{EXTRACTION_SYSTEM_PROMPT}\n\nCURRENT KNOWN PROFILE:\n{known}",
+        tools=[RECORD_FIELDS_TOOL],
+        tool_choice={"type": "tool", "name": "record_fields"},
+        messages=messages,
+    )
+    updated_draft = dict(draft)
+    done = False
+    for block in extraction_resp.content:
+        if block.type == "tool_use" and block.name == "record_fields":
+            data = dict(block.input)
+            done = bool(data.pop("ready_to_finish", False))
+            for key, value in data.items():
+                if value not in (None, ""):
+                    updated_draft[key] = value
+
+    return reply, updated_draft, done
 
 
 def _coach_profile_summary(row: sqlite3.Row | None) -> str:
