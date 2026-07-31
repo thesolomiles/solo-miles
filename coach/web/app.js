@@ -46,12 +46,24 @@ function renderPersonaHeader(persona) {
   return el("div", { class: "persona" }, [avatar, name]);
 }
 
-async function finishChatOnboarding() {
-  const resp = await fetch("/onboarding/complete", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(chatDraft),
-  });
+function renderTransition(container, text) {
+  container.innerHTML = "";
+  container.appendChild(
+    el("div", { class: "transition-screen" }, [el("div", { class: "transition-text", text })])
+  );
+}
+
+async function finishChatOnboarding(container) {
+  renderTransition(container, "Setting up your dashboard...");
+
+  const [resp] = await Promise.all([
+    fetch("/onboarding/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(chatDraft),
+    }),
+    new Promise((resolve) => setTimeout(resolve, 900)),
+  ]);
   if (!resp.ok) {
     alert("Something went wrong saving your profile. Please try again.");
     return;
@@ -146,7 +158,7 @@ function renderChat(container) {
       saveChat();
       renderLog();
       if (data.done) {
-        await finishChatOnboarding();
+        await finishChatOnboarding(container);
         return;
       }
     } catch (e) {

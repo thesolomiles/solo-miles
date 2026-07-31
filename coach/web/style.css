@@ -166,6 +166,30 @@ body {
   color: var(--text-muted);
 }
 
+.transition-screen {
+  width: 100%;
+  max-width: 560px;
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transition-text {
+  color: var(--text-muted);
+  font-size: 15px;
+  animation: transition-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes transition-pulse {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .card {
   width: 100%;
   max-width: 560px;
