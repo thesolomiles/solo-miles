@@ -308,7 +308,11 @@ For each day, decide the training session (or explicitly a rest/recovery day) ap
 experience level, available hours, weekly hours distribution, and current form - apply real periodization
 (progressive overload, a down week roughly every 3-4 weeks, taper before the event if it falls in this
 block). Pair it with nutrition guidance sized to that day's training load and their profile (weight, goal,
-eating pattern). Call set_programme once with the full block."""
+eating pattern).
+
+Break the block into named phases (e.g. "Build Block", "Recovery Week", "Taper Block") that together cover
+every day you generate with no gaps or overlaps, in chronological order. Each phase needs a one-sentence
+purpose - what it's for and why it's placed there. Call set_programme once with the full block."""
 
 GENERATE_PROGRAMME_TOOL = {
     "name": "set_programme",
@@ -319,6 +323,23 @@ GENERATE_PROGRAMME_TOOL = {
             "programme_notes": {
                 "type": "string",
                 "description": "A short paragraph explaining the overall approach/periodization for this block.",
+            },
+            "phases": {
+                "type": "array",
+                "description": (
+                    "The named phases making up this block, in chronological order, covering every day "
+                    "with no gaps or overlaps."
+                ),
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "e.g. 'Build Block', 'Taper Block'."},
+                        "purpose": {"type": "string", "description": "One sentence: what this phase is for."},
+                        "start_date": {"type": "string", "description": "ISO date, YYYY-MM-DD"},
+                        "end_date": {"type": "string", "description": "ISO date, YYYY-MM-DD"},
+                    },
+                    "required": ["name", "purpose", "start_date", "end_date"],
+                },
             },
             "days": {
                 "type": "array",
@@ -349,7 +370,7 @@ GENERATE_PROGRAMME_TOOL = {
                 },
             },
         },
-        "required": ["days"],
+        "required": ["days", "phases"],
     },
 }
 
@@ -373,8 +394,12 @@ def generate_training_programme(profile: dict, notes: str) -> dict:
     for block in resp.content:
         if block.type == "tool_use" and block.name == "set_programme":
             data = dict(block.input)
-            return {"notes": data.get("programme_notes", ""), "days": data.get("days", [])}
-    return {"notes": "", "days": []}
+            return {
+                "notes": data.get("programme_notes", ""),
+                "phases": data.get("phases", []),
+                "days": data.get("days", []),
+            }
+    return {"notes": "", "phases": [], "days": []}
 
 
 def _coach_profile_summary(row: sqlite3.Row | None) -> str:

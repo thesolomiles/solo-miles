@@ -1,26 +1,35 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 
 
 def get_programme(conn: sqlite3.Connection) -> dict:
     meta = conn.execute("SELECT * FROM programme WHERE id = 1").fetchone()
     days = conn.execute("SELECT * FROM programme_days ORDER BY date").fetchall()
+    phases = []
+    if meta and meta["phases_json"]:
+        try:
+            phases = json.loads(meta["phases_json"])
+        except (ValueError, TypeError):
+            phases = []
     return {
         "notes": meta["notes"] if meta else None,
         "generated_at": meta["generated_at"] if meta else None,
+        "phases": phases,
         "days": [dict(d) for d in days],
     }
 
 
-def save_programme(conn: sqlite3.Connection, notes: str, days: list[dict]) -> None:
+def save_programme(conn: sqlite3.Connection, notes: str, phases: list[dict], days: list[dict]) -> None:
     conn.execute(
         """
-        INSERT INTO programme (id, notes, generated_at)
-        VALUES (1, :notes, datetime('now'))
-        ON CONFLICT(id) DO UPDATE SET notes=excluded.notes, generated_at=excluded.generated_at
+        INSERT INTO programme (id, notes, phases_json, generated_at)
+        VALUES (1, :notes, :phases_json, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+            notes=excluded.notes, phases_json=excluded.phases_json, generated_at=excluded.generated_at
         """,
-        {"notes": notes},
+        {"notes": notes, "phases_json": json.dumps(phases)},
     )
     conn.execute("DELETE FROM programme_days")
     for d in days:

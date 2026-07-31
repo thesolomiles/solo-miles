@@ -459,12 +459,7 @@ function weekdayLabel(dateStr) {
   return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
-function renderProgrammeTable(container, programme) {
-  const days = programme.days || [];
-  if (programme.notes) {
-    container.appendChild(el("div", { class: "programme-notes", text: programme.notes }));
-  }
-
+function renderDaysTable(container, days) {
   const table = el("table", { class: "programme-table" });
   const thead = el("thead");
   thead.appendChild(
@@ -511,6 +506,36 @@ function renderProgrammeTable(container, programme) {
   const tableWrap = el("div", { class: "programme-table-wrap" });
   tableWrap.appendChild(table);
   container.appendChild(tableWrap);
+}
+
+function renderProgrammeTable(container, programme) {
+  const days = programme.days || [];
+  const phases = programme.phases || [];
+
+  if (programme.notes) {
+    container.appendChild(el("div", { class: "programme-notes", text: programme.notes }));
+  }
+
+  if (phases.length === 0) {
+    renderDaysTable(container, days);
+    return;
+  }
+
+  phases.forEach((phase) => {
+    const phaseDays = days.filter((d) => d.date >= phase.start_date && d.date <= phase.end_date);
+    if (phaseDays.length === 0) return;
+
+    const section = el("div", { class: "programme-phase" });
+    section.appendChild(el("h3", { class: "programme-phase-title", text: phase.name }));
+    section.appendChild(
+      el("div", {
+        class: "programme-phase-meta",
+        text: `${phase.purpose} · ${phase.start_date} – ${phase.end_date}`,
+      })
+    );
+    renderDaysTable(section, phaseDays);
+    container.appendChild(section);
+  });
 }
 
 async function renderDashboard(container, role) {

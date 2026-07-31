@@ -206,7 +206,7 @@ def programme_generate_route(payload: ProgrammeGeneratePayload, session=Depends(
         guest_profile["programme"] = result
         return {"status": "ok"}
     with db_session() as conn:
-        save_programme(conn, result.get("notes", ""), result.get("days", []))
+        save_programme(conn, result.get("notes", ""), result.get("phases", []), result.get("days", []))
     return {"status": "ok"}
 
 

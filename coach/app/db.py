@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS daily_logs (
 CREATE TABLE IF NOT EXISTS programme (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     notes TEXT,
+    phases_json TEXT,
     generated_at TEXT
 );
 
@@ -172,6 +173,10 @@ PROFILE_MIGRATION_COLUMNS = [
     ("profile_summary", "TEXT"),
 ]
 
+PROGRAMME_MIGRATION_COLUMNS = [
+    ("phases_json", "TEXT"),
+]
+
 
 def init_db() -> None:
     with db_session() as conn:
@@ -179,3 +184,5 @@ def init_db() -> None:
         # Additive migrations for columns added after a DB file already existed.
         for column, coldef in PROFILE_MIGRATION_COLUMNS:
             _add_column_if_missing(conn, "profile", column, coldef)
+        for column, coldef in PROGRAMME_MIGRATION_COLUMNS:
+            _add_column_if_missing(conn, "programme", column, coldef)

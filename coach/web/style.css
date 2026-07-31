@@ -590,7 +590,29 @@ button.secondary:hover {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
+}
+
+.programme-phase {
+  margin-bottom: 24px;
+}
+
+.programme-phase:last-child {
+  margin-bottom: 0;
+}
+
+.programme-phase-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+  margin: 0 0 4px 0;
+}
+
+.programme-phase-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-bottom: 10px;
 }
 
 .programme-table-wrap {
