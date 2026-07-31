@@ -459,6 +459,10 @@ function weekdayLabel(dateStr) {
   return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
+function macroCell(value, unit) {
+  return el("td", { class: "macro-cell", text: value != null ? `${value}${unit}` : "-" });
+}
+
 function renderDaysTable(container, days) {
   const table = el("table", { class: "programme-table" });
   const thead = el("thead");
@@ -466,7 +470,10 @@ function renderDaysTable(container, days) {
     el("tr", {}, [
       el("th", { text: "Date" }),
       el("th", { text: "Training" }),
-      el("th", { text: "Nutrition" }),
+      el("th", { text: "Cal" }),
+      el("th", { text: "Protein" }),
+      el("th", { text: "Carbs" }),
+      el("th", { text: "Fat" }),
     ])
   );
   table.appendChild(thead);
@@ -479,11 +486,14 @@ function renderDaysTable(container, days) {
         el("div", { class: "day-date-text", text: day.date }),
       ]),
       el("td", { text: day.training_summary || "-" }),
-      el("td", { text: day.nutrition_summary || "-" }),
+      macroCell(day.calories, ""),
+      macroCell(day.protein_g, "g"),
+      macroCell(day.carbs_g, "g"),
+      macroCell(day.fat_g, "g"),
     ]);
 
     const detailRow = el("tr", { class: "day-detail-row hidden" });
-    const detailCell = el("td", { colspan: "3" }, [
+    const detailCell = el("td", { colspan: "6" }, [
       el("div", { class: "day-detail" }, [
         el("div", { class: "day-detail-label", text: "Training" }),
         el("div", { class: "day-detail-text", text: day.training_detail || "No detail." }),

@@ -37,9 +37,11 @@ def save_programme(conn: sqlite3.Connection, notes: str, phases: list[dict], day
             """
             INSERT INTO programme_days (date, training_summary, training_detail,
                                          training_duration_mins, training_load,
-                                         nutrition_summary, nutrition_detail)
+                                         nutrition_summary, nutrition_detail,
+                                         calories, protein_g, carbs_g, fat_g)
             VALUES (:date, :training_summary, :training_detail, :training_duration_mins,
-                    :training_load, :nutrition_summary, :nutrition_detail)
+                    :training_load, :nutrition_summary, :nutrition_detail,
+                    :calories, :protein_g, :carbs_g, :fat_g)
             """,
             {
                 "date": d.get("date"),
@@ -49,5 +51,9 @@ def save_programme(conn: sqlite3.Connection, notes: str, phases: list[dict], day
                 "training_load": d.get("training_load"),
                 "nutrition_summary": d.get("nutrition_summary"),
                 "nutrition_detail": d.get("nutrition_detail"),
+                "calories": d.get("calories"),
+                "protein_g": d.get("protein_g"),
+                "carbs_g": d.get("carbs_g"),
+                "fat_g": d.get("fat_g"),
             },
         )

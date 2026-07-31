@@ -644,6 +644,13 @@ button.secondary:hover {
   vertical-align: top;
 }
 
+.macro-cell {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
 .day-row {
   cursor: pointer;
   transition: var(--transition-control);

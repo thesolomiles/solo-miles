@@ -115,7 +115,11 @@ CREATE TABLE IF NOT EXISTS programme_days (
     training_duration_mins INTEGER,
     training_load INTEGER,
     nutrition_summary TEXT,
-    nutrition_detail TEXT
+    nutrition_detail TEXT,
+    calories INTEGER,
+    protein_g INTEGER,
+    carbs_g INTEGER,
+    fat_g INTEGER
 );
 """
 
@@ -177,6 +181,13 @@ PROGRAMME_MIGRATION_COLUMNS = [
     ("phases_json", "TEXT"),
 ]
 
+PROGRAMME_DAYS_MIGRATION_COLUMNS = [
+    ("calories", "INTEGER"),
+    ("protein_g", "INTEGER"),
+    ("carbs_g", "INTEGER"),
+    ("fat_g", "INTEGER"),
+]
+
 
 def init_db() -> None:
     with db_session() as conn:
@@ -186,3 +197,5 @@ def init_db() -> None:
             _add_column_if_missing(conn, "profile", column, coldef)
         for column, coldef in PROGRAMME_MIGRATION_COLUMNS:
             _add_column_if_missing(conn, "programme", column, coldef)
+        for column, coldef in PROGRAMME_DAYS_MIGRATION_COLUMNS:
+            _add_column_if_missing(conn, "programme_days", column, coldef)

@@ -308,7 +308,8 @@ For each day, decide the training session (or explicitly a rest/recovery day) ap
 experience level, available hours, weekly hours distribution, and current form - apply real periodization
 (progressive overload, a down week roughly every 3-4 weeks, taper before the event if it falls in this
 block). Pair it with nutrition guidance sized to that day's training load and their profile (weight, goal,
-eating pattern).
+eating pattern) - including explicit daily targets for calories, protein, carbs, and fat, not just prose,
+scaled up on hard/long days and down on rest days.
 
 Break the block into named phases (e.g. "Build Block", "Recovery Week", "Taper Block") that together cover
 every day you generate with no gaps or overlaps, in chronological order. Each phase needs a one-sentence
@@ -365,8 +366,22 @@ GENERATE_PROGRAMME_TOOL = {
                             "type": "string",
                             "description": "Fuel plan for the day: pre/during/post-ride nutrition, daily targets.",
                         },
+                        "calories": {"type": "integer", "description": "Total daily calorie target, kcal."},
+                        "protein_g": {"type": "integer", "description": "Daily protein target, grams."},
+                        "carbs_g": {"type": "integer", "description": "Daily carbohydrate target, grams."},
+                        "fat_g": {"type": "integer", "description": "Daily fat target, grams."},
                     },
-                    "required": ["date", "training_summary", "training_detail", "nutrition_summary", "nutrition_detail"],
+                    "required": [
+                        "date",
+                        "training_summary",
+                        "training_detail",
+                        "nutrition_summary",
+                        "nutrition_detail",
+                        "calories",
+                        "protein_g",
+                        "carbs_g",
+                        "fat_g",
+                    ],
                 },
             },
         },
