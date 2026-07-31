@@ -194,10 +194,12 @@ def _profile_context_summary(profile: dict) -> str:
     return "\n".join(lines)
 
 
-ATHLETE_SUMMARY_PROMPT = """Write a short coach's note about this athlete based on their intake profile
-below - 3-4 sentences covering who they are, what they're working toward, and anything notable about
-their situation (experience level, constraints, current fitness). Write it like a coach jotting a quick
-read on a new athlete - warm but direct, plain prose, no headers, no bullet points, no bold text."""
+ATHLETE_SUMMARY_PROMPT = """Write a short note recapping this athlete's intake profile below - 3-4
+sentences stating the hard facts: their goal event and date, the key numbers (FTP, weight, available
+hours), and anything they explicitly told you (constraints, preferences, schedule). Don't classify or
+characterize the athlete - no skill-level labels ("beginner/intermediate/advanced"), no judgments about
+their fitness, build, or ability ("respectable", "solid base", "good shape", etc). State what's true, not
+an opinion of them. Plain prose, no headers, no bullet points, no bold text."""
 
 
 def generate_athlete_summary(profile: dict) -> str:
