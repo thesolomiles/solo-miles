@@ -52,3 +52,12 @@ class ChatMessage(BaseModel):
 class OnboardingChatPayload(BaseModel):
     messages: list[ChatMessage]
     draft: dict = {}
+
+
+class ProgrammeChatPayload(BaseModel):
+    messages: list[ChatMessage]
+    draft: dict = {}
+
+
+class ProgrammeGeneratePayload(BaseModel):
+    notes: str = ""

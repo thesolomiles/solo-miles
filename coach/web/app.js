@@ -1,10 +1,13 @@
 const PERSONA_LABEL = { coach: "Coach", nutritionist: "Nutritionist" };
 
 const CHAT_STORAGE_KEY = "coach_onboarding_chat_v1";
+const PROGRAMME_CHAT_STORAGE_KEY = "coach_programme_chat_v1";
 
 let currentRole = null;
 let chatMessages = [];
 let chatDraft = {};
+let programmeMessages = [];
+let programmeDraft = {};
 
 function loadChat() {
   try {
@@ -27,6 +30,30 @@ function clearChat() {
   chatDraft = {};
 }
 
+function loadProgrammeChat() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROGRAMME_CHAT_STORAGE_KEY) || "{}");
+    programmeMessages = saved.messages || [];
+    programmeDraft = saved.draft || {};
+  } catch (e) {
+    programmeMessages = [];
+    programmeDraft = {};
+  }
+}
+
+function saveProgrammeChat() {
+  localStorage.setItem(
+    PROGRAMME_CHAT_STORAGE_KEY,
+    JSON.stringify({ messages: programmeMessages, draft: programmeDraft })
+  );
+}
+
+function clearProgrammeChat() {
+  localStorage.removeItem(PROGRAMME_CHAT_STORAGE_KEY);
+  programmeMessages = [];
+  programmeDraft = {};
+}
+
 function el(tag, attrs, children) {
   const node = document.createElement(tag);
   if (attrs) {
@@ -46,11 +73,11 @@ function renderPersonaHeader(persona) {
   return el("div", { class: "persona" }, [avatar, name]);
 }
 
-function renderTransition(container, text) {
+function renderTransition(container, text, subtext) {
   container.innerHTML = "";
-  container.appendChild(
-    el("div", { class: "transition-screen" }, [el("div", { class: "transition-text", text })])
-  );
+  const children = [el("div", { class: "transition-text", text })];
+  if (subtext) children.push(el("div", { class: "transition-subtext", text: subtext }));
+  container.appendChild(el("div", { class: "transition-screen" }, children));
 }
 
 async function finishChatOnboarding(container) {
@@ -186,6 +213,140 @@ function renderChat(container) {
   }
 }
 
+async function finishProgrammeChat(container) {
+  renderTransition(
+    container,
+    "Building your training programme...",
+    "Drafting a full block day by day - this can take a minute or two."
+  );
+
+  const resp = await fetch("/programme/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ notes: programmeDraft.notes || "" }),
+  });
+  if (!resp.ok) {
+    alert("Something went wrong building your programme. Please try again.");
+    return;
+  }
+  clearProgrammeChat();
+  boot();
+}
+
+function renderProgrammeChat(container) {
+  loadProgrammeChat();
+  container.innerHTML = "";
+
+  const card = el("div", { class: "card chat-card" });
+  card.appendChild(renderPersonaHeader("coach"));
+
+  const log = el("div", { class: "chat-log" });
+  card.appendChild(log);
+
+  const inputRow = el("div", { class: "chat-input-row" });
+  const textarea = el("textarea", { class: "chat-input", placeholder: "Type your reply..." });
+  const sendBtn = el("button", { class: "primary chat-send-btn", text: "Send" });
+  inputRow.appendChild(textarea);
+  inputRow.appendChild(sendBtn);
+  card.appendChild(inputRow);
+
+  container.appendChild(card);
+
+  function renderLog() {
+    log.innerHTML = "";
+    programmeMessages.forEach((m) => {
+      log.appendChild(el("div", { class: `bubble ${m.role === "user" ? "user" : "coach"}`, text: m.content }));
+    });
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function setInputEnabled(enabled) {
+    sendBtn.disabled = !enabled;
+    textarea.disabled = !enabled;
+  }
+
+  async function open() {
+    setInputEnabled(false);
+    const typing = el("div", { class: "bubble coach typing", text: "..." });
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+
+    try {
+      const resp = await fetch("/programme/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [], draft: programmeDraft }),
+      });
+      if (!resp.ok) throw new Error("bad response");
+      const data = await resp.json();
+      programmeMessages.push({ role: "assistant", content: data.reply });
+      programmeDraft = data.draft || programmeDraft;
+      saveProgrammeChat();
+      renderLog();
+    } catch (e) {
+      typing.remove();
+      log.appendChild(el("div", { class: "bubble coach", text: "Something went wrong - refresh to try again." }));
+    } finally {
+      setInputEnabled(true);
+      textarea.focus();
+    }
+  }
+
+  async function send() {
+    const text = textarea.value.trim();
+    if (!text || sendBtn.disabled) return;
+
+    programmeMessages.push({ role: "user", content: text });
+    textarea.value = "";
+    saveProgrammeChat();
+    renderLog();
+
+    setInputEnabled(false);
+    const typing = el("div", { class: "bubble coach typing", text: "..." });
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+
+    try {
+      const resp = await fetch("/programme/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: programmeMessages, draft: programmeDraft }),
+      });
+      if (!resp.ok) throw new Error("bad response");
+      const data = await resp.json();
+      programmeMessages.push({ role: "assistant", content: data.reply });
+      programmeDraft = data.draft || programmeDraft;
+      saveProgrammeChat();
+      renderLog();
+      if (data.done) {
+        await finishProgrammeChat(container);
+        return;
+      }
+    } catch (e) {
+      typing.remove();
+      log.appendChild(el("div", { class: "bubble coach", text: "Something went wrong - try sending that again." }));
+    } finally {
+      setInputEnabled(true);
+      textarea.focus();
+    }
+  }
+
+  sendBtn.addEventListener("click", send);
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  if (programmeMessages.length === 0) {
+    open();
+  } else {
+    renderLog();
+    textarea.focus();
+  }
+}
+
 function daysUntil(dateStr) {
   if (!dateStr) return null;
   const target = new Date(dateStr);
@@ -292,14 +453,76 @@ function renderTrainingLoadSection(container, loadData) {
   }
 }
 
+function weekdayLabel(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { weekday: "short" });
+}
+
+function renderProgrammeTable(container, programme) {
+  const days = programme.days || [];
+  if (programme.notes) {
+    container.appendChild(el("div", { class: "programme-notes", text: programme.notes }));
+  }
+
+  const table = el("table", { class: "programme-table" });
+  const thead = el("thead");
+  thead.appendChild(
+    el("tr", {}, [
+      el("th", { text: "Date" }),
+      el("th", { text: "Training" }),
+      el("th", { text: "Nutrition" }),
+    ])
+  );
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  days.forEach((day) => {
+    const row = el("tr", { class: "day-row" }, [
+      el("td", { class: "day-date" }, [
+        el("div", { class: "day-weekday", text: weekdayLabel(day.date) }),
+        el("div", { class: "day-date-text", text: day.date }),
+      ]),
+      el("td", { text: day.training_summary || "-" }),
+      el("td", { text: day.nutrition_summary || "-" }),
+    ]);
+
+    const detailRow = el("tr", { class: "day-detail-row hidden" });
+    const detailCell = el("td", { colspan: "3" }, [
+      el("div", { class: "day-detail" }, [
+        el("div", { class: "day-detail-label", text: "Training" }),
+        el("div", { class: "day-detail-text", text: day.training_detail || "No detail." }),
+        el("div", { class: "day-detail-label", text: "Nutrition" }),
+        el("div", { class: "day-detail-text", text: day.nutrition_detail || "No detail." }),
+      ]),
+    ]);
+    detailRow.appendChild(detailCell);
+
+    row.addEventListener("click", () => {
+      detailRow.classList.toggle("hidden");
+      row.classList.toggle("expanded");
+    });
+
+    tbody.appendChild(row);
+    tbody.appendChild(detailRow);
+  });
+  table.appendChild(tbody);
+
+  const tableWrap = el("div", { class: "programme-table-wrap" });
+  tableWrap.appendChild(table);
+  container.appendChild(tableWrap);
+}
+
 async function renderDashboard(container, role) {
   container.innerHTML = "";
-  const [profileResp, loadResp] = await Promise.all([
+  const [profileResp, loadResp, statusResp] = await Promise.all([
     fetch("/profile"),
     fetch("/dashboard/training-load"),
+    fetch("/programme/status"),
   ]);
   const profile = await profileResp.json();
   const loadData = await loadResp.json();
+  const programmeStatus = await statusResp.json();
 
   const wrap = el("div", { class: "dashboard" });
 
@@ -313,7 +536,7 @@ async function renderDashboard(container, role) {
   }
 
   const header = el("div", { class: "dashboard-header" });
-  header.appendChild(el("h1", { text: `Welcome back${profile.name ? ", " + profile.name : ""}.` }));
+  header.appendChild(el("h1", { text: profile.name ? `Welcome, ${profile.name}.` : "Welcome." }));
   if (role !== "guest") {
     const syncBtn = el("button", { class: "primary sync-btn", text: "Sync now" });
     header.appendChild(syncBtn);
@@ -349,6 +572,37 @@ async function renderDashboard(container, role) {
     );
   });
   wrap.appendChild(grid);
+
+  if (profile.profile_summary) {
+    wrap.appendChild(el("div", { class: "summary-card", text: profile.profile_summary }));
+  }
+
+  const programmeSection = el("div", { class: "programme-section" });
+  if (!programmeStatus.has_programme) {
+    const cta = el("div", { class: "programme-cta" });
+    cta.appendChild(el("h2", { text: "Your training & nutrition programme" }));
+    cta.appendChild(
+      el("div", {
+        class: "programme-cta-text",
+        text: "You don't have a plan yet. Build one and I'll map out your training and fueling day by day.",
+      })
+    );
+    const buildBtn = el("button", { class: "primary programme-cta-btn", text: "Build my programme" });
+    buildBtn.addEventListener("click", () => renderProgrammeChat(container));
+    cta.appendChild(buildBtn);
+    programmeSection.appendChild(cta);
+  } else {
+    const programmeHeader = el("div", { class: "programme-header" });
+    programmeHeader.appendChild(el("h2", { text: "Your programme" }));
+    const rebuildBtn = el("button", { class: "secondary programme-rebuild-btn", text: "Rebuild" });
+    rebuildBtn.addEventListener("click", () => renderProgrammeChat(container));
+    programmeHeader.appendChild(rebuildBtn);
+    programmeSection.appendChild(programmeHeader);
+
+    const programme = await (await fetch("/programme")).json();
+    renderProgrammeTable(programmeSection, programme);
+  }
+  wrap.appendChild(programmeSection);
 
   const chartCard = el("div", { class: "chart-card" });
   chartCard.appendChild(el("h2", { class: "chart-title", text: "Training load trend" }));

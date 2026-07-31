@@ -167,6 +167,216 @@ def run_onboarding_chat(messages: list[dict], draft: dict) -> tuple[str, dict, b
     return reply, updated_draft, done
 
 
+def _profile_context_summary(profile: dict) -> str:
+    lines = [
+        f"Name: {profile.get('name') or 'unknown'}, Age: {profile.get('age') or 'unknown'}",
+        f"Goal: {profile.get('goal_event') or 'not specified'} on {profile.get('goal_date') or 'unknown date'}",
+        f"Event demands: {profile.get('event_demand_type') or 'not specified'}",
+        f"FTP: {profile.get('ftp') or 'unknown'}W",
+        f"Experience level: {profile.get('experience_level') or 'not specified'}",
+        f"Recent weekly hours: {profile.get('recent_weekly_hours') or 'unknown'} "
+        f"({profile.get('recent_structure_notes') or 'no notes'})",
+        f"Available hours/week: {profile.get('available_hours') or 'unknown'}, "
+        f"distribution: {profile.get('hours_distribution') or 'not specified'}",
+        f"Setup: {profile.get('training_setup') or 'not specified'}, "
+        f"power source: {profile.get('power_source') or 'not specified'}",
+        f"Constraints: {profile.get('constraints') or 'none stated'}",
+        f"Sex: {profile.get('sex') or 'not specified'}, height: {profile.get('height_cm') or 'unknown'} cm, "
+        f"weight: {profile.get('weight_kg') or 'unknown'} kg",
+        f"Weight goal: {profile.get('weight_goal') or 'not specified'}",
+        f"Lifestyle activity level: {profile.get('lifestyle_activity_level') or 'not specified'}",
+        f"Dietary restrictions: {profile.get('dietary_restrictions') or 'none stated'}",
+        f"Eating pattern: {profile.get('eating_pattern') or 'not specified'}",
+        f"Timezone: {profile.get('timezone') or 'not specified'}, "
+        f"wake time: {profile.get('wake_time') or 'not specified'}",
+        f"Check-in preference: {profile.get('checkin_intensity') or 'not specified'}",
+    ]
+    return "\n".join(lines)
+
+
+ATHLETE_SUMMARY_PROMPT = """Write a short coach's note about this athlete based on their intake profile
+below - 3-4 sentences covering who they are, what they're working toward, and anything notable about
+their situation (experience level, constraints, current fitness). Write it like a coach jotting a quick
+read on a new athlete - warm but direct, plain prose, no headers, no bullet points, no bold text."""
+
+
+def generate_athlete_summary(profile: dict) -> str:
+    context = _profile_context_summary(profile)
+    resp = _client().messages.create(
+        model=MODEL,
+        max_tokens=400,
+        system=ATHLETE_SUMMARY_PROMPT,
+        messages=[{"role": "user", "content": f"ATHLETE PROFILE:\n{context}"}],
+    )
+    return "\n\n".join(
+        block.text.strip() for block in resp.content if block.type == "text" and block.text.strip()
+    )
+
+
+PROGRAMME_DIALOGUE_PROMPT = """You are Coach, continuing to work with an athlete whose intake profile is
+below. You're about to build them a training and nutrition programme, but first want a quick check-in:
+confirm anything time-sensitive (upcoming travel, races, current fatigue/form, illness or niggles),
+sanity-check their weekly schedule (which day suits a long ride, which day(s) should be rest), and
+surface anything from their profile worth double-checking before you commit to a plan.
+
+Keep it short - this is a quick check-in before building the plan, not a second onboarding. If nothing
+raises questions, say so and ask if there's anything on their mind for this upcoming block, then wrap up.
+ATHLETE PROFILE and CURRENT PLANNING NOTES are below - don't re-ask for anything already covered there.
+
+Stay in character: direct, a little blunt, but constructive. Reply with a few sentences of plain
+conversational text - no lists, no tool talk."""
+
+PROGRAMME_KICKOFF_MESSAGE = {
+    "role": "user",
+    "content": "(This is the start of the check-in before building my programme - kick it off.)",
+}
+
+PROGRAMME_EXTRACTION_PROMPT = """Read the conversation between an AI cycling coach and an athlete they're
+about to build a training programme for. Call record_notes with the full up-to-date planning notes -
+anything relevant to building the plan: schedule preferences, constraints, current form/fatigue, upcoming
+travel or events, anything they flagged. Rewrite the complete notes each time, don't just append.
+
+Set ready_to_generate to true once the check-in feels complete enough to build a solid plan - don't drag
+it out over many turns."""
+
+PROGRAMME_RECORD_TOOL = {
+    "name": "record_notes",
+    "description": "Save the athlete's up-to-date planning notes, and whether we're ready to generate the programme.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "notes": {"type": "string"},
+            "ready_to_generate": {"type": "boolean"},
+        },
+        "required": ["ready_to_generate"],
+    },
+}
+
+
+def run_programme_chat(messages: list[dict], draft: dict, profile: dict) -> tuple[str, dict, bool]:
+    profile_context = _profile_context_summary(profile)
+    notes = draft.get("notes") or "(nothing yet)"
+    api_messages = [PROGRAMME_KICKOFF_MESSAGE, *messages]
+
+    dialogue_resp = _client().messages.create(
+        model=MODEL,
+        max_tokens=512,
+        system=(
+            f"{PROGRAMME_DIALOGUE_PROMPT}\n\nATHLETE PROFILE:\n{profile_context}\n\n"
+            f"CURRENT PLANNING NOTES:\n{notes}"
+        ),
+        messages=api_messages,
+    )
+    reply = "\n\n".join(
+        block.text.strip() for block in dialogue_resp.content if block.type == "text" and block.text.strip()
+    )
+    if not reply:
+        reply = "Got it."
+
+    if not messages:
+        return reply, draft, False
+
+    extraction_resp = _client().messages.create(
+        model=MODEL,
+        max_tokens=768,
+        system=f"{PROGRAMME_EXTRACTION_PROMPT}\n\nCURRENT PLANNING NOTES:\n{notes}",
+        tools=[PROGRAMME_RECORD_TOOL],
+        tool_choice={"type": "tool", "name": "record_notes"},
+        messages=api_messages,
+    )
+    updated_draft = dict(draft)
+    done = False
+    for block in extraction_resp.content:
+        if block.type == "tool_use" and block.name == "record_notes":
+            data = dict(block.input)
+            done = bool(data.pop("ready_to_generate", False))
+            if data.get("notes"):
+                updated_draft["notes"] = data["notes"]
+
+    return reply, updated_draft, done
+
+
+GENERATE_PROGRAMME_PROMPT = """You are Coach, building a day-by-day training and nutrition programme for
+an athlete based on their profile and planning notes below. Today's date is {today}.
+
+Decide the right length for this block yourself: if their goal event is 5 weeks or less away, cover every
+day from tomorrow through the event (including a taper). Otherwise, build a focused ~4-week block (28
+days) leading toward their goal - you don't need to plan all the way to the event in one shot, this block
+will be refreshed later.
+
+For each day, decide the training session (or explicitly a rest/recovery day) appropriate for their
+experience level, available hours, weekly hours distribution, and current form - apply real periodization
+(progressive overload, a down week roughly every 3-4 weeks, taper before the event if it falls in this
+block). Pair it with nutrition guidance sized to that day's training load and their profile (weight, goal,
+eating pattern). Call set_programme once with the full block."""
+
+GENERATE_PROGRAMME_TOOL = {
+    "name": "set_programme",
+    "description": "Save the generated day-by-day training and nutrition programme.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "programme_notes": {
+                "type": "string",
+                "description": "A short paragraph explaining the overall approach/periodization for this block.",
+            },
+            "days": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "date": {"type": "string", "description": "ISO date, YYYY-MM-DD"},
+                        "training_summary": {
+                            "type": "string",
+                            "description": "Short one-line summary for a table cell, e.g. 'Endurance ride, 90min Z2'.",
+                        },
+                        "training_detail": {
+                            "type": "string",
+                            "description": "Full session description: warm-up, main set, cooldown, target zones, notes.",
+                        },
+                        "training_duration_mins": {"type": "integer"},
+                        "training_load": {"type": "integer", "description": "Estimated training load (TSS-like)."},
+                        "nutrition_summary": {
+                            "type": "string",
+                            "description": "Short one-line nutrition note for the table.",
+                        },
+                        "nutrition_detail": {
+                            "type": "string",
+                            "description": "Fuel plan for the day: pre/during/post-ride nutrition, daily targets.",
+                        },
+                    },
+                    "required": ["date", "training_summary", "training_detail", "nutrition_summary", "nutrition_detail"],
+                },
+            },
+        },
+        "required": ["days"],
+    },
+}
+
+
+def generate_training_programme(profile: dict, notes: str) -> dict:
+    context = _profile_context_summary(profile)
+    system = GENERATE_PROGRAMME_PROMPT.format(today=date.today().isoformat())
+    resp = _client().messages.create(
+        model=MODEL,
+        max_tokens=16000,
+        system=system,
+        tools=[GENERATE_PROGRAMME_TOOL],
+        tool_choice={"type": "tool", "name": "set_programme"},
+        messages=[
+            {
+                "role": "user",
+                "content": f"ATHLETE PROFILE:\n{context}\n\nPLANNING NOTES:\n{notes or '(none)'}",
+            }
+        ],
+    )
+    for block in resp.content:
+        if block.type == "tool_use" and block.name == "set_programme":
+            data = dict(block.input)
+            return {"notes": data.get("programme_notes", ""), "days": data.get("days", [])}
+    return {"notes": "", "days": []}
+
+
 def _coach_profile_summary(row: sqlite3.Row | None) -> str:
     if row is None or not row["goal_event"]:
         return "No profile set yet."

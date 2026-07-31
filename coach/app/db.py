@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS profile (
     strava_refresh_token TEXT,
     strava_expires_at INTEGER,
     telegram_chat_id TEXT,
+    profile_summary TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -98,6 +99,22 @@ CREATE TABLE IF NOT EXISTS daily_logs (
     post_meal_text TEXT,
     other_meals_text TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS programme (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    notes TEXT,
+    generated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS programme_days (
+    date TEXT PRIMARY KEY,
+    training_summary TEXT,
+    training_detail TEXT,
+    training_duration_mins INTEGER,
+    training_load INTEGER,
+    nutrition_summary TEXT,
+    nutrition_detail TEXT
 );
 """
 
@@ -152,6 +169,7 @@ PROFILE_MIGRATION_COLUMNS = [
     ("wake_time", "TEXT"),
     ("checkin_intensity", "TEXT"),
     ("onboarding_completed_at", "TEXT"),
+    ("profile_summary", "TEXT"),
 ]
 
 

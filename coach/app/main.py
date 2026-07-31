@@ -5,7 +5,14 @@ from fastapi import Depends, FastAPI, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.agents import run_coach, run_nutritionist, run_onboarding_chat
+from app.agents import (
+    generate_athlete_summary,
+    generate_training_programme,
+    run_coach,
+    run_nutritionist,
+    run_onboarding_chat,
+    run_programme_chat,
+)
 from app.auth import (
     GUEST_PROFILES,
     check_owner_credentials,
@@ -21,9 +28,17 @@ from app.profile import (
     clear_onboarding,
     get_profile,
     is_onboarding_complete,
+    save_profile_summary,
     upsert_onboarding_profile,
 )
-from app.schemas import LoginPayload, OnboardingChatPayload, OnboardingPayload
+from app.programme import get_programme, save_programme
+from app.schemas import (
+    LoginPayload,
+    OnboardingChatPayload,
+    OnboardingPayload,
+    ProgrammeChatPayload,
+    ProgrammeGeneratePayload,
+)
 from app.strava_client import build_authorize_url, exchange_code_for_tokens
 from app.sync import sync_intervals, sync_strava
 
@@ -112,13 +127,16 @@ def onboarding_chat_route(payload: OnboardingChatPayload, session=Depends(requir
 
 @app.post("/onboarding/complete")
 def onboarding_complete(payload: OnboardingPayload, session=Depends(require_session)):
+    data = payload.dict()
+    summary = generate_athlete_summary(data)
     if session["role"] == "guest":
-        data = payload.dict()
         data["onboarding_completed_at"] = "guest"
+        data["profile_summary"] = summary
         GUEST_PROFILES[session["guest_id"]] = data
         return {"status": "ok"}
     with db_session() as conn:
         upsert_onboarding_profile(conn, payload.dict())
+        save_profile_summary(conn, summary)
     return {"status": "ok"}
 
 
@@ -134,11 +152,62 @@ def onboarding_reset(session=Depends(require_session)):
 
 @app.get("/profile")
 def profile(session=Depends(require_session)):
+    return _current_profile(session)
+
+
+def _current_profile(session: dict) -> dict:
     if session["role"] == "guest":
         return GUEST_PROFILES.get(session["guest_id"], {})
     with db_session() as conn:
         row = get_profile(conn)
         return dict(row) if row else {}
+
+
+@app.get("/programme/status")
+def programme_status(session=Depends(require_session)):
+    if session["role"] == "guest":
+        days = (GUEST_PROFILES.get(session["guest_id"], {}).get("programme") or {}).get("days", [])
+    else:
+        with db_session() as conn:
+            days = [dict(d) for d in conn.execute("SELECT date FROM programme_days ORDER BY date").fetchall()]
+    if not days:
+        return {"has_programme": False}
+    return {
+        "has_programme": True,
+        "start_date": days[0]["date"],
+        "end_date": days[-1]["date"],
+        "days_count": len(days),
+    }
+
+
+@app.get("/programme")
+def programme_get_route(session=Depends(require_session)):
+    if session["role"] == "guest":
+        return GUEST_PROFILES.get(session["guest_id"], {}).get("programme") or {"notes": None, "days": []}
+    with db_session() as conn:
+        return get_programme(conn)
+
+
+@app.post("/programme/chat")
+def programme_chat_route(payload: ProgrammeChatPayload, session=Depends(require_session)):
+    profile_data = _current_profile(session)
+    reply, draft, done = run_programme_chat(
+        [m.dict() for m in payload.messages], payload.draft, profile_data
+    )
+    return {"reply": reply, "draft": draft, "done": done}
+
+
+@app.post("/programme/generate")
+def programme_generate_route(payload: ProgrammeGeneratePayload, session=Depends(require_session)):
+    profile_data = _current_profile(session)
+    result = generate_training_programme(profile_data, payload.notes)
+    if session["role"] == "guest":
+        guest_profile = GUEST_PROFILES.setdefault(session["guest_id"], {})
+        guest_profile["programme"] = result
+        return {"status": "ok"}
+    with db_session() as conn:
+        save_programme(conn, result.get("notes", ""), result.get("days", []))
+    return {"status": "ok"}
 
 
 @app.get("/dashboard/training-load")

@@ -62,6 +62,17 @@ def clear_onboarding(conn: sqlite3.Connection) -> None:
     conn.execute("UPDATE profile SET onboarding_completed_at = NULL WHERE id = 1")
 
 
+def save_profile_summary(conn: sqlite3.Connection, summary: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO profile (id, profile_summary)
+        VALUES (1, :summary)
+        ON CONFLICT(id) DO UPDATE SET profile_summary=excluded.profile_summary
+        """,
+        {"summary": summary},
+    )
+
+
 def set_telegram_chat_id(conn: sqlite3.Connection, chat_id: str) -> None:
     conn.execute(
         """
