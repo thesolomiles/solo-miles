@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "coach-web",
-      "runtimeExecutable": "coach/.venv/bin/uvicorn",
-      "runtimeArgs": ["app.main:app", "--port", "8008", "--app-dir", "coach"],
+      "autoPort": false,
+      "url": "http://localhost:8008",
       "port": 8008
     }
   ]

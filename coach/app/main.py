@@ -7,11 +7,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.agents import (
-    generate_athlete_summary,
-    run_coach_brief,
-    run_onboarding_chat,
-)
+from app.agents import run_coach_brief
 from app.auth import (
     check_owner_credentials,
     clear_session_cookie,
@@ -22,19 +18,9 @@ from app.auth import (
 from app.checkin import deliver_checkin
 from app.config import settings
 from app.db import db_session, init_db
-from app.profile import (
-    clear_onboarding,
-    get_profile,
-    is_onboarding_complete,
-    save_profile_summary,
-    upsert_onboarding_profile,
-)
+from app.profile import clear_onboarding, get_profile, is_onboarding_complete
 from app.programme import get_programme
-from app.schemas import (
-    LoginPayload,
-    OnboardingChatPayload,
-    OnboardingPayload,
-)
+from app.schemas import LoginPayload
 from app.strava_client import build_authorize_url, exchange_code_for_tokens
 from app.sync import sync_one_strava_activity, sync_strava
 from app.telegram_bot import get_bot_username
@@ -167,25 +153,9 @@ def onboarding_status(_=Depends(require_session)):
         return {"completed": is_onboarding_complete(conn)}
 
 
-@app.post("/onboarding/chat")
-def onboarding_chat_route(payload: OnboardingChatPayload, _=Depends(require_session)):
-    reply, draft, done = run_onboarding_chat(
-        [m.dict() for m in payload.messages], payload.draft
-    )
-    return {"reply": reply, "draft": draft, "done": done}
-
-
-@app.post("/onboarding/complete")
-def onboarding_complete(payload: OnboardingPayload, _=Depends(require_session)):
-    summary = generate_athlete_summary(payload.dict())
-    with db_session() as conn:
-        upsert_onboarding_profile(conn, payload.dict())
-        save_profile_summary(conn, summary)
-    return {"status": "ok"}
-
-
 @app.post("/onboarding/reset")
 def onboarding_reset(_=Depends(require_session)):
+    # Onboarding itself is Telegram-driven now; this just lets the owner re-trigger it.
     with db_session() as conn:
         clear_onboarding(conn)
     return {"status": "ok"}

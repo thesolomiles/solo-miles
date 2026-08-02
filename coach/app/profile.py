@@ -2,9 +2,44 @@ from __future__ import annotations
 
 import sqlite3
 
+# The intake fields the coach collects during onboarding (Telegram-driven). These map 1:1 to
+# profile columns; everything else on the row is infra (credentials, telegram_chat_id, etc.).
+ONBOARDING_FIELDS = [
+    "name", "age", "goal_event", "goal_date", "event_demand_type", "ftp",
+    "ftp_test_method", "ftp_test_date", "power_curve_json", "experience_level",
+    "recent_weekly_hours", "recent_structure_notes", "available_hours",
+    "hours_distribution", "training_setup", "power_source", "constraints", "sex",
+    "height_cm", "weight_kg", "weight_goal", "lifestyle_activity_level",
+    "dietary_restrictions", "eating_pattern", "timezone", "wake_time", "checkin_intensity",
+]
+
 
 def get_profile(conn: sqlite3.Connection) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM profile WHERE id = 1").fetchone()
+
+
+def get_onboarding_draft(conn: sqlite3.Connection) -> dict:
+    """The intake fields collected so far (non-null), for feeding back as CURRENT KNOWN PROFILE."""
+    row = get_profile(conn)
+    if row is None:
+        return {}
+    return {f: row[f] for f in ONBOARDING_FIELDS if row[f] is not None}
+
+
+def save_onboarding_draft(conn: sqlite3.Connection, fields: dict) -> None:
+    """Persist partial intake fields as they're learned, WITHOUT marking onboarding complete."""
+    data = {k: v for k, v in fields.items() if k in ONBOARDING_FIELDS and v not in (None, "")}
+    if not data:
+        return
+    columns = list(data.keys())
+    col_list = ", ".join(["id", *columns])
+    placeholders = ", ".join(["1", *(f":{c}" for c in columns)])
+    set_clause = ", ".join(f"{c}=excluded.{c}" for c in columns)
+    conn.execute(
+        f"INSERT INTO profile ({col_list}) VALUES ({placeholders}) "
+        f"ON CONFLICT(id) DO UPDATE SET {set_clause}",
+        data,
+    )
 
 
 def upsert_strava_tokens(

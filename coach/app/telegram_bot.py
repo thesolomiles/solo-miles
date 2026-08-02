@@ -10,13 +10,27 @@ from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-from app.agents import generate_training_programme, run_coach_brief, run_coach_conversation
+from app.agents import (
+    generate_athlete_summary,
+    generate_training_programme,
+    run_coach_brief,
+    run_coach_conversation,
+    run_onboarding_chat,
+)
 from app.checkin import deliver_checkin
 from app.config import settings
 from app.db import db_session, init_db
 from app.memory import add_memory, append_turn, clear_conversation, memory_block, recent_turns
 from app.notify import chunk_message
-from app.profile import get_profile, is_onboarding_complete, set_telegram_chat_id
+from app.profile import (
+    get_onboarding_draft,
+    get_profile,
+    is_onboarding_complete,
+    save_onboarding_draft,
+    save_profile_summary,
+    set_telegram_chat_id,
+    upsert_onboarding_profile,
+)
 from app.programme import save_programme
 from app.sync import sync_strava
 
@@ -84,6 +98,39 @@ def _summarize_plan_for_chat(plan: dict) -> str:
     return "\n".join(lines) or "Plan drafted."
 
 
+ONBOARDING_DONE_MESSAGE = (
+    "That's everything I need for now - I've got your profile set up. Talk to me anytime, and "
+    "whenever you're ready just say the word and I'll build you a plan."
+)
+
+
+def _onboarding_turn(user_text: str | None) -> tuple[str, bool]:
+    """Run one guided-intake turn over Telegram. Returns (reply, done).
+
+    `user_text` is None to kick off the opening greeting. Intake state lives in the DB: the
+    conversation table holds the turns, and partial fields are saved onto the profile row (without
+    marking it complete) until the coach decides intake is finished.
+    """
+    with db_session() as conn:
+        draft = get_onboarding_draft(conn)
+        history = recent_turns(conn)
+        if user_text:
+            append_turn(conn, "user", user_text)
+            history = history + [{"role": "user", "content": user_text}]
+
+    reply, updated_draft, done = run_onboarding_chat(history, draft)
+
+    with db_session() as conn:
+        append_turn(conn, "assistant", reply)
+        if done:
+            summary = generate_athlete_summary(updated_draft)
+            upsert_onboarding_profile(conn, updated_draft)
+            save_profile_summary(conn, summary)
+        else:
+            save_onboarding_draft(conn, updated_draft)
+    return reply, done
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     with db_session() as conn:
         set_telegram_chat_id(conn, str(update.effective_chat.id))
@@ -95,11 +142,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "coach: ask about your training, your fuelling, or tell me when you want me to build you a "
             "plan. I'll also check in with you as things happen. /brief anytime for my current read on you."
         )
-    else:
-        await update.message.reply_text(
-            "Almost there - finish setting up your profile here first, "
-            f"then come back and message me:\n{settings.web_base_url}"
-        )
+        return
+
+    # Not onboarded yet - kick off the guided intake right here in the chat.
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+    try:
+        reply, _ = await asyncio.to_thread(_onboarding_turn, None)
+    except Exception:
+        logger.exception("onboarding kickoff failed")
+        reply = "Hey - I'm your coach. To get started, tell me a bit about yourself and what you're training for."
+    for chunk in chunk_message(reply):
+        await update.message.reply_text(chunk)
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -148,11 +201,24 @@ async def coach_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     with db_session() as conn:
         set_telegram_chat_id(conn, chat_id)
-        if not is_onboarding_complete(conn):
-            await update.message.reply_text(
-                f"Finish setting up your profile first, then we can talk: {settings.web_base_url}"
-            )
+        onboarded = is_onboarding_complete(conn)
+
+    # Until the athlete is onboarded, every message is a guided-intake turn.
+    if not onboarded:
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        try:
+            reply, done = await asyncio.to_thread(_onboarding_turn, user_text)
+        except Exception:
+            logger.exception("onboarding turn failed")
+            await update.message.reply_text("Something went wrong on my end. Try that again in a moment.")
             return
+        for chunk in chunk_message(reply):
+            await update.message.reply_text(chunk)
+        if done:
+            await update.message.reply_text(ONBOARDING_DONE_MESSAGE)
+        return
+
+    with db_session() as conn:
         profile = dict(get_profile(conn))
         append_turn(conn, "user", user_text)
         history = recent_turns(conn)

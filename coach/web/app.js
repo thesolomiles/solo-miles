@@ -1,35 +1,9 @@
 const PERSONA_LABEL = { coach: "Coach", nutritionist: "Nutritionist" };
 
-const CHAT_STORAGE_KEY = "coach_onboarding_chat_v1";
-
 const LOGO_SVG = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
   <rect x="1.5" y="1.5" width="21" height="21" rx="7" fill="var(--color-primary)" />
   <path d="M6 14.5l3.2-4.2 2.6 2.4 3-4.7L18 12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
 </svg>`;
-
-let chatMessages = [];
-let chatDraft = {};
-
-function loadChat() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "{}");
-    chatMessages = saved.messages || [];
-    chatDraft = saved.draft || {};
-  } catch (e) {
-    chatMessages = [];
-    chatDraft = {};
-  }
-}
-
-function saveChat() {
-  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: chatMessages, draft: chatDraft }));
-}
-
-function clearChat() {
-  localStorage.removeItem(CHAT_STORAGE_KEY);
-  chatMessages = [];
-  chatDraft = {};
-}
 
 const SYNC_ICON =
   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
@@ -132,136 +106,6 @@ function createChatModal({ closable = true, subtitle = null, onClose = null } = 
   document.body.appendChild(overlay);
 
   return { overlay, log, textarea, sendBtn, close };
-}
-
-async function finishChatOnboarding(container) {
-  renderTransition(container, "Setting up your dashboard...");
-
-  const [resp] = await Promise.all([
-    fetch("/onboarding/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(chatDraft),
-    }),
-    new Promise((resolve) => setTimeout(resolve, 900)),
-  ]);
-  if (!resp.ok) {
-    alert("Something went wrong saving your profile. Please try again.");
-    return;
-  }
-  clearChat();
-  boot();
-}
-
-function renderChat(container) {
-  loadChat();
-  // Keep the dashboard rendered behind the modal (it shows through the glass overlay).
-
-  // Closing an unfinished chat throws the whole conversation away - nothing is
-  // stored until the coach has everything and onboarding completes.
-  const modal = createChatModal({
-    closable: true,
-    onClose: () => {
-      clearChat();
-      renderDashboard(container);
-    },
-  });
-  const { log, textarea, sendBtn } = modal;
-
-  function renderLog() {
-    log.innerHTML = "";
-    chatMessages.forEach((m) => {
-      log.appendChild(chatBubble(m.role, m.content));
-    });
-    log.scrollTop = log.scrollHeight;
-  }
-
-  function setInputEnabled(enabled) {
-    sendBtn.disabled = !enabled;
-    textarea.disabled = !enabled;
-  }
-
-  async function open() {
-    setInputEnabled(false);
-    const typing = typingBubble();
-    log.appendChild(typing);
-    log.scrollTop = log.scrollHeight;
-
-    try {
-      const resp = await fetch("/onboarding/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [], draft: chatDraft }),
-      });
-      if (!resp.ok) throw new Error("bad response");
-      const data = await resp.json();
-      chatMessages.push({ role: "assistant", content: data.reply });
-      chatDraft = data.draft || chatDraft;
-      saveChat();
-      renderLog();
-    } catch (e) {
-      typing.remove();
-      log.appendChild(chatBubble("assistant", "Something went wrong loading your coach - refresh to try again."));
-    } finally {
-      setInputEnabled(true);
-      textarea.focus();
-    }
-  }
-
-  async function send() {
-    const text = textarea.value.trim();
-    if (!text || sendBtn.disabled) return;
-
-    chatMessages.push({ role: "user", content: text });
-    textarea.value = "";
-    saveChat();
-    renderLog();
-
-    setInputEnabled(false);
-    const typing = typingBubble();
-    log.appendChild(typing);
-    log.scrollTop = log.scrollHeight;
-
-    try {
-      const resp = await fetch("/onboarding/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: chatMessages, draft: chatDraft }),
-      });
-      if (!resp.ok) throw new Error("bad response");
-      const data = await resp.json();
-      chatMessages.push({ role: "assistant", content: data.reply });
-      chatDraft = data.draft || chatDraft;
-      saveChat();
-      renderLog();
-      if (data.done) {
-        modal.close();
-        await finishChatOnboarding(container);
-        return;
-      }
-    } catch (e) {
-      typing.remove();
-      log.appendChild(chatBubble("assistant", "Something went wrong - try sending that again."));
-    } finally {
-      setInputEnabled(true);
-      textarea.focus();
-    }
-  }
-
-  sendBtn.addEventListener("click", send);
-  textarea.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  });
-
-  if (chatMessages.length === 0) {
-    open();
-  } else {
-    renderLog();
-    textarea.focus();
-  }
 }
 
 function daysUntil(dateStr) {
@@ -889,6 +733,7 @@ async function renderDashboard(container) {
   wrap.appendChild(header);
 
   if (!profile.onboarding_completed_at) {
+    const connections = await (await fetch("/connections/status")).json();
     const narrow = el("div", { class: "narrow-col" });
     narrow.appendChild(
       el("div", {
@@ -897,16 +742,31 @@ async function renderDashboard(container) {
       })
     );
     const cta = el("div", { class: "programme-cta" });
-    cta.appendChild(el("h2", { text: "Talk to your coach" }));
+    cta.appendChild(el("h2", { text: "Set up on Telegram" }));
     cta.appendChild(
       el("div", {
         class: "programme-cta-text",
-        text: "Tell your coach about your training, your goals, and your setup. The more you share, the more they have to work with - if you come in empty, that's fine too, we'll figure it out together.",
+        text: "Your coach gets to know you over Telegram. Open the chat and it'll walk you through a few questions - once that's done, your dashboard fills in here.",
       })
     );
-    const talkBtn = el("button", { class: "primary programme-cta-btn", text: "Speak to your coach" });
-    talkBtn.addEventListener("click", () => renderChat(container));
-    cta.appendChild(talkBtn);
+    if (connections.telegram_link) {
+      cta.appendChild(
+        el("a", {
+          class: "primary programme-cta-btn",
+          href: connections.telegram_link,
+          target: "_blank",
+          rel: "noopener",
+          text: "Open Telegram",
+        })
+      );
+    } else {
+      cta.appendChild(
+        el("div", {
+          class: "programme-cta-text",
+          text: "(Telegram bot link unavailable - check the bot is configured.)",
+        })
+      );
+    }
     narrow.appendChild(cta);
     wrap.appendChild(narrow);
     container.appendChild(wrap);
@@ -1100,7 +960,6 @@ async function renderTopBar(container) {
     "Log out",
     async () => {
       await fetch("/auth/logout", { method: "POST" });
-      clearChat();
       boot();
     },
     "menu-item--danger"
