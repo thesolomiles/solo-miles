@@ -9,13 +9,6 @@ const PROJECTS: WorkCardData[] = [
     cta: 'Try it',
     href: '/projects/japanese-flashcards',
   },
-  {
-    id: '02',
-    title: 'Training Coach',
-    desc: 'An AI cycling coach that syncs Strava and intervals.icu and messages me daily.',
-    cta: 'View project',
-    href: '/projects/coach',
-  },
 ]
 
 export function ProjectGrid() {
@@ -24,7 +17,7 @@ export function ProjectGrid() {
       {PROJECTS.map((project) => (
         <WorkCard key={project.id} {...project} />
       ))}
-      <ComingSoonCard id="03" />
+      <ComingSoonCard id="02" />
     </div>
   )
 }
