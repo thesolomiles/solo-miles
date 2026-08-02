@@ -62,43 +62,39 @@ CREATE TABLE IF NOT EXISTS activities (
     load INTEGER,
     avg_power INTEGER,
     np_power INTEGER,
+    avg_hr REAL,
     raw_json TEXT NOT NULL,
     synced_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS wellness (
-    date TEXT PRIMARY KEY,
-    hrv REAL,
-    sleep_secs INTEGER,
-    fatigue INTEGER,
-    ctl REAL,
-    atl REAL,
-    ramp_rate REAL,
-    raw_json TEXT NOT NULL,
-    synced_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS planned_workouts (
-    id INTEGER PRIMARY KEY,
-    date TEXT NOT NULL,
-    name TEXT,
-    description TEXT,
-    planned_duration_secs INTEGER,
-    planned_load INTEGER,
-    raw_json TEXT NOT NULL,
-    synced_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS daily_logs (
-    date TEXT PRIMARY KEY,
-    anchor_time TEXT,
-    coach_brief TEXT,
-    nutritionist_brief TEXT,
-    pre_meal_text TEXT,
-    during_meal_text TEXT,
-    post_meal_text TEXT,
-    other_meals_text TEXT,
+-- Persistent Telegram conversation history (single athlete, so no chat partitioning).
+-- Replaces the old in-memory history dict so the coach's memory survives restarts.
+CREATE TABLE IF NOT EXISTS conversation (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    role TEXT NOT NULL,          -- 'user' | 'assistant'
+    content TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Curated facts the coach chooses to remember about the athlete over time
+-- (e.g. "knee niggle since Aug", "hates trainer sessions"). This is the long-term
+-- store that lets the coach get to know the athlete like a human would.
+CREATE TABLE IF NOT EXISTS coach_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    source TEXT,                 -- where it came from, e.g. 'chat', 'post_workout'
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Log of proactive check-ins the coach has initiated. Doubles as a dedupe guard so a
+-- trigger fires at most once per moment (kind='morning'/'missed_workout' keyed on the
+-- date; kind='post_workout' keyed on the Strava activity id).
+CREATE TABLE IF NOT EXISTS checkins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (kind, ref)
 );
 
 CREATE TABLE IF NOT EXISTS programme (
@@ -129,6 +125,10 @@ def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(settings.database_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # WAL + a busy timeout so the web process (Strava webhook) and the bot process
+    # (scheduler + replies) can read/write the same SQLite file concurrently.
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -177,6 +177,10 @@ PROFILE_MIGRATION_COLUMNS = [
     ("profile_summary", "TEXT"),
 ]
 
+ACTIVITIES_MIGRATION_COLUMNS = [
+    ("avg_hr", "REAL"),
+]
+
 PROGRAMME_MIGRATION_COLUMNS = [
     ("phases_json", "TEXT"),
 ]
@@ -195,6 +199,8 @@ def init_db() -> None:
         # Additive migrations for columns added after a DB file already existed.
         for column, coldef in PROFILE_MIGRATION_COLUMNS:
             _add_column_if_missing(conn, "profile", column, coldef)
+        for column, coldef in ACTIVITIES_MIGRATION_COLUMNS:
+            _add_column_if_missing(conn, "activities", column, coldef)
         for column, coldef in PROGRAMME_MIGRATION_COLUMNS:
             _add_column_if_missing(conn, "programme", column, coldef)
         for column, coldef in PROGRAMME_DAYS_MIGRATION_COLUMNS:

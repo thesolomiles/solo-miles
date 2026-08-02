@@ -7,28 +7,44 @@ from datetime import date, timedelta
 from anthropic import Anthropic
 
 from app.config import settings
+from app.memory import memory_block, recent_turns
 from app.profile import get_profile
 
-MODEL = "claude-sonnet-4-6"
+# Fast, conversational model for the day-to-day work: onboarding, check-in chats,
+# per-day chat, daily briefs, and the athlete summary.
+CHAT_MODEL = "claude-sonnet-5"
+# Heavier model reserved for the one hard-reasoning task - designing a coherent,
+# periodized day-by-day programme where training load, phases, recovery, and the
+# athlete's constraints all have to hang together.
+PROGRAMME_MODEL = "claude-opus-5"
 
-COACH_SYSTEM_PROMPT = """You are a direct, blunt cycling coach. You have access to the athlete's stated
-goal (event, date, FTP, weekly hours available), their recent training data
-from intervals.icu (activities, load, wellness metrics), and their training
-history logged in this app. Assess their current training status relative to
-their goal - on track, overreaching, undertraining, fatigue signals, whatever
-the data shows. Be direct about what's wrong, don't soften bad news, but stay
-constructive - the goal is to help them adjust, not just criticize. Keep your
-response to a few sentences of reasoning, not a wall of text."""
+# Sonnet 5 and Opus 5 both enable thinking by default when `thinking` is unset.
+# We keep it off: these calls run on tight token budgets (and, for programme
+# generation, a large forced-tool payload), and the app has always run without a
+# separate thinking pass. Opus 5 accepts disabled thinking at effort <= high.
+NO_THINKING = {"type": "disabled"}
 
-NUTRITIONIST_SYSTEM_PROMPT = """You are a direct, blunt sports nutritionist. You have access to the athlete's
-profile (goal, weight if provided, weekly training hours) and today's planned
-training (duration/intensity if known). Calculate today's target calories and
-macros, and give clear eating windows relative to their training time (e.g.
-what to eat pre-ride, during if the session is long, and post-ride recovery
-window). When they report what they actually ate, compare it against target
-and flag it directly if it's insufficient or poorly timed - don't just log it
-silently. Keep responses concise: numbers plus the reasoning behind them, not
-a full report every time."""
+COACH_PERSONA = """You are the athlete's personal cycling coach - one person who handles both their
+training and their fuelling, and who has gotten to know them over time. Talk to them the way a
+real coach who's worked with them for a while would: warm, direct, a little blunt when it's
+warranted, but always in their corner. Text them the way a person texts - short, natural,
+conversational. No headers, no bullet-point dumps, no walls of text.
+
+Coach the human in front of you, not a dashboard. Reason from what they've actually done, what
+they've told you, and how they say they feel - never lecture them about abstract fitness or
+fatigue scores. When you mention a ride, refer to the real thing they did ("that two hours on
+Sunday"), not a metric. Ask how they're doing, remember what matters to them, and follow up on
+things they've mentioned before."""
+
+COACH_BRIEF_PROMPT = (
+    COACH_PERSONA
+    + """
+
+Right now you're writing a short "coach's thoughts" note for the athlete's dashboard - a few
+sentences, in your own voice, on where they're at and what's on your mind for them. Speak to
+them directly. Keep it human and specific to what they've actually been doing; don't recite
+numbers or hand them a report."""
+)
 
 
 ONBOARDING_DIALOGUE_PROMPT = """You are Coach, an AI cycling coach and nutrition advisor running a
@@ -132,8 +148,9 @@ def run_onboarding_chat(messages: list[dict], draft: dict) -> tuple[str, dict, b
     api_messages = [ONBOARDING_KICKOFF_MESSAGE, *messages]
 
     dialogue_resp = _client().messages.create(
-        model=MODEL,
+        model=CHAT_MODEL,
         max_tokens=512,
+        thinking=NO_THINKING,
         system=f"{ONBOARDING_DIALOGUE_PROMPT}\n\nCURRENT KNOWN PROFILE:\n{known}",
         messages=api_messages,
     )
@@ -147,8 +164,9 @@ def run_onboarding_chat(messages: list[dict], draft: dict) -> tuple[str, dict, b
         return reply, draft, False
 
     extraction_resp = _client().messages.create(
-        model=MODEL,
+        model=CHAT_MODEL,
         max_tokens=1024,
+        thinking=NO_THINKING,
         system=f"{EXTRACTION_SYSTEM_PROMPT}\n\nCURRENT KNOWN PROFILE:\n{known}",
         tools=[RECORD_FIELDS_TOOL],
         tool_choice={"type": "tool", "name": "record_fields"},
@@ -205,97 +223,15 @@ an opinion of them. Plain prose, no headers, no bullet points, no bold text."""
 def generate_athlete_summary(profile: dict) -> str:
     context = _profile_context_summary(profile)
     resp = _client().messages.create(
-        model=MODEL,
+        model=CHAT_MODEL,
         max_tokens=400,
+        thinking=NO_THINKING,
         system=ATHLETE_SUMMARY_PROMPT,
         messages=[{"role": "user", "content": f"ATHLETE PROFILE:\n{context}"}],
     )
     return "\n\n".join(
         block.text.strip() for block in resp.content if block.type == "text" and block.text.strip()
     )
-
-
-PROGRAMME_DIALOGUE_PROMPT = """You are Coach, continuing to work with an athlete whose intake profile is
-below. You're about to build them a training and nutrition programme, but first want a quick check-in:
-confirm anything time-sensitive (upcoming travel, races, current fatigue/form, illness or niggles),
-sanity-check their weekly schedule (which day suits a long ride, which day(s) should be rest), and
-surface anything from their profile worth double-checking before you commit to a plan.
-
-Keep it short - this is a quick check-in before building the plan, not a second onboarding. If nothing
-raises questions, say so and ask if there's anything on their mind for this upcoming block, then wrap up.
-ATHLETE PROFILE and CURRENT PLANNING NOTES are below - don't re-ask for anything already covered there.
-
-Stay in character: direct, a little blunt, but constructive. Reply with a few sentences of plain
-conversational text - no lists, no tool talk."""
-
-PROGRAMME_KICKOFF_MESSAGE = {
-    "role": "user",
-    "content": "(This is the start of the check-in before building my programme - kick it off.)",
-}
-
-PROGRAMME_EXTRACTION_PROMPT = """Read the conversation between an AI cycling coach and an athlete they're
-about to build a training programme for. Call record_notes with the full up-to-date planning notes -
-anything relevant to building the plan: schedule preferences, constraints, current form/fatigue, upcoming
-travel or events, anything they flagged. Rewrite the complete notes each time, don't just append.
-
-Set ready_to_generate to true once the check-in feels complete enough to build a solid plan - don't drag
-it out over many turns."""
-
-PROGRAMME_RECORD_TOOL = {
-    "name": "record_notes",
-    "description": "Save the athlete's up-to-date planning notes, and whether we're ready to generate the programme.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "notes": {"type": "string"},
-            "ready_to_generate": {"type": "boolean"},
-        },
-        "required": ["ready_to_generate"],
-    },
-}
-
-
-def run_programme_chat(messages: list[dict], draft: dict, profile: dict) -> tuple[str, dict, bool]:
-    profile_context = _profile_context_summary(profile)
-    notes = draft.get("notes") or "(nothing yet)"
-    api_messages = [PROGRAMME_KICKOFF_MESSAGE, *messages]
-
-    dialogue_resp = _client().messages.create(
-        model=MODEL,
-        max_tokens=512,
-        system=(
-            f"{PROGRAMME_DIALOGUE_PROMPT}\n\nATHLETE PROFILE:\n{profile_context}\n\n"
-            f"CURRENT PLANNING NOTES:\n{notes}"
-        ),
-        messages=api_messages,
-    )
-    reply = "\n\n".join(
-        block.text.strip() for block in dialogue_resp.content if block.type == "text" and block.text.strip()
-    )
-    if not reply:
-        reply = "Got it."
-
-    if not messages:
-        return reply, draft, False
-
-    extraction_resp = _client().messages.create(
-        model=MODEL,
-        max_tokens=768,
-        system=f"{PROGRAMME_EXTRACTION_PROMPT}\n\nCURRENT PLANNING NOTES:\n{notes}",
-        tools=[PROGRAMME_RECORD_TOOL],
-        tool_choice={"type": "tool", "name": "record_notes"},
-        messages=api_messages,
-    )
-    updated_draft = dict(draft)
-    done = False
-    for block in extraction_resp.content:
-        if block.type == "tool_use" and block.name == "record_notes":
-            data = dict(block.input)
-            done = bool(data.pop("ready_to_generate", False))
-            if data.get("notes"):
-                updated_draft["notes"] = data["notes"]
-
-    return reply, updated_draft, done
 
 
 GENERATE_PROGRAMME_PROMPT = """You are Coach, building a day-by-day training and nutrition programme for
@@ -396,8 +332,9 @@ def generate_training_programme(profile: dict, notes: str) -> dict:
     context = _profile_context_summary(profile)
     system = GENERATE_PROGRAMME_PROMPT.format(today=date.today().isoformat())
     resp = _client().messages.create(
-        model=MODEL,
+        model=PROGRAMME_MODEL,
         max_tokens=16000,
+        thinking=NO_THINKING,
         system=system,
         tools=[GENERATE_PROGRAMME_TOOL],
         tool_choice={"type": "tool", "name": "set_programme"},
@@ -419,45 +356,152 @@ def generate_training_programme(profile: dict, notes: str) -> dict:
     return {"notes": "", "phases": [], "days": []}
 
 
-def _coach_profile_summary(row: sqlite3.Row | None) -> str:
-    if row is None or not row["goal_event"]:
-        return "No profile set yet."
-    lines = [
-        f"Name: {row['name'] or 'unknown'}, Age: {row['age'] or 'unknown'}",
-        f"Goal: {row['goal_event']} on {row['goal_date']}",
-        f"Event demands: {row['event_demand_type'] or 'not specified'}",
-        f"FTP: {row['ftp']}W (tested via {row['ftp_test_method'] or 'unknown method'} "
-        f"on {row['ftp_test_date'] or 'unknown date'})",
-        f"Experience level: {row['experience_level'] or 'not specified'}",
-        f"Recent weekly hours: {row['recent_weekly_hours']} "
-        f"({row['recent_structure_notes'] or 'no notes'})",
-        f"Available hours/week going forward: {row['available_hours']}, "
-        f"distribution: {row['hours_distribution'] or 'not specified'}",
-        f"Setup: {row['training_setup'] or 'not specified'}, "
-        f"power source: {row['power_source'] or 'not specified'}",
-        f"Constraints: {row['constraints'] or 'none stated'}",
-    ]
-    if row["power_curve_json"]:
-        try:
-            lines.append(f"Short-duration power: {json.loads(row['power_curve_json'])}")
-        except (ValueError, TypeError):
-            pass
-    return "\n".join(lines)
+COACH_CHAT_SYSTEM_PROMPT = (
+    COACH_PERSONA
+    + """
+
+You're chatting with them over Telegram. Their profile and what you've learned about them are
+below; use it and your judgement to answer training and nutrition questions as the one coach who
+covers both. When you learn something worth keeping - a niggle, a life constraint, a preference, a
+goal shift, how a block actually went - call remember so it sticks. Don't remember trivia or
+things already in their profile.
+
+Building a training plan - follow this exactly:
+1. When the athlete wants a training plan (or it's clearly time to build one), first have a quick
+   back-and-forth to confirm anything time-sensitive - upcoming travel or races, current fatigue or
+   form, illness or niggles, which days suit hard rides or rest. Keep it light, don't interrogate.
+2. Once you have enough, call generate_plan with a short notes summary. This DRAFTS a full day-by-day
+   training and nutrition plan. It is NOT saved and does NOT appear on their dashboard yet.
+3. After it drafts, run through the plan with the athlete in plain language - the overall approach, the
+   phases and why, how the weeks build, the key sessions, roughly how the fuelling scales. Then ask if
+   it works for them. DO NOT save it yet.
+4. Only call generate_plan again if the athlete actually asks for changes - redrafting is a slow,
+   expensive step, so don't rerun it just because they said yes or "looks good". Once they're happy
+   with the drafted plan, do NOT redraft; move to step 5.
+5. Saving needs TWO separate agreements. First the athlete has to be happy with the plan itself. Then
+   you tell them plainly that you're about to save it to their dashboard and ask them to confirm. Only
+   after they clearly say yes to saving do you call save_plan. Never call save_plan before the athlete
+   has seen a drafted plan and explicitly approved saving it to the dashboard."""
+)
+
+COACH_GENERATE_PLAN_TOOL = {
+    "name": "generate_plan",
+    "description": (
+        "Draft (but do NOT save) a full day-by-day training and nutrition plan for the athlete, using "
+        "the notes you've gathered. Call this only after a quick check-in, when the athlete wants a "
+        "plan. The drafted plan is held privately for review - it does not appear on their dashboard."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "notes": {
+                "type": "string",
+                "description": (
+                    "Short summary of everything relevant to building the plan: schedule preferences, "
+                    "constraints, current form/fatigue, upcoming travel or events."
+                ),
+            }
+        },
+        "required": ["notes"],
+    },
+}
+
+COACH_SAVE_PLAN_TOOL = {
+    "name": "save_plan",
+    "description": (
+        "Save the currently drafted plan to the athlete's dashboard so they can see it. Only call after "
+        "the athlete has reviewed the drafted plan, is happy with it, and has explicitly agreed to save "
+        "it to the dashboard. If no plan has been drafted yet, do not call this."
+    ),
+    "input_schema": {"type": "object", "properties": {}},
+}
+
+REMEMBER_TOOL = {
+    "name": "remember",
+    "description": (
+        "Save a durable fact about this athlete that's worth carrying into future conversations - "
+        "a niggle or injury, a life/schedule constraint, a preference, a goal shift, how a training "
+        "block actually went, anything that helps you coach them as a person. Don't use it for "
+        "trivia or for things already in their profile."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "fact": {
+                "type": "string",
+                "description": "One concise fact to remember, phrased so it stands on its own later.",
+            }
+        },
+        "required": ["fact"],
+    },
+}
+
+COACH_CHAT_TOOLS = [COACH_GENERATE_PLAN_TOOL, COACH_SAVE_PLAN_TOOL, REMEMBER_TOOL]
 
 
-def _nutritionist_profile_summary(row: sqlite3.Row | None) -> str:
-    if row is None or not row["goal_event"]:
-        return "No profile set yet."
-    return (
-        f"Goal: {row['goal_event']} on {row['goal_date']}\n"
-        f"Sex: {row['sex'] or 'not specified'}\n"
-        f"Height: {row['height_cm']} cm, Weight: {row['weight_kg']} kg\n"
-        f"Weight goal: {row['weight_goal'] or 'not specified'}\n"
-        f"Lifestyle activity level: {row['lifestyle_activity_level'] or 'not specified'}\n"
-        f"Dietary restrictions: {row['dietary_restrictions'] or 'none stated'}\n"
-        f"Eating pattern: {row['eating_pattern'] or 'not specified'}\n"
-        f"Available training hours/week: {row['available_hours']}"
+def run_coach_conversation(messages, profile, memory_text, generate_plan, save_plan, remember):
+    """Drive one Telegram coach turn (Sonnet) with a small tool loop.
+
+    ``messages`` is the plain text history (list of {"role", "content"}) ending in the athlete's new
+    message. ``memory_text`` is the block of facts the coach has remembered about this athlete.
+    ``generate_plan(notes) -> str`` drafts a plan with Opus and returns a short summary for the coach
+    to run through; ``save_plan() -> bool`` commits the currently drafted plan to the dashboard;
+    ``remember(fact)`` persists a durable fact. Returns the coach's reply text to send back.
+    """
+    system = (
+        f"{COACH_CHAT_SYSTEM_PROMPT}\n\nToday's date is {date.today().isoformat()}.\n\n"
+        f"ATHLETE PROFILE:\n{_profile_context_summary(profile)}\n\n"
+        f"WHAT YOU'VE LEARNED ABOUT THEM OVER TIME:\n{memory_text or '(nothing yet)'}"
     )
+    convo = [{"role": m["role"], "content": m["content"]} for m in messages]
+    client = _client()
+    final_text = ""
+
+    for _ in range(6):  # safety cap on tool round-trips within a single turn
+        resp = client.messages.create(
+            model=CHAT_MODEL,
+            max_tokens=1024,
+            thinking=NO_THINKING,
+            system=system,
+            tools=COACH_CHAT_TOOLS,
+            messages=convo,
+        )
+        text = "\n\n".join(
+            b.text.strip() for b in resp.content if b.type == "text" and b.text.strip()
+        )
+        if text:
+            final_text = text
+
+        tool_uses = [b for b in resp.content if b.type == "tool_use"]
+        if not tool_uses:
+            break
+
+        convo.append({"role": "assistant", "content": resp.content})
+        results = []
+        for tu in tool_uses:
+            if tu.name == "generate_plan":
+                summary = generate_plan(dict(tu.input).get("notes", ""))
+                results.append({"type": "tool_result", "tool_use_id": tu.id, "content": summary})
+            elif tu.name == "save_plan":
+                ok = save_plan()
+                results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tu.id,
+                        "content": (
+                            "Plan saved to the dashboard."
+                            if ok
+                            else "There's no drafted plan to save yet - draft one and get the athlete's "
+                            "approval first."
+                        ),
+                    }
+                )
+            elif tu.name == "remember":
+                remember(dict(tu.input).get("fact", ""))
+                results.append({"type": "tool_result", "tool_use_id": tu.id, "content": "Noted."})
+        convo.append({"role": "user", "content": results})
+
+    return final_text or "Sorry, something went wrong on my end - say that again?"
 
 
 def _recent_activities_summary(conn: sqlite3.Connection, days: int = 14) -> str:
@@ -479,72 +523,123 @@ def _recent_activities_summary(conn: sqlite3.Connection, days: int = 14) -> str:
     return "\n".join(lines)
 
 
-def _wellness_trend_summary(conn: sqlite3.Connection, days: int = 7) -> str:
-    since = (date.today() - timedelta(days=days)).isoformat()
-    today = date.today().isoformat()
-    rows = conn.execute(
-        "SELECT * FROM wellness WHERE date >= ? AND date <= ? ORDER BY date",
-        (since, today),
-    ).fetchall()
-    if not rows:
-        return "No wellness/load data available."
+def _todays_programme_day(conn: sqlite3.Connection, day: str | None = None) -> sqlite3.Row | None:
+    day = day or date.today().isoformat()
+    return conn.execute("SELECT * FROM programme_days WHERE date = ?", (day,)).fetchone()
+
+
+def _programme_day_line(row: sqlite3.Row | None) -> str:
+    if row is None or not (row["training_summary"] or "").strip():
+        return "Nothing on the plan for that day."
+    mins = row["training_duration_mins"]
+    dur = f", ~{mins} min" if mins else ""
+    fuel = ""
+    if row["calories"]:
+        fuel = (
+            f" Fuel: ~{row['calories']} kcal, {row['protein_g']}g P / "
+            f"{row['carbs_g']}g C / {row['fat_g']}g F."
+        )
+    return f"{row['training_summary']}{dur}.{fuel}".strip()
+
+
+def _athlete_knowledge(conn: sqlite3.Connection) -> str:
+    profile = get_profile(conn)
+    if profile is not None and profile["profile_summary"]:
+        who = profile["profile_summary"]
+    elif profile is not None:
+        who = _profile_context_summary(dict(profile))
+    else:
+        who = "No profile set yet."
+    return (
+        f"WHO THEY ARE\n{who}\n\n"
+        f"WHAT YOU'VE LEARNED ABOUT THEM OVER TIME\n{memory_block(conn)}"
+    )
+
+
+def _recent_conversation_block(conn: sqlite3.Connection, turns: int = 8) -> str:
+    history = recent_turns(conn, turns)
+    if not history:
+        return "(you haven't spoken recently)"
     lines = []
-    for r in rows:
-        line = f"- {r['date']}: CTL {r['ctl']}, ATL {r['atl']}, ramp rate {r['ramp_rate']}"
-        if r["hrv"] is not None:
-            line += f", HRV {r['hrv']}"
-        if r["sleep_secs"] is not None:
-            line += f", sleep {round(r['sleep_secs'] / 3600, 1)}h"
-        lines.append(line)
+    for m in history:
+        speaker = "You" if m["role"] == "assistant" else "Athlete"
+        lines.append(f"{speaker}: {m['content']}")
     return "\n".join(lines)
 
 
-def _todays_planned_workout(conn: sqlite3.Connection) -> str:
-    today = date.today().isoformat()
-    row = conn.execute(
-        "SELECT * FROM planned_workouts WHERE date LIKE ? ORDER BY date LIMIT 1",
-        (f"{today}%",),
-    ).fetchone()
-    if row is None:
-        return "No planned workout logged for today."
-    mins = round((row["planned_duration_secs"] or 0) / 60)
-    return f"{row['name']}: ~{mins} min planned. {row['description'] or ''}".strip()
-
-
 def build_coach_context(conn: sqlite3.Connection) -> str:
-    profile = get_profile(conn)
     return (
-        f"ATHLETE PROFILE\n{_coach_profile_summary(profile)}\n\n"
-        f"RECENT ACTIVITIES (last 14 days)\n{_recent_activities_summary(conn)}\n\n"
-        f"TRAINING LOAD TREND (last 7 days)\n{_wellness_trend_summary(conn)}"
+        f"{_athlete_knowledge(conn)}\n\n"
+        f"WHAT THEY'VE ACTUALLY BEEN DOING (last 14 days)\n{_recent_activities_summary(conn)}"
     )
 
 
-def build_nutritionist_context(conn: sqlite3.Connection) -> str:
-    profile = get_profile(conn)
-    return (
-        f"ATHLETE PROFILE\n{_nutritionist_profile_summary(profile)}\n\n"
-        f"TODAY'S PLANNED TRAINING\n{_todays_planned_workout(conn)}"
-    )
-
-
-def run_coach(conn: sqlite3.Connection) -> str:
+def run_coach_brief(conn: sqlite3.Connection) -> str:
+    """The unified coach's-thoughts note shown on the dashboard."""
     context = build_coach_context(conn)
     resp = _client().messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        system=COACH_SYSTEM_PROMPT,
+        model=CHAT_MODEL,
+        max_tokens=600,
+        thinking=NO_THINKING,
+        system=COACH_BRIEF_PROMPT,
         messages=[{"role": "user", "content": context}],
     )
-    return resp.content[0].text
+    return "\n\n".join(
+        b.text.strip() for b in resp.content if b.type == "text" and b.text.strip()
+    )
 
 
-def run_nutritionist(conn: sqlite3.Connection) -> str:
-    context = build_nutritionist_context(conn)
+def _initiation_instruction(conn: sqlite3.Connection, trigger: dict) -> str:
+    kind = trigger.get("kind")
+    if kind == "morning":
+        today = _programme_day_line(_todays_programme_day(conn))
+        return (
+            "It's the start of the athlete's day. Reach out with a warm, brief morning check-in - "
+            "how they're feeling and what their plans (training and meals) are for today. "
+            f"On the plan today: {today}"
+        )
+    if kind == "post_workout":
+        a = trigger.get("activity") or {}
+        mins = round((a.get("duration_secs") or 0) / 60)
+        km = round((a.get("distance_m") or 0) / 1000, 1)
+        return (
+            "The athlete just finished a workout - reach out to see how it went and how they're "
+            f"feeling, referencing the actual ride. It was: {a.get('type') or 'a session'} "
+            f"'{a.get('name') or 'workout'}', {mins} min, {km} km."
+        )
+    if kind == "missed_workout":
+        planned = trigger.get("planned") or "a session"
+        return (
+            "The athlete had a session planned today that they don't seem to have done. Reach out - "
+            "no nagging or guilt-tripping, just check in on what happened and how they're doing. "
+            f"The planned session was: {planned}"
+        )
+    return "Reach out to the athlete with a brief, warm check-in."
+
+
+def run_coach_initiation(conn: sqlite3.Connection, trigger: dict) -> str:
+    """Produce the opening message for a proactive check-in (morning / post-workout / missed).
+
+    Pure text generation - the caller is responsible for dedupe, persisting the turn, and sending.
+    """
+    system = (
+        f"{COACH_PERSONA}\n\n"
+        "You are reaching out to the athlete first, unprompted - the way a coach who cares checks "
+        "in on their athletes. Send ONE short, natural opening message. Don't announce that you're "
+        "checking in ('just checking in on...') - just talk to them like a person.\n\n"
+        f"Today's date is {date.today().isoformat()}.\n\n"
+        f"{_athlete_knowledge(conn)}\n\n"
+        f"WHAT THEY'VE ACTUALLY BEEN DOING (last 14 days)\n{_recent_activities_summary(conn)}\n\n"
+        f"YOUR RECENT CONVERSATION\n{_recent_conversation_block(conn)}"
+    )
     resp = _client().messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        system=NUTRITIONIST_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": context}],
+        model=CHAT_MODEL,
+        max_tokens=512,
+        thinking=NO_THINKING,
+        system=system,
+        messages=[{"role": "user", "content": _initiation_instruction(conn, trigger)}],
     )
-    return resp.content[0].text
+    text = "\n\n".join(
+        b.text.strip() for b in resp.content if b.type == "text" and b.text.strip()
+    )
+    return text or "Hey - how are you doing today?"

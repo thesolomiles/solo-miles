@@ -61,11 +61,23 @@ WEB_BASE_URL=https://coach.thesolomiles.com
 COOKIE_SECURE=true
 ```
 
+Also set `STRAVA_VERIFY_TOKEN` to any random string you make up (e.g. `openssl rand -hex 16`). It's the shared secret Strava echoes back when it validates the webhook - it just has to match what you registered.
+
 Then re-run `provision.sh` (or just `systemctl restart coach-web coach-bot`).
 
 ## 6. Update the Strava app's redirect URI
 
 In your Strava API app settings (strava.com/settings/api), change the "Authorization Callback Domain" to `coach.thesolomiles.com`. The old `localhost:8008` redirect stops working once you switch.
+
+## 6b. Register the Strava webhook (one-time)
+
+This is what lets the coach message you the moment you finish a ride. With the web service running and reachable over HTTPS:
+
+```bash
+sudo -u coach coach/.venv/bin/python -m scripts.create_strava_webhook
+```
+
+Run it from `/opt/solo-miles/coach`. It registers `https://coach.thesolomiles.com/strava/webhook` using `STRAVA_VERIFY_TOKEN`. Strava allows only one subscription per app; use `--view` to inspect it or `--delete` to remove it.
 
 ## 7. Point the public site at the real URL
 

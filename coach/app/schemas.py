@@ -39,9 +39,8 @@ class OnboardingPayload(BaseModel):
 
 
 class LoginPayload(BaseModel):
-    mode: str  # "owner" | "guest"
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str
+    password: str
 
 
 class ChatMessage(BaseModel):
@@ -52,12 +51,3 @@ class ChatMessage(BaseModel):
 class OnboardingChatPayload(BaseModel):
     messages: list[ChatMessage]
     draft: dict = {}
-
-
-class ProgrammeChatPayload(BaseModel):
-    messages: list[ChatMessage]
-    draft: dict = {}
-
-
-class ProgrammeGeneratePayload(BaseModel):
-    notes: str = ""

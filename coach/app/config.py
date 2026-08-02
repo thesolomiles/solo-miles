@@ -9,14 +9,14 @@ load_dotenv(BASE_DIR / ".env")
 
 
 class Settings:
-    intervals_api_key: str = os.environ.get("INTERVALS_API_KEY", "")
-    intervals_athlete_id: str = os.environ.get("INTERVALS_ATHLETE_ID", "0")
     database_path: str = os.environ.get("DATABASE_PATH", str(BASE_DIR / "data" / "coach.db"))
     strava_client_id: str = os.environ.get("STRAVA_CLIENT_ID", "")
     strava_client_secret: str = os.environ.get("STRAVA_CLIENT_SECRET", "")
     strava_redirect_uri: str = os.environ.get(
         "STRAVA_REDIRECT_URI", "http://localhost:8008/strava/callback"
     )
+    # Shared secret echoed back during Strava webhook subscription validation.
+    strava_verify_token: str = os.environ.get("STRAVA_VERIFY_TOKEN", "")
     anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
     telegram_bot_token: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")

@@ -2,18 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "solo-miles-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
-    },
-    {
-      "name": "coach-app",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": [
-        "-c",
-        "cd /Users/leonardgoh/Desktop/solo-miles/coach && .venv/bin/uvicorn app.main:app --reload --port 8008"
-      ],
+      "name": "coach-web",
+      "runtimeExecutable": "coach/.venv/bin/uvicorn",
+      "runtimeArgs": ["app.main:app", "--port", "8008", "--app-dir", "coach"],
       "port": 8008
     }
   ]

@@ -7,19 +7,6 @@ def get_profile(conn: sqlite3.Connection) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM profile WHERE id = 1").fetchone()
 
 
-def upsert_intervals_credentials(conn: sqlite3.Connection, api_key: str, athlete_id: str) -> None:
-    conn.execute(
-        """
-        INSERT INTO profile (id, intervals_api_key, intervals_athlete_id)
-        VALUES (1, :api_key, :athlete_id)
-        ON CONFLICT(id) DO UPDATE SET
-            intervals_api_key=excluded.intervals_api_key,
-            intervals_athlete_id=excluded.intervals_athlete_id
-        """,
-        {"api_key": api_key, "athlete_id": athlete_id},
-    )
-
-
 def upsert_strava_tokens(
     conn: sqlite3.Connection, access_token: str, refresh_token: str, expires_at: int
 ) -> None:

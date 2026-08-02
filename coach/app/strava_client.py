@@ -98,3 +98,14 @@ class StravaClient:
         if not resp.ok:
             raise StravaClientError(f"get_activities failed: {resp.status_code} {resp.text[:500]}")
         return resp.json()
+
+    def get_activity(self, activity_id: int | str) -> dict:
+        """Fetch a single activity by id (used by the webhook, which names one activity)."""
+        resp = requests.get(
+            f"{API_BASE}/activities/{activity_id}",
+            headers={"Authorization": f"Bearer {self.access_token}"},
+            timeout=30,
+        )
+        if not resp.ok:
+            raise StravaClientError(f"get_activity failed: {resp.status_code} {resp.text[:500]}")
+        return resp.json()
