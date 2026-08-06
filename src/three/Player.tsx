@@ -2,60 +2,69 @@ import { useFrame } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
 import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
-import { PLAYER, PALETTE } from '../config/constants'
-
-const _dir = new THREE.Vector3()
-
-/** Shortest-path angular interpolation so the character never spins the long way. */
-function lerpAngle(a: number, b: number, t: number) {
-  let d = (b - a) % (Math.PI * 2)
-  if (d > Math.PI) d -= Math.PI * 2
-  if (d < -Math.PI) d += Math.PI * 2
-  return a + d * t
-}
+import { PLAYER } from '../config/constants'
+import { COLLIDERS } from '../config/town'
+import { resolveCollisions } from '../systems/collision'
+import { useGame } from '../state/store'
+import { Figure, type CharAnim } from './Figure'
 
 /**
- * Placeholder character controller.
+ * The player character controller. The coral figure is a placeholder; the
+ * controller is the real thing and is what must never be deferred (brief).
  *
- * The capsule is temporary; the CONTROLLER is the real thing. Movement is free
- * analog on the ground plane, screen-relative to the fixed camera (W = up-screen,
- * i.e. world -Z because the camera has no yaw), and the character rotates to face
- * travel direction. Phase 1 swaps the capsule for a rigged glTF and drives an
- * idle/walk state machine off `moving` — none of the code below needs to change.
+ * Free analog movement, screen-relative to the fixed camera (the camera has no
+ * yaw, so up-screen = world -Z), circle collision + world boundary, rotates to
+ * face travel direction, and drives an idle/walk state via `anim` — the seam a
+ * rigged glTF plugs into later with zero controller changes.
  */
 export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const group = useRef<THREE.Group>(null!)
+  const yaw = useRef(Math.PI) // start facing the camera, like the prototype
+  const anim = useRef<CharAnim>({ moving: false, phase: 0 })
   const [, getKeys] = useKeyboardControls()
 
   useFrame((_, delta) => {
-    const dt = Math.min(delta, 0.05) // clamp so a stalled tab can't teleport the player
-    const { forward, back, left, right } = getKeys()
+    const dt = Math.min(delta, 0.05)
+    const st = useGame.getState()
+    const canMove = st.started && !st.dialogue && !st.section
 
-    _dir.set((right ? 1 : 0) - (left ? 1 : 0), 0, (back ? 1 : 0) - (forward ? 1 : 0))
-    const moving = _dir.lengthSq() > 0
-
-    if (moving) {
-      _dir.normalize()
-      posRef.current.addScaledVector(_dir, PLAYER.speed * dt)
-      const targetYaw = Math.atan2(_dir.x, _dir.z) // aligns local +Z with travel dir
-      group.current.rotation.y = lerpAngle(group.current.rotation.y, targetYaw, PLAYER.turnLerp)
+    let mx = 0
+    let mz = 0
+    if (canMove) {
+      const { forward, back, left, right } = getKeys()
+      // screen-relative: forward = -Z (up-screen), right = +X
+      if (forward) mz -= 1
+      if (back) mz += 1
+      if (left) mx -= 1
+      if (right) mx += 1
     }
 
-    group.current.position.copy(posRef.current)
+    const moving = mx !== 0 || mz !== 0
+    if (moving) {
+      const len = Math.hypot(mx, mz)
+      mx /= len
+      mz /= len
+      posRef.current.x += mx * PLAYER.speed * dt
+      posRef.current.z += mz * PLAYER.speed * dt
+      resolveCollisions(posRef.current, COLLIDERS)
+
+      const targetYaw = Math.atan2(mx, mz)
+      let d = ((targetYaw - yaw.current + Math.PI) % (Math.PI * 2)) - Math.PI
+      if (d < -Math.PI) d += Math.PI * 2
+      yaw.current += d * Math.min(1, dt * 12)
+      anim.current.phase += dt * 11
+    } else {
+      anim.current.phase *= 0.85
+    }
+    anim.current.moving = moving
+
+    group.current.position.set(posRef.current.x, 0, posRef.current.z)
+    group.current.rotation.y = yaw.current
   })
 
   return (
     <group ref={group}>
-      {/* body */}
-      <mesh castShadow position={[0, 1.1, 0]}>
-        <capsuleGeometry args={[PLAYER.radius, 1.0, 8, 16]} />
-        <meshStandardMaterial color={PALETTE.player} roughness={0.75} metalness={0} />
-      </mesh>
-      {/* facing indicator (points +Z, the character's forward) */}
-      <mesh position={[0, 1.1, PLAYER.radius + 0.12]} rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.16, 0.4, 12]} />
-        <meshStandardMaterial color={PALETTE.ink} roughness={0.6} />
-      </mesh>
+      <Figure color={0xe4633c} anim={anim} />
     </group>
   )
 }

@@ -1,58 +1,80 @@
-import { useRef } from 'react'
-import { PALETTE } from '../config/constants'
+import { useEffect, useRef } from 'react'
+import { useThree } from '@react-three/fiber'
+import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
+import { BUILDINGS, WORLD } from '../config/town'
+import { InteractablesProvider, ProximitySystem } from '../systems/interactables'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
-import { Ground } from './Ground'
+import { Environment } from './Environment'
+import { Building } from './Building'
+import { Cat } from './actors/Cat'
+import { Rider } from './actors/Rider'
 
-/**
- * A neutral greybox block. Phase 0 uses two of these purely to make camera
- * scroll and z-buffer occlusion visible during review (walk behind one and the
- * character is correctly hidden — no manual sprite sorting). Real buildings
- * arrive in Phase 1, driven by a layout config, not hardcoded here.
- */
-function RefBox({ position, size }: { position: [number, number, number]; size: [number, number, number] }) {
-  return (
-    <mesh position={[position[0], size[1] / 2, position[2]]} castShadow receiveShadow>
-      <boxGeometry args={size} />
-      <meshStandardMaterial color="#b8b0a0" roughness={0.9} metalness={0} />
-    </mesh>
-  )
+/** Vertical gradient sky as the scene background (prototype look). */
+function SkyBackground() {
+  const scene = useThree((s) => s.scene)
+  useEffect(() => {
+    const c = document.createElement('canvas')
+    c.width = 8
+    c.height = 256
+    const g = c.getContext('2d')!
+    const grd = g.createLinearGradient(0, 0, 0, 256)
+    grd.addColorStop(0, WORLD.sky.top)
+    grd.addColorStop(0.55, WORLD.sky.mid)
+    grd.addColorStop(1, WORLD.sky.bottom)
+    g.fillStyle = grd
+    g.fillRect(0, 0, 8, 256)
+    const tex = new THREE.CanvasTexture(c)
+    tex.colorSpace = THREE.SRGBColorSpace
+    const prev = scene.background
+    scene.background = tex
+    return () => {
+      scene.background = prev
+      tex.dispose()
+    }
+  }, [scene])
+  return null
 }
 
 export function Scene() {
-  // Shared player position: Player writes it, OrthoRig reads it. Player is
-  // mounted first so its useFrame runs before the camera reads the value.
+  // Shared player position: the controller writes it; the camera, the cyclist,
+  // and the proximity system read it. Hot per-frame data stays out of React.
   const posRef = useRef(PLAYER.start.clone())
 
   return (
-    <>
-      <color attach="background" args={[PALETTE.skyTop]} />
+    <InteractablesProvider>
+      <SkyBackground />
+      <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
 
-      {/* Phase 0 lighting is deliberately minimal — the full warm rig is Phase 2. */}
-      <hemisphereLight args={[PALETTE.skyTop, PALETTE.ground, 0.9]} />
+      {/* Lighting matched to the prototype; the full warm rig is the Phase 2 pass. */}
+      <hemisphereLight args={[0xe2edf3, 0x6a7350, 0.9]} />
       <directionalLight
-        position={[14, 22, 8]}
-        intensity={1.6}
+        position={[26, 36, 22]}
+        intensity={1.15}
+        color={0xfff0d6}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={1}
-        shadow-camera-far={90}
-        shadow-camera-left={-40}
-        shadow-camera-right={40}
-        shadow-camera-top={40}
-        shadow-camera-bottom={-40}
+        shadow-camera-far={140}
+        shadow-camera-left={-60}
+        shadow-camera-right={60}
+        shadow-camera-top={60}
+        shadow-camera-bottom={-60}
         shadow-bias={-0.0004}
       />
 
-      <Ground />
+      <Environment />
+      {BUILDINGS.map((b) => (
+        <Building key={b.id} def={b} />
+      ))}
 
-      {/* reference blocks (temporary — occlusion + scroll demo) */}
-      <RefBox position={[-8, 0, -6]} size={[5, 6, 5]} />
-      <RefBox position={[9, 0, -10]} size={[6, 9, 6]} />
-
+      <Cat />
+      <Rider playerPos={posRef} />
       <Player posRef={posRef} />
+
       <OrthoRig posRef={posRef} />
-    </>
+      <ProximitySystem playerPos={posRef} />
+    </InteractablesProvider>
   )
 }

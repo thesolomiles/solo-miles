@@ -2,8 +2,9 @@ import { Canvas } from '@react-three/fiber'
 import { KeyboardControls, type KeyboardControlsEntry } from '@react-three/drei'
 import { useMemo } from 'react'
 import { Scene } from './three/Scene'
+import { Hud } from './ui/Hud'
 
-type Controls = 'forward' | 'back' | 'left' | 'right'
+type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact'
 
 export default function App() {
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
@@ -12,6 +13,7 @@ export default function App() {
       { name: 'back', keys: ['ArrowDown', 'KeyS'] },
       { name: 'left', keys: ['ArrowLeft', 'KeyA'] },
       { name: 'right', keys: ['ArrowRight', 'KeyD'] },
+      { name: 'interact', keys: ['KeyE', 'Space', 'Enter'] },
     ],
     [],
   )
@@ -30,12 +32,7 @@ export default function App() {
         </Canvas>
       </KeyboardControls>
 
-      <div className="hud">
-        <div className="hud__badge">Solomiles · Phase 0</div>
-        <div className="hud__hint">
-          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to move
-        </div>
-      </div>
+      <Hud />
     </div>
   )
 }
