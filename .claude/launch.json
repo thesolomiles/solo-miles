@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "coach-web",
-      "autoPort": false,
-      "url": "http://localhost:8008",
-      "port": 8008
+      "name": "town",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 5173
     }
   ]
 }

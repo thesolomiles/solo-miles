@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --paper: #fbf4e8;
+  --ink: #2b2620;
+  --clay: #d98a5a;
+  --clay-deep: #b9663a;
+  --sky-top: #a6cfe1;
+
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--sky-top);
+  overscroll-behavior: none;
+}
+
+.app {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* --- HUD overlay (temporary greybox chrome) --- */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: clamp(14px, 2.4vw, 28px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hud__badge {
+  align-self: flex-start;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  padding: 7px 13px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+}
+
+.hud__hint {
+  align-self: center;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  padding: 8px 14px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud__hint kbd {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--paper);
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  color: var(--ink);
+}
