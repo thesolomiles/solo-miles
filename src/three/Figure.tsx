@@ -31,10 +31,13 @@ export function Figure({ color, anim }: { color: number; anim: RefObject<CharAni
   const armL = useRef<THREE.Mesh>(null!)
   const armR = useRef<THREE.Mesh>(null!)
 
-  useFrame(() => {
+  useFrame((state) => {
     const a = anim.current
+    const t = state.clock.elapsedTime
+    // walk bob when moving; a slow breathing sway when idle
     const bob = Math.abs(Math.sin(a.phase)) * 0.1
-    inner.current.position.y = bob
+    const idle = a.moving ? 0 : Math.sin(t * 1.6) * 0.025
+    inner.current.position.y = bob + idle
     const swing = Math.sin(a.phase) * 0.45 * (a.moving ? 1 : 0.1)
     armL.current.rotation.x = swing
     armR.current.rotation.x = -swing

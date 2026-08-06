@@ -10,6 +10,7 @@ import { Environment } from './Environment'
 import { Building } from './Building'
 import { Cat } from './actors/Cat'
 import { Rider } from './actors/Rider'
+import { PostFX } from './PostFX'
 
 /** Vertical gradient sky as the scene background (prototype look). */
 function SkyBackground() {
@@ -47,14 +48,18 @@ export function Scene() {
       <SkyBackground />
       <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
 
-      {/* Lighting matched to the prototype; the full warm rig is the Phase 2 pass. */}
-      <hemisphereLight args={[0xe2edf3, 0x6a7350, 0.9]} />
+      {/* Phase 2 warm rig: cool sky/ground ambient, a warm key sun casting soft
+          shadows, and a dim cool fill from the opposite side to shape forms. */}
+      <hemisphereLight args={[0xdcebf2, 0x6b7350, 0.55]} />
+      <ambientLight intensity={0.12} color={0xfff2e0} />
       <directionalLight
-        position={[26, 36, 22]}
-        intensity={1.15}
-        color={0xfff0d6}
+        position={[24, 30, 16]}
+        intensity={2.1}
+        color={0xffe6bf}
         castShadow
         shadow-mapSize={[2048, 2048]}
+        shadow-radius={7}
+        shadow-blurSamples={16}
         shadow-camera-near={1}
         shadow-camera-far={140}
         shadow-camera-left={-60}
@@ -62,7 +67,9 @@ export function Scene() {
         shadow-camera-top={60}
         shadow-camera-bottom={-60}
         shadow-bias={-0.0004}
+        shadow-normalBias={0.02}
       />
+      <directionalLight position={[-18, 14, -12]} intensity={0.35} color={0xbcd4e6} />
 
       <Environment />
       {BUILDINGS.map((b) => (
@@ -75,6 +82,8 @@ export function Scene() {
 
       <OrthoRig posRef={posRef} />
       <ProximitySystem playerPos={posRef} />
+
+      <PostFX />
     </InteractablesProvider>
   )
 }

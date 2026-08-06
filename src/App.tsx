@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { KeyboardControls, type KeyboardControlsEntry } from '@react-three/drei'
 import { useMemo } from 'react'
+import * as THREE from 'three'
 import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 
@@ -22,9 +23,9 @@ export default function App() {
     <div className="app">
       <KeyboardControls map={map}>
         <Canvas
-          shadows
+          shadows={{ type: THREE.VSMShadowMap }}
           dpr={[1, 2]}
-          gl={{ antialias: true }}
+          gl={{ antialias: false }}
           // A default camera is created then immediately replaced by OrthoRig.
           camera={{ position: [0, 16, 25] }}
         >
