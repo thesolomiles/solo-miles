@@ -31,6 +31,8 @@ export interface BuildingDef {
   size: { w: number; d: number; h: number }
   wall: number
   roof: number
+  /** True once the building is modelled in town.glb — drives collision. */
+  built?: boolean
   props: {
     chimney?: boolean
     smoke?: boolean
@@ -62,10 +64,11 @@ export const DEFAULT_BUILDING_HEIGHT = 3.2
 export const BUILDINGS: BuildingDef[] = [
   {
     id: 'casa',
-    pos: [-15, 7],
+    pos: [-22, -4],
     size: { w: 5.2, d: 5, h: DEFAULT_BUILDING_HEIGHT },
     wall: 0x8fa9be,
     roof: 0x50596b,
+    built: true,
     props: { chimney: true, parkedBike: true },
     interact: {
       id: 'casa',
@@ -84,7 +87,7 @@ export const BUILDINGS: BuildingDef[] = [
   },
   {
     id: 'mom',
-    pos: [15, 8],
+    pos: [-22, 20],
     size: { w: 5, d: 4.6, h: DEFAULT_BUILDING_HEIGHT },
     wall: 0xf1e3c6,
     roof: 0xb4553f,
@@ -106,10 +109,11 @@ export const BUILDINGS: BuildingDef[] = [
   },
   {
     id: 'cafe',
-    pos: [-16, -11],
+    pos: [22, -4],
     size: { w: 5.4, d: 4.8, h: DEFAULT_BUILDING_HEIGHT },
     wall: 0xd98a5a,
     roof: 0x7a5238,
+    built: true,
     props: { awning: 0xc0503a, stripe: 0xf4ead3 },
     interact: {
       id: 'cafe',
@@ -128,7 +132,7 @@ export const BUILDINGS: BuildingDef[] = [
   },
   {
     id: 'shop',
-    pos: [16, -10],
+    pos: [22, 20],
     size: { w: 5.4, d: 5, h: DEFAULT_BUILDING_HEIGHT },
     wall: 0x9bae77,
     roof: 0x4e6138,
@@ -152,8 +156,9 @@ export const BUILDINGS: BuildingDef[] = [
 
 /** The forest trail — a signpost + an interactable just in front of it. */
 export const TRAIL = {
-  signpostPos: [2.4, -14] as [number, number],
-  interactPos: new THREE.Vector3(2.4, 0, -11.5),
+  // The north road out of town, just before it disappears into the forest.
+  signpostPos: [0, -32] as [number, number],
+  interactPos: new THREE.Vector3(0, 0, -32),
   interact: {
     id: 'trail',
     name: 'The trail',
@@ -226,7 +231,7 @@ export interface Collider {
   z: number
   r: number
 }
-export const COLLIDERS: Collider[] = BUILDINGS.map((b) => ({
+export const COLLIDERS: Collider[] = BUILDINGS.filter((b) => b.built).map((b) => ({
   x: b.pos[0],
   z: b.pos[1],
   r: Math.max(b.size.w, b.size.d) * 0.6 + 0.4,

@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
-import { BUILDINGS, WORLD } from '../config/town'
+import { WORLD } from '../config/town'
 import { InteractablesProvider, ProximitySystem } from '../systems/interactables'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
-import { Environment } from './Environment'
-import { Building } from './Building'
+import { TownModel } from './TownModel'
+import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
 import { Rider } from './actors/Rider'
 import { PostFX } from './PostFX'
@@ -71,10 +71,11 @@ export function Scene() {
       />
       <directionalLight position={[-18, 14, -12]} intensity={0.35} color={0xbcd4e6} />
 
-      <Environment />
-      {BUILDINGS.map((b) => (
-        <Building key={b.id} def={b} />
-      ))}
+      {/* Phase 3: the real Blender-modelled town replaces the greybox
+          Environment + Building meshes. Interactables/labels rewire per
+          building once all four are modelled. */}
+      <TownModel />
+      <Interactions />
 
       <Cat />
       <Rider playerPos={posRef} />
