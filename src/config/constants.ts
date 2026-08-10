@@ -54,7 +54,10 @@ export const CAMERA = {
 
 /** Placeholder character-controller tuning. Survives the swap to a real model. */
 export const PLAYER = {
-  speed: 7.5, // world units / second (prototype value)
+  speed: 3.2, // world units / second — a walking pace (matches the walk clip)
+  runSpeed: 6.6, // pace once we break into a run
+  runAfter: 3, // seconds of continuous movement before walk → run
+  runAccel: 3.5, // how quickly speed ramps between walk and run
   radius: 0.6,
   start: new THREE.Vector3(0, 0, 7), // prototype spawn, just south of the plaza
   turnLerp: 0.22, // how quickly the character rotates to face travel direction

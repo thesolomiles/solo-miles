@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Interactable, SectionId } from '../config/town'
+import type { DialogueChoice, Interactable, SectionId } from '../config/town'
 
 /**
  * Discrete game/UI state shared between the r3f scene and the React HUD.
@@ -20,13 +20,19 @@ interface GameState {
   line: number
   /** Open content section overlay (About, Cycling, …), or null for the town. */
   section: SectionId | null
+  /** Latched when a dialogue asks to send the player back toward town; the
+      Player controller consumes it, glides there, and clears it. */
+  sendBack: boolean
 
   start: () => void
   setNear: (i: Interactable | null) => void
   /** The single "E / interact" action — mirrors the prototype's edge handling. */
   interact: () => void
   advance: () => void
+  /** Resolve a choice dialogue (Leonard's Yes/No). */
+  choose: (choice: DialogueChoice) => void
   closeDialogue: () => void
+  clearSendBack: () => void
   openSection: (s: SectionId) => void
   closeSection: () => void
 }
@@ -37,6 +43,7 @@ export const useGame = create<GameState>((set, get) => ({
   dialogue: null,
   line: 0,
   section: null,
+  sendBack: false,
 
   start: () => set({ started: true }),
 
@@ -59,6 +66,9 @@ export const useGame = create<GameState>((set, get) => ({
   advance: () => {
     const { dialogue, line } = get()
     if (!dialogue) return
+    // A choice dialogue resolves via choose(), not by pressing E off the last
+    // line — otherwise E would dismiss it before the player picks.
+    if (line >= dialogue.lines.length - 1 && dialogue.choices?.length) return
     const next = line + 1
     if (next >= dialogue.lines.length) {
       // end of dialogue: sectioned interactables open their content, NPCs close.
@@ -72,7 +82,13 @@ export const useGame = create<GameState>((set, get) => ({
     set({ line: next })
   },
 
+  choose: (choice) => {
+    set({ dialogue: null, line: 0 })
+    if (choice.outcome === 'sendBack') set({ sendBack: true })
+  },
+
   closeDialogue: () => set({ dialogue: null, line: 0 }),
+  clearSendBack: () => set({ sendBack: false }),
   openSection: (s) => set({ section: s, dialogue: null, line: 0 }),
   closeSection: () => set({ section: null }),
 }))

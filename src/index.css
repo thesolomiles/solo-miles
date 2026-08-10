@@ -203,6 +203,38 @@ canvas {
   box-shadow: 0 8px 22px rgba(43, 38, 32, 0.18);
   font-size: 13.5px;
   font-weight: 500;
+  /* it's a <button> so tapping interacts on touch — reset UA chrome */
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Touch movement stick (mobile only) --- */
+.stick {
+  position: absolute;
+  left: max(22px, env(safe-area-inset-left));
+  bottom: max(26px, env(safe-area-inset-bottom));
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  background: rgba(43, 38, 32, 0.1);
+  border: 1.5px solid rgba(43, 38, 32, 0.16);
+  pointer-events: auto;
+  touch-action: none;
+  z-index: 11;
+}
+.stick__knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: var(--clay);
+  box-shadow: 0 3px 10px rgba(43, 38, 32, 0.28);
 }
 .prompt--show {
   opacity: 1;
@@ -308,6 +340,29 @@ canvas {
   border-radius: 6px;
   padding: 3px 7px;
   font-size: 11px;
+}
+.dialogue__choices {
+  display: flex;
+  gap: 8px;
+}
+.dialogue__choice {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--clay-deep);
+  background: rgba(217, 138, 90, 0.12);
+  border: 1px solid rgba(217, 138, 90, 0.4);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.dialogue__choice:hover {
+  background: rgba(217, 138, 90, 0.22);
+  border-color: var(--clay);
 }
 
 /* --- Section overlay --- */

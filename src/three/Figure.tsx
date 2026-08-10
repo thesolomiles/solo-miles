@@ -17,6 +17,8 @@ import * as THREE from 'three'
 export interface CharAnim {
   moving: boolean
   phase: number // walk-cycle phase in radians
+  speed: number // current ground speed (world units/sec) — syncs the locomotion clip
+  gait: 'idle' | 'walk' | 'run' // which clip the model should be playing
 }
 
 const SKIN = 0xf0c9a4

@@ -12,6 +12,19 @@ import * as THREE from 'three'
 
 export type SectionId = 'about' | 'cycling' | 'travel' | 'contact' | 'story'
 
+/**
+ * What choosing a dialogue option does.
+ * - `dismiss`  — just close the dialogue.
+ * - `sendBack` — close, then send the player back to the bridge, facing town.
+ */
+export type ChoiceOutcome = 'dismiss' | 'sendBack'
+
+/** A branch offered at the end of a dialogue (Leonard's "go for a ride?"). */
+export interface DialogueChoice {
+  label: string
+  outcome: ChoiceOutcome
+}
+
 /** A thing the player can walk up to and press E on. */
 export interface Interactable {
   id: string
@@ -23,6 +36,8 @@ export interface Interactable {
   radius: number
   /** If set, the dialogue offers to open this content section. NPCs omit it. */
   section?: SectionId
+  /** If set, the last line ends with a choice instead of a "Continue". */
+  choices?: DialogueChoice[]
 }
 
 export interface BuildingDef {
@@ -159,6 +174,10 @@ export const TRAIL = {
   // The north road out of town, just before it disappears into the forest.
   signpostPos: [0, -32] as [number, number],
   interactPos: new THREE.Vector3(0, 0, -32),
+  // Just north of the bridge (deck spans z −21…−15 in town.glb). After the chat
+  // with Leonard, the player rides back down to here, facing town — a smooth
+  // move, not a teleport.
+  returnPos: new THREE.Vector3(0, 0, -22),
   interact: {
     id: 'trail',
     name: 'The trail',
@@ -200,26 +219,22 @@ export const ACTORS = {
   },
   rider: {
     id: 'rider',
-    waypoints: [
-      new THREE.Vector3(10, 0, 10),
-      new THREE.Vector3(10, 0, -10),
-      new THREE.Vector3(-10, 0, -10),
-      new THREE.Vector3(-10, 0, 10),
-    ],
-    speed: 6.5,
-    pauseDistance: 4.2, // stops to chat when the player is this close
+    // At the very end of the trail, centred where the path meets the forest.
+    post: new THREE.Vector3(0, 0, -30.5),
     jersey: 0x2f8f83,
     interact: {
       id: 'rider',
       name: 'Leonard',
-      role: 'you, mid-ride',
-      verb: 'Say hi',
+      role: 'up for a ride',
+      verb: 'Talk',
       color: 0x2f8f83,
-      radius: 3.2,
-      lines: [
-        "Oh hey — didn't expect to run into anyone out here!",
-        'I do laps most days. Catch me and you get me; miss me and I’m off on the ride.',
-        "That's the idea: the host isn't a menu item, he's just... around.",
+      radius: 3.6,
+      lines: ['Hey there! You wanna go for a ride?'],
+      // For now both answers send you back down toward town; "Yes" hooks into a
+      // real ride later.
+      choices: [
+        { label: 'Yes', outcome: 'sendBack' },
+        { label: 'No', outcome: 'sendBack' },
       ],
     } satisfies Interactable,
   },

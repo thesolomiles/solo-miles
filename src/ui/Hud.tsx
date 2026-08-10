@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useGame } from '../state/store'
 import { SECTIONS, type Interactable } from '../config/town'
+import { TouchControls } from './TouchControls'
+
+const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
 const hex = (n: number) => '#' + n.toString(16).padStart(6, '0')
 
@@ -24,8 +27,14 @@ function Intro() {
           <b>The trail</b><span>out into the trips</span>
         </div>
         <div className="intro__keys">
-          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
-          <span><kbd>E</kbd> interact</span>
+          {isTouch ? (
+            <span>Drag the stick to move · tap a prompt to interact</span>
+          ) : (
+            <>
+              <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
+              <span><kbd>E</kbd> interact</span>
+            </>
+          )}
         </div>
         <button className="btn" onClick={start}>Enter the town →</button>
       </div>
@@ -39,21 +48,27 @@ function Hint() {
     const t = setTimeout(() => setShow(false), 5600)
     return () => clearTimeout(t)
   }, [])
-  return <div className={'hint' + (show ? ' hint--show' : '')}>WASD / arrows to move · walk up to a door or a face and press E</div>
+  const text = isTouch
+    ? 'Drag the stick to move · tap a prompt to interact'
+    : 'WASD / arrows to move · walk up to a door or a face and press E'
+  return <div className={'hint' + (show ? ' hint--show' : '')}>{text}</div>
 }
 
 function Prompt({ near }: { near: Interactable }) {
+  // Tappable so touch devices (no E key) can trigger the interaction too.
   return (
-    <div className="prompt prompt--show">
-      <span className="prompt__key">E</span>
+    <button className="prompt prompt--show" onClick={() => useGame.getState().interact()}>
+      <span className="prompt__key">{isTouch ? '›' : 'E'}</span>
       <span>{(near.verb || 'Talk') + ' · ' + near.name}</span>
-    </div>
+    </button>
   )
 }
 
 function Dialogue({ item, line }: { item: Interactable; line: number }) {
   const advance = useGame((s) => s.advance)
+  const choose = useGame((s) => s.choose)
   const last = line >= item.lines.length - 1
+  const showChoices = last && !!item.choices?.length
   const nextLabel = last ? (item.section ? `Open ${SECTIONS[item.section].title} →` : 'Close') : 'Continue'
   return (
     <div className="dialogue dialogue--show">
@@ -70,9 +85,19 @@ function Dialogue({ item, line }: { item: Interactable; line: number }) {
               <span key={i} className={'pip' + (i <= line ? ' pip--on' : '')} />
             ))}
           </div>
-          <button className="dialogue__next" onClick={advance}>
-            {nextLabel} <span className="dialogue__k">E</span>
-          </button>
+          {showChoices ? (
+            <div className="dialogue__choices">
+              {item.choices!.map((c, i) => (
+                <button key={c.label} className="dialogue__choice" onClick={() => choose(c)}>
+                  {c.label} <span className="dialogue__k">{i + 1}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button className="dialogue__next" onClick={advance}>
+              {nextLabel} <span className="dialogue__k">E</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -111,6 +136,17 @@ export function Hud() {
   // The single interact key (mirrors the prototype's edge handling).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const st = useGame.getState()
+      // Number keys resolve a choice dialogue (Leonard's Yes/No).
+      const choices = st.dialogue?.choices
+      if (choices && st.line >= st.dialogue!.lines.length - 1) {
+        const idx = { Digit1: 0, Digit2: 1, Digit3: 2 }[e.code]
+        if (idx !== undefined && choices[idx]) {
+          e.preventDefault()
+          st.choose(choices[idx])
+          return
+        }
+      }
       if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault()
         useGame.getState().interact()
@@ -128,6 +164,7 @@ export function Hud() {
     <div className="hud">
       {!started && <Intro />}
       {started && <Hint />}
+      {started && isTouch && !dialogue && !section && <TouchControls />}
       {started && near && !dialogue && !section && <Prompt near={near} />}
       {dialogue && <Dialogue item={dialogue} line={line} />}
       {section && <SectionOverlay id={section} />}
