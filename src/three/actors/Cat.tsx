@@ -1,11 +1,48 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
 import { ACTORS } from '../../config/town'
 import { useRegisterInteractable } from '../../systems/interactables'
 import { useGame } from '../../state/store'
+import { useTownGLTF } from '../gltf'
 
 const M = ACTORS.mews
+const MODEL = '/models/cat.glb'
+// The Meshy cat's forward axis vs our heading; tuned so he walks nose-first.
+const YAW_OFFSET = M.yawOffset
+
+/**
+ * The rigged cat model — a skinned Meshy glTF, built by tools/build-cat.py and
+ * normalised to town scale there. Loops its walk clip; the wander controller in
+ * `Cat` orients and moves the group, exactly the seam `RiggedFigure` fills for
+ * the player.
+ */
+function CatModel() {
+  const root = useRef<THREE.Group>(null!)
+  const { scene, animations } = useTownGLTF(MODEL)
+  const { actions } = useAnimations(animations, root)
+
+  useEffect(() => {
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (m.isMesh) {
+        m.castShadow = true
+        m.receiveShadow = true
+      }
+    })
+  }, [scene])
+
+  useEffect(() => {
+    actions.walk?.reset().play()
+  }, [actions])
+
+  return (
+    <group ref={root} rotation={[0, YAW_OFFSET, 0]}>
+      <primitive object={scene} />
+    </group>
+  )
+}
 
 /**
  * Mews — ginger cat that wanders near mi casa and is pettable. Same interactable
@@ -16,6 +53,7 @@ export function Cat() {
   const group = useRef<THREE.Group>(null!)
   const pos = useRef(new THREE.Vector3().copy(M.home))
   const dir = useRef(Math.random() * 6.28)
+  const yaw = useRef(-dir.current + Math.PI / 2) // smoothed facing (lags `dir`)
   const timer = useRef(0)
 
   useRegisterInteractable(M.interact, pos.current)
@@ -35,11 +73,17 @@ export function Cat() {
       if (Math.hypot(nx - M.home.x, nz - M.home.z) < M.wanderRadius) {
         pos.current.x = nx
         pos.current.z = nz
-        group.current.rotation.y = -dir.current + Math.PI / 2
       } else {
         dir.current += 1.6 // turn back toward home
       }
     }
+    // Ease the facing toward the heading (shortest way round) instead of
+    // snapping — `dir` changes in jumps, so a direct set looks abrupt.
+    const targetYaw = -dir.current + Math.PI / 2
+    let d = ((targetYaw - yaw.current + Math.PI) % (Math.PI * 2)) - Math.PI
+    if (d < -Math.PI) d += Math.PI * 2
+    yaw.current += d * Math.min(1, dt * 6)
+    group.current.rotation.y = yaw.current
     group.current.position.set(
       pos.current.x,
       Math.abs(Math.sin(state.clock.elapsedTime * 4)) * 0.03,
@@ -49,24 +93,9 @@ export function Cat() {
 
   return (
     <group ref={group} position={[M.home.x, 0, M.home.z]}>
-      <mesh position={[0, 0.34, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[0.24, 0.28, 0.7, 10]} />
-        <meshStandardMaterial color={M.body} roughness={0.8} />
-      </mesh>
-      <mesh position={[0.42, 0.44, 0]} castShadow>
-        <sphereGeometry args={[0.24, 12, 12]} />
-        <meshStandardMaterial color={M.body} roughness={0.8} />
-      </mesh>
-      {[-0.1, 0.1].map((dz) => (
-        <mesh key={dz} position={[0.42, 0.63, dz]}>
-          <coneGeometry args={[0.09, 0.16, 6]} />
-          <meshStandardMaterial color={M.ear} roughness={0.8} />
-        </mesh>
-      ))}
-      <mesh position={[-0.42, 0.5, 0]} rotation={[0, 0, -0.9]} castShadow>
-        <cylinderGeometry args={[0.06, 0.09, 0.6, 8]} />
-        <meshStandardMaterial color={M.body} roughness={0.8} />
-      </mesh>
+      <CatModel />
     </group>
   )
 }
+
+useTownGLTF.preload(MODEL)

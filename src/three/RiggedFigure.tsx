@@ -12,7 +12,7 @@ const FADE = 0.18
 // Ground speed (world u/s) each locomotion clip depicts at timeScale 1. We play
 // a clip at `speed / stride` so the feet plant instead of gliding, at any
 // movement speed. Measured from each clip's peak foot-plant velocity.
-const STRIDE: Record<string, number> = { walk: 1.5, run: 4.0 }
+const STRIDE: Record<string, number> = { walk: 1.5, run: 4.0, 'ninja-run': 5.5 }
 
 /**
  * The rigged glTF player — the real character behind the `CharAnim` seam that

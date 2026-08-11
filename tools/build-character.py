@@ -1,11 +1,12 @@
 """
-Merge Mixamo FBX exports into ONE Draco-compressed GLB for the town's player.
+Merge a character's FBX exports (Mixamo, Meshy, Blender — doesn't matter) into
+ONE Draco-compressed GLB for the town's player.
 
 Run (no Blender window opens):
   /Applications/Blender.app/Contents/MacOS/Blender --background \
     --python tools/build-character.py
 
-Convention in assets/mixamo/character/:
+Convention in assets/characters/playable character/:
   - idle.fbx   -> the WITH-SKIN base (carries the mesh + skeleton + bind pose).
                   Mixamo often bundles several takes here (T-pose, Idle, a long
                   Layer0); we pick the multi-frame take whose name says "idle".
@@ -30,7 +31,7 @@ import bpy, os, sys, glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-SRC = os.path.join(ROOT, "assets/mixamo/character")
+SRC = os.path.join(ROOT, "assets/characters/playable character")
 OUT = os.path.join(ROOT, "public/models/character.glb")
 BASE = "idle.fbx"  # the one exported "With Skin"
 

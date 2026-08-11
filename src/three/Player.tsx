@@ -83,8 +83,9 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       // Break into a run after a few seconds of continuous walking; ramp the
       // pace so it accelerates smoothly rather than snapping.
       moveTime.current += dt
+      const ninja = moveTime.current >= PLAYER.ninjaAfter
       const running = moveTime.current >= PLAYER.runAfter
-      const target = running ? PLAYER.runSpeed : PLAYER.speed
+      const target = ninja ? PLAYER.ninjaSpeed : running ? PLAYER.runSpeed : PLAYER.speed
       speed.current += (target - speed.current) * Math.min(1, dt * PLAYER.runAccel)
 
       const len = Math.hypot(mx, mz)
@@ -99,7 +100,7 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       if (d < -Math.PI) d += Math.PI * 2
       yaw.current += d * Math.min(1, dt * 12)
       anim.current.phase += dt * 11
-      anim.current.gait = running ? 'run' : 'walk'
+      anim.current.gait = ninja ? 'ninja-run' : running ? 'run' : 'walk'
       anim.current.speed = speed.current
     } else {
       moveTime.current = 0

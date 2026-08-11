@@ -201,8 +201,7 @@ export const ACTORS = {
     home: new THREE.Vector3(-11, 0, 11),
     wanderRadius: 4,
     speed: 0.9,
-    body: 0xe08a3c,
-    ear: 0xd47f34,
+    yawOffset: 0, // rotation so the model's nose aligns with its heading
     interact: {
       id: 'mews',
       name: 'Mews',

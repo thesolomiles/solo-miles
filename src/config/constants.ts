@@ -56,7 +56,9 @@ export const CAMERA = {
 export const PLAYER = {
   speed: 3.2, // world units / second — a walking pace (matches the walk clip)
   runSpeed: 6.6, // pace once we break into a run
-  runAfter: 3, // seconds of continuous movement before walk → run
+  runAfter: 2, // seconds of continuous movement before walk → run
+  ninjaSpeed: 10.0, // full-tilt ninja-run pace
+  ninjaAfter: 8, // seconds of continuous movement before run → ninja run
   runAccel: 3.5, // how quickly speed ramps between walk and run
   radius: 0.6,
   start: new THREE.Vector3(0, 0, 7), // prototype spawn, just south of the plaza
