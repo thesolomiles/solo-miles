@@ -39,7 +39,7 @@ export const DRACO_PATH = '/draco/'
  * every building shows its front, never its roof.
  */
 export const CAMERA = {
-  worldViewHeight: 28, // world units visible vertically (drives the ortho frustum)
+  worldViewHeight: 18, // world units visible vertically (drives the ortho frustum)
   offset: new THREE.Vector3(0, 16, 18),
   lookAtHeight: 1.2, // aim slightly above the ground plane, as the prototype does
   /**
