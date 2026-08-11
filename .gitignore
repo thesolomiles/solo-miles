@@ -1,14 +1,19 @@
+# dependencies
 node_modules
-.next
-.next
-node_modules
-.next
-node_modules
-.next
-node_modules
+legacy/node_modules
+
+# build output
+dist
 .next
 
-# Raw downloads cached by scripts/generate-jlpt-decks.mjs (Tanos CSVs,
-# JMdict JSON dump) — regeneratable, not needed in git; only the final
-# data/generated/jlpt-decks.json output is committed.
-data/generated/.cache
+# logs
+*.log
+
+# os / editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+
+# env
+.env
+.env.local

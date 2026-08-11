@@ -2,19 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "solo-miles-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
-    },
-    {
-      "name": "coach-app",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": [
-        "-c",
-        "cd /Users/leonardgoh/Desktop/solo-miles/coach && .venv/bin/uvicorn app.main:app --reload --port 8008"
-      ],
-      "port": 8008
+      "name": "town",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 5173
     }
   ]
 }
