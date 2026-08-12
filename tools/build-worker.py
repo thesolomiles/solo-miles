@@ -25,16 +25,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SRC = os.path.join(ROOT, "assets/characters/worker")
 OUT = os.path.join(ROOT, "public/models/worker.glb")
-PREFER_BASE = "Warrior Idle.fbx"  # the standing idle makes the cleanest bind
+PREFER_BASE = "Idle.fbx"  # the standing idle makes the cleanest bind
 
 # Filenames -> clean animation names the Worker component plays.
 NAME_MAP = {
-    "Warrior Idle": "idle",
-    "Kneeling Inspecting": "inspect",
+    "Idle": "idle",
+    "Walk": "walk",
+    "Kneel down": "kneeldown",  # one-shot: stand -> kneel
+    "Kneel": "kneel",           # loop: working on the ground
+    "Standing Up": "standup",   # one-shot: kneel -> stand
     "Look Around": "look",
     "Looking Around": "look2",
-    "Standing Up": "standup",
-    "Brutal To Happy Walking": "walk",
 }
 
 def log(*a): print("[build-worker]", *a)

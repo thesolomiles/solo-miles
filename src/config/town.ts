@@ -257,16 +257,30 @@ export interface BoxCollider {
 export type Collider = CircleCollider | BoxCollider
 
 /**
- * The two work-in-progress pads are dressed as construction sites in town.glb
- * (see the Blender `Construction` collection). Box footprints, tight to the
- * props, so the player can't run through the piles. The front edge (maxZ) stays
- * just clear of each building's E-interact point (z ≈ pos.z + d/2 + 1.4 ≈ 23.7),
- * so "Browse" still triggers when you walk up. Drop the matching box here once a
- * real house is built on the pad and set its `built: true` above.
+ * Colliders for the two construction sites — one per PILE, not one big box over
+ * the whole pad (that walled off the open dirt between piles → invisible walls).
+ * Positions are the Blender Construction props mapped to world: shop props at
+ * (22 + 2·px, 20 − 2·py), mom's at (−22 + 2·px, 20 − 2·py). Kept snug/slightly
+ * small so the player bumps the visible pile, never empty ground. Small stuff
+ * (cones, buckets, footings, ladder, offcuts) is left walkable. Remove a site's
+ * entries once a real house is built on the pad and set its `built: true` above.
  */
-const SITE_COLLIDERS: BoxCollider[] = [
-  { minX: -27.1, maxX: -16.1, minZ: 15.4, maxZ: 25.4 }, // mom's construction site
-  { minX: 16.8, maxX: 26.8, minZ: 15.2, maxZ: 25.4 }, // bike-shop construction site
+const SITE_COLLIDERS: Collider[] = [
+  // --- bike-shop site ---
+  { minX: 18.2, maxX: 19.4, minZ: 21.2, maxZ: 24.0 }, // brick pile
+  { x: 25.2, z: 22.8, r: 0.85 }, // cinder blocks
+  { minX: 17.6, maxX: 19.6, minZ: 16.3, maxZ: 18.5 }, // cement bags on pallet
+  { minX: 23.6, maxX: 26.4, minZ: 16.5, maxZ: 18.3 }, // scaffold
+  { x: 18.2, z: 20.2, r: 1.0 }, // gravel heap
+  { minX: 20.7, maxX: 23.3, minZ: 22.8, maxZ: 24.8 }, // tarp pile
+  { x: 20.8, z: 23.8, r: 0.55 }, // wheelbarrow
+  { x: 23.2, z: 16.8, r: 0.7 }, // sawhorse
+  // --- mom's site ---
+  { minX: -20.0, maxX: -17.2, minZ: 21.0, maxZ: 24.2 }, // lumber pile
+  { minX: -25.7, maxX: -24.7, minZ: 20.5, maxZ: 25.1 }, // sawhorse + plank
+  { minX: -19.9, maxX: -17.7, minZ: 16.0, maxZ: 18.4 }, // cement bags on pallet
+  { x: -25.6, z: 17.0, r: 1.0 }, // sand heap
+  { x: -21.2, z: 23.8, r: 0.55 }, // wheelbarrow
 ]
 
 /**
@@ -293,29 +307,29 @@ export const COLLIDERS: Collider[] = [
 ]
 
 /**
- * Ambient construction workers on the two sites — stationary figures, each
- * looping one clip from worker.glb (built by tools/build-worker.py). Purely
- * decorative: no collider, no interactable. `rot` is a yaw in radians (0 = model
- * facing the camera, +Z); `clip` is a worker.glb action (idle/look/look2/inspect);
- * `phase` (0–1) offsets the clip start so identical clips don't move in lockstep.
+ * Ambient construction workers on the two sites. Each runs a little behavior
+ * loop (idle → walk a few steps → kneel down → work → stand up → repeat; see
+ * Worker.tsx) around its `pos`, so the sites look worked rather than staged.
+ * Purely decorative: no collider, no interactable. `pos` is the home spot the
+ * worker roams around (world x,z); `rot` is its starting yaw (0 = facing the
+ * camera, +Z); `phase` (0–1) staggers the loop so they're not in lockstep.
  * Positions sit in the gaps between the prop piles (see the Blender Construction
- * layout); tweak by eye. Remove a site's workers when a real house replaces it.
+ * layout). Remove a site's workers when a real house replaces it.
  */
 export interface WorkerDef {
-  pos: [number, number] // world x, z
+  pos: [number, number] // world x, z — home spot the worker roams around
   rot: number
-  clip: 'idle' | 'look' | 'look2' | 'inspect'
   phase?: number
 }
 export const WORKERS: WorkerDef[] = [
   // Bike-shop site (props span x ≈ 17…26.5, z ≈ 15.5…25.2)
-  { pos: [24.4, 23.6], rot: -2.2, clip: 'inspect', phase: 0.0 },
-  { pos: [18.6, 21.4], rot: 0.7, clip: 'look', phase: 0.3 },
-  { pos: [22.2, 26.6], rot: 0.1, clip: 'idle', phase: 0.6 },
+  { pos: [24.4, 23.6], rot: -2.2, phase: 0.0 },
+  { pos: [18.6, 21.4], rot: 0.7, phase: 0.3 },
+  { pos: [22.2, 26.6], rot: 0.1, phase: 0.6 },
   // Mom's site (props span x ≈ -26.8…-16.4, z ≈ 15.7…25.2)
-  { pos: [-19.0, 23.6], rot: 2.2, clip: 'look2', phase: 0.15 },
-  { pos: [-25.0, 21.4], rot: -0.7, clip: 'inspect', phase: 0.45 },
-  { pos: [-21.6, 26.6], rot: -0.1, clip: 'idle', phase: 0.75 },
+  { pos: [-19.0, 23.6], rot: 2.2, phase: 0.15 },
+  { pos: [-25.0, 21.4], rot: -0.7, phase: 0.45 },
+  { pos: [-21.6, 26.6], rot: -0.1, phase: 0.75 },
 ]
 
 /** Static interactable world positions (front / near side of each building). */
