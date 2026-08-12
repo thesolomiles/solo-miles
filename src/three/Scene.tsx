@@ -10,6 +10,7 @@ import { TownModel } from './TownModel'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
 import { Rider } from './actors/Rider'
+import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
 
 /** Vertical gradient sky as the scene background (prototype look). */
@@ -102,6 +103,7 @@ export function Scene() {
 
       <Cat />
       <Rider playerPos={posRef} />
+      <Workers />
       <Player posRef={posRef} />
 
       <OrthoRig posRef={posRef} />

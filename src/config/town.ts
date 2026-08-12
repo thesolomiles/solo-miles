@@ -292,6 +292,32 @@ export const COLLIDERS: Collider[] = [
   ...WATER_COLLIDERS,
 ]
 
+/**
+ * Ambient construction workers on the two sites — stationary figures, each
+ * looping one clip from worker.glb (built by tools/build-worker.py). Purely
+ * decorative: no collider, no interactable. `rot` is a yaw in radians (0 = model
+ * facing the camera, +Z); `clip` is a worker.glb action (idle/look/look2/inspect);
+ * `phase` (0–1) offsets the clip start so identical clips don't move in lockstep.
+ * Positions sit in the gaps between the prop piles (see the Blender Construction
+ * layout); tweak by eye. Remove a site's workers when a real house replaces it.
+ */
+export interface WorkerDef {
+  pos: [number, number] // world x, z
+  rot: number
+  clip: 'idle' | 'look' | 'look2' | 'inspect'
+  phase?: number
+}
+export const WORKERS: WorkerDef[] = [
+  // Bike-shop site (props span x ≈ 17…26.5, z ≈ 15.5…25.2)
+  { pos: [24.4, 23.6], rot: -2.2, clip: 'inspect', phase: 0.0 },
+  { pos: [18.6, 21.4], rot: 0.7, clip: 'look', phase: 0.3 },
+  { pos: [22.2, 26.6], rot: 0.1, clip: 'idle', phase: 0.6 },
+  // Mom's site (props span x ≈ -26.8…-16.4, z ≈ 15.7…25.2)
+  { pos: [-19.0, 23.6], rot: 2.2, clip: 'look2', phase: 0.15 },
+  { pos: [-25.0, 21.4], rot: -0.7, clip: 'inspect', phase: 0.45 },
+  { pos: [-21.6, 26.6], rot: -0.1, clip: 'idle', phase: 0.75 },
+]
+
 /** Static interactable world positions (front / near side of each building). */
 export function buildingInteractPos(b: BuildingDef): THREE.Vector3 {
   return new THREE.Vector3(b.pos[0], 0, b.pos[1] + b.size.d / 2 + 1.4)
