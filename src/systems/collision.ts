@@ -2,20 +2,42 @@ import type * as THREE from 'three'
 import { WORLD, type Collider } from '../config/town'
 
 /**
- * Resolve the player's position against building colliders and the world
- * boundary, in place. Simple circle push-out: if the player is inside a
- * collider circle, shove them back out to its edge along the contact normal.
+ * Resolve the player's position against colliders and the world boundary, in
+ * place. Two collider shapes:
+ *
+ * - Circle (`{x,z,r}`) — buildings. If the player is inside the circle, shove
+ *   them back out to its edge along the contact normal.
+ * - Box/AABB (`{minX,maxX,minZ,maxZ}`) — the river banks and the construction
+ *   sites, which are long or square and read badly as circles. If the player is
+ *   inside the box, push them out along the axis of least penetration (the
+ *   nearest edge — for a thin river band that's always back to the near bank).
+ *
  * (Brief: start simple; only reach for a physics engine if this stops being
  * enough — it won't for a town this size.)
  */
 export function resolveCollisions(pos: THREE.Vector3, colliders: Collider[]) {
   for (const c of colliders) {
-    const dx = pos.x - c.x
-    const dz = pos.z - c.z
-    const d = Math.hypot(dx, dz)
-    if (d < c.r && d > 1e-4) {
-      pos.x = c.x + (dx / d) * c.r
-      pos.z = c.z + (dz / d) * c.r
+    if ('minX' in c) {
+      // Box: only act when the player is strictly inside.
+      if (pos.x > c.minX && pos.x < c.maxX && pos.z > c.minZ && pos.z < c.maxZ) {
+        const dLeft = pos.x - c.minX
+        const dRight = c.maxX - pos.x
+        const dNear = pos.z - c.minZ
+        const dFar = c.maxZ - pos.z
+        const m = Math.min(dLeft, dRight, dNear, dFar)
+        if (m === dLeft) pos.x = c.minX
+        else if (m === dRight) pos.x = c.maxX
+        else if (m === dNear) pos.z = c.minZ
+        else pos.z = c.maxZ
+      }
+    } else {
+      const dx = pos.x - c.x
+      const dz = pos.z - c.z
+      const d = Math.hypot(dx, dz)
+      if (d < c.r && d > 1e-4) {
+        pos.x = c.x + (dx / d) * c.r
+        pos.z = c.z + (dz / d) * c.r
+      }
     }
   }
   const dc = Math.hypot(pos.x, pos.z)

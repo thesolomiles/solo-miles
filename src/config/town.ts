@@ -239,17 +239,58 @@ export const ACTORS = {
   },
 } as const
 
-/** Circle colliders derived from buildings — used by the character controller. */
-export interface Collider {
+/**
+ * Colliders for the character controller. Circles are derived from built
+ * buildings; boxes (AABBs) block the river and the two construction sites.
+ */
+export interface CircleCollider {
   x: number
   z: number
   r: number
 }
-export const COLLIDERS: Collider[] = BUILDINGS.filter((b) => b.built).map((b) => ({
-  x: b.pos[0],
-  z: b.pos[1],
-  r: Math.max(b.size.w, b.size.d) * 0.6 + 0.4,
-}))
+export interface BoxCollider {
+  minX: number
+  maxX: number
+  minZ: number
+  maxZ: number
+}
+export type Collider = CircleCollider | BoxCollider
+
+/**
+ * The two work-in-progress pads are dressed as construction sites in town.glb
+ * (see the Blender `Construction` collection). Box footprints, tight to the
+ * props, so the player can't run through the piles. The front edge (maxZ) stays
+ * just clear of each building's E-interact point (z ≈ pos.z + d/2 + 1.4 ≈ 23.7),
+ * so "Browse" still triggers when you walk up. Drop the matching box here once a
+ * real house is built on the pad and set its `built: true` above.
+ */
+const SITE_COLLIDERS: BoxCollider[] = [
+  { minX: -27.1, maxX: -16.1, minZ: 15.4, maxZ: 25.4 }, // mom's construction site
+  { minX: 16.8, maxX: 26.8, minZ: 15.2, maxZ: 25.4 }, // bike-shop construction site
+]
+
+/**
+ * The river (world z ≈ −23.4…−12.6, full width) as two banks with a gap at the
+ * bridge (deck spans x ≈ −3.2…3.2) so the player can only cross on the bridge.
+ * Outer extents are capped past the roam boundary; the gap is a touch narrower
+ * than the deck to keep the player off the rails.
+ */
+const WATER_COLLIDERS: BoxCollider[] = [
+  { minX: -42, maxX: -3.0, minZ: -23.6, maxZ: -12.4 }, // west of the bridge
+  { minX: 3.0, maxX: 42, minZ: -23.6, maxZ: -12.4 }, // east of the bridge
+]
+
+export const COLLIDERS: Collider[] = [
+  ...BUILDINGS.filter((b) => b.built).map(
+    (b): CircleCollider => ({
+      x: b.pos[0],
+      z: b.pos[1],
+      r: Math.max(b.size.w, b.size.d) * 0.6 + 0.4,
+    }),
+  ),
+  ...SITE_COLLIDERS,
+  ...WATER_COLLIDERS,
+]
 
 /** Static interactable world positions (front / near side of each building). */
 export function buildingInteractPos(b: BuildingDef): THREE.Vector3 {

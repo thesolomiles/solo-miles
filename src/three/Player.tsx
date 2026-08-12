@@ -93,7 +93,6 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       mz /= len
       posRef.current.x += mx * speed.current * dt
       posRef.current.z += mz * speed.current * dt
-      resolveCollisions(posRef.current, COLLIDERS)
 
       const targetYaw = Math.atan2(mx, mz)
       let d = ((targetYaw - yaw.current + Math.PI) % (Math.PI * 2)) - Math.PI
@@ -110,6 +109,10 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       anim.current.speed = 0
     }
     anim.current.moving = moving
+
+    // Always resolve, not just while moving: also pushes the player out if they
+    // ever start or are placed inside a collider (spawn, teleport, config edit).
+    resolveCollisions(posRef.current, COLLIDERS)
 
     group.current.position.set(posRef.current.x, 0, posRef.current.z)
     group.current.rotation.y = yaw.current
