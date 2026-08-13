@@ -2,7 +2,7 @@ import type * as THREE from 'three'
 import { WORLD, type Collider } from '../config/town'
 
 /**
- * Resolve the player's position against colliders and the world boundary, in
+ * Resolve the player's position against colliders and the world edge, in
  * place. Two collider shapes:
  *
  * - Circle (`{x,z,r}`) — buildings. If the player is inside the circle, shove
@@ -40,9 +40,12 @@ export function resolveCollisions(pos: THREE.Vector3, colliders: Collider[]) {
       }
     }
   }
-  const dc = Math.hypot(pos.x, pos.z)
-  if (dc > WORLD.boundary) {
-    pos.x *= WORLD.boundary / dc
-    pos.z *= WORLD.boundary / dc
-  }
+  // Square world edge (matches the square ground), not a circle: a circular
+  // clamp cut through the open meadows this scattered forest leaves between the
+  // town and the trees, reading as an invisible wall on open grass. Now the only
+  // hard wall is at the ground's edge, screened by the outer forest; everything
+  // in between is contained by the tree/rock/building colliders themselves.
+  const b = WORLD.boundary
+  pos.x = Math.max(-b, Math.min(b, pos.x))
+  pos.z = Math.max(-b, Math.min(b, pos.z))
 }

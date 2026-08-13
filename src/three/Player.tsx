@@ -3,7 +3,8 @@ import { useKeyboardControls } from '@react-three/drei'
 import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
-import { COLLIDERS, TRAIL } from '../config/town'
+import { TRAIL } from '../config/town'
+import { colliders } from '../systems/colliders'
 import { resolveCollisions } from '../systems/collision'
 import { touchMove } from '../systems/input'
 import { useGame } from '../state/store'
@@ -112,7 +113,7 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
 
     // Always resolve, not just while moving: also pushes the player out if they
     // ever start or are placed inside a collider (spawn, teleport, config edit).
-    resolveCollisions(posRef.current, COLLIDERS)
+    resolveCollisions(posRef.current, colliders)
 
     group.current.position.set(posRef.current.x, 0, posRef.current.z)
     group.current.rotation.y = yaw.current

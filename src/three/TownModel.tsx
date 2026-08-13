@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import * as THREE from 'three'
+import { buildSceneColliders, setSceneColliders } from '../systems/colliders'
+import { densifyForest } from '../systems/forest'
 import { useTownGLTF } from './gltf'
 
 const URL = '/models/town.glb'
@@ -17,6 +19,10 @@ export function TownModel({ scale = 2 }: { scale?: number }) {
   const { scene } = useTownGLTF(URL)
 
   useEffect(() => {
+    // Fill the bare gaps in the forest first, so the clones get shadows below
+    // and canopy colliders (they keep the Pine_/Round_ names the collider and
+    // shadow passes key off).
+    densifyForest(scene)
     scene.traverse((o) => {
       const m = o as THREE.Mesh
       if (m.isMesh) {
@@ -24,6 +30,9 @@ export function TownModel({ scale = 2 }: { scale?: number }) {
         m.receiveShadow = true
       }
     })
+    // Derive colliders (buildings + trees) from the real geometry now the model
+    // is in the scene graph (so world matrices reflect its placement + scale).
+    setSceneColliders(buildSceneColliders(scene))
   }, [scene])
 
   return <primitive object={scene} scale={scale} />

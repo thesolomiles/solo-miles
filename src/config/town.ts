@@ -63,7 +63,9 @@ export interface BuildingDef {
 /** World-scale layout constants. */
 export const WORLD = {
   groundRadius: 48, // visible ground disc
-  boundary: 37, // how far from the plaza the player can roam
+  boundary: 54, // half-extent of the SQUARE roam area (see collision.ts). The
+  // ground is ±56, so this walls the player in just shy of the edge, hidden in
+  // the outer forest. Trees/rocks/buildings do the containing inside it.
   plazaRadius: 8,
   // forest ring
   forestRings: 3,
@@ -286,25 +288,23 @@ const SITE_COLLIDERS: Collider[] = [
 /**
  * The river (world z ≈ −23.4…−12.6, full width) as two banks with a gap at the
  * bridge (deck spans x ≈ −3.2…3.2) so the player can only cross on the bridge.
- * Outer extents are capped past the roam boundary; the gap is a touch narrower
- * than the deck to keep the player off the rails.
+ * Outer extents run to the ground edge (the player now roams the whole map, so
+ * the river must block its full width); the gap is a touch narrower than the
+ * deck to keep the player off the rails.
  */
 const WATER_COLLIDERS: BoxCollider[] = [
-  { minX: -42, maxX: -3.0, minZ: -23.6, maxZ: -12.4 }, // west of the bridge
-  { minX: 3.0, maxX: 42, minZ: -23.6, maxZ: -12.4 }, // east of the bridge
+  { minX: -56, maxX: -3.0, minZ: -23.6, maxZ: -12.4 }, // west of the bridge
+  { minX: 3.0, maxX: 56, minZ: -23.6, maxZ: -12.4 }, // east of the bridge
 ]
 
-export const COLLIDERS: Collider[] = [
-  ...BUILDINGS.filter((b) => b.built).map(
-    (b): CircleCollider => ({
-      x: b.pos[0],
-      z: b.pos[1],
-      r: Math.max(b.size.w, b.size.d) * 0.6 + 0.4,
-    }),
-  ),
-  ...SITE_COLLIDERS,
-  ...WATER_COLLIDERS,
-]
+/**
+ * The hand-authored, always-present colliders: construction sites + the river.
+ * Building colliders are NOT here — they're derived at runtime from the actual
+ * town.glb wall geometry (see systems/colliders.ts), which hugs each building's
+ * footprint instead of the old circumscribing circle that walled off the empty
+ * ground around every house.
+ */
+export const STATIC_COLLIDERS: Collider[] = [...SITE_COLLIDERS, ...WATER_COLLIDERS]
 
 /**
  * Ambient construction workers on the two sites. Each runs a little behavior

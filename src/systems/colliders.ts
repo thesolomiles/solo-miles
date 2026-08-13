@@ -1,0 +1,134 @@
+import * as THREE from 'three'
+import { STATIC_COLLIDERS, WORLD, type BoxCollider, type Collider } from '../config/town'
+
+/**
+ * Colliders derived from the real town.glb geometry rather than hand-tuned, so
+ * they hug what's actually on screen. Two kinds, both boxes:
+ *
+ * - Buildings (SOLID_GROUPS). Each built house is a group with its walls, roof,
+ *   porch, furniture and landscaping parented together; we box only the *walls*
+ *   (grounded + tall meshes), so the collider hugs the footprint and leaves the
+ *   porch, patio and empty fringe around the house walkable.
+ * - Trees & rocks (TREE_PREFIXES). Each gets a canopy-sized box — the player
+ *   bumps the whole tree, not a trunk. Only ones inside the roam area are boxed;
+ *   the dense forest ring beyond the boundary is skipped (unreachable anyway).
+ */
+
+// Top-level GLB group names whose walls block. Add a name here when its house is
+// built, and drop the matching SITE_COLLIDERS entries at the same time.
+const SOLID_GROUPS = ['Home', 'Cafe']
+
+// A mesh joins a building's footprint only if it is rooted to the ground (base
+// near y=0) AND rises to roughly head height — i.e. a wall or post. This drops
+// the floating roof/awning/sign and the low deck, steps, shrubs, chairs and
+// sidewalk signs parented into the same group, all of which read as walkable.
+// World-space (post the town's ×2 scale); walls sit at y≈0.7 and rise past 4,
+// furniture and signs top out around 1.5, so the gate separates the two cleanly.
+const GROUNDED_MAX_Y = 0.75
+const TALL_MIN_Y = 2.0
+
+// Grow each wall footprint outward by a small standoff so the player stops just
+// shy of the wall instead of clipping into it. Far smaller than the old circle's
+// overshoot, so corners stay tight.
+const BUILDING_PAD = 0.35
+
+// Node-name prefixes for the solid scatter (pines, round trees, rocks). Bushes
+// (Bush_*) are left walkable — they're small ground cover, not obstacles.
+const TREE_PREFIXES = ['Pine_', 'Round_', 'Rock_']
+
+// Canopy boxes are generous; keep only the inner part of each so the sparse
+// pointy tips don't block, and the player can tuck right up against the foliage.
+const TREE_SHRINK = 0.72
+
+// Box every tree/rock the player can reach (the whole square roam area, plus a
+// margin so ones straddling the edge still block). The forest is now what
+// contains the player, so it all needs colliders — a few hundred cheap boxes.
+const TREE_REACH = WORLD.boundary + 2
+
+/**
+ * Live collider registry the Player reads every frame. It starts as the static
+ * (site + river) set; TownModel appends the GLB-derived boxes once the model has
+ * loaded. Mutated in place so the Player never needs to re-subscribe.
+ */
+export const colliders: Collider[] = [...STATIC_COLLIDERS]
+
+/** Replace the derived portion of the registry (keeps the static base intact). */
+export function setSceneColliders(boxes: BoxCollider[]) {
+  colliders.length = 0
+  colliders.push(...STATIC_COLLIDERS, ...boxes)
+}
+
+const _box = new THREE.Box3()
+const _mesh = new THREE.Box3()
+const _center = new THREE.Vector3()
+const _size = new THREE.Vector3()
+
+/** Footprint box for a building group: the union of its grounded, tall walls. */
+function buildingBox(group: THREE.Object3D): BoxCollider | null {
+  _box.makeEmpty()
+  group.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh) return
+    _mesh.setFromObject(mesh)
+    if (_mesh.min.y <= GROUNDED_MAX_Y && _mesh.max.y >= TALL_MIN_Y) _box.union(_mesh)
+  })
+  if (_box.isEmpty()) return null
+  return {
+    minX: _box.min.x - BUILDING_PAD,
+    maxX: _box.max.x + BUILDING_PAD,
+    minZ: _box.min.z - BUILDING_PAD,
+    maxZ: _box.max.z + BUILDING_PAD,
+  }
+}
+
+/** Canopy box for a tree/rock: its full XZ extent, shrunk toward the centre. */
+function treeBox(node: THREE.Object3D): BoxCollider | null {
+  _box.setFromObject(node)
+  if (_box.isEmpty()) return null
+  _box.getCenter(_center)
+  // Square reach, matching the square roam area — includes the corner forest.
+  if (Math.abs(_center.x) > TREE_REACH || Math.abs(_center.z) > TREE_REACH) return null
+  _box.getSize(_size)
+  const hx = (_size.x / 2) * TREE_SHRINK
+  const hz = (_size.z / 2) * TREE_SHRINK
+  return {
+    minX: _center.x - hx,
+    maxX: _center.x + hx,
+    minZ: _center.z - hz,
+    maxZ: _center.z + hz,
+  }
+}
+
+/**
+ * Scan a loaded town.glb scene and return every derived box: one per building,
+ * one per in-range tree/rock. World-space, so it already accounts for the
+ * model's scale and placement.
+ */
+const isBuilding = (name: string) => SOLID_GROUPS.includes(name)
+const isTree = (name: string) => TREE_PREFIXES.some((p) => name.startsWith(p))
+
+/** True if an ancestor already matched — so this is a sub-mesh, not its own tree. */
+function insideMatched(node: THREE.Object3D): boolean {
+  for (let p = node.parent; p; p = p.parent) {
+    if (isBuilding(p.name) || isTree(p.name)) return true
+  }
+  return false
+}
+
+export function buildSceneColliders(root: THREE.Object3D): BoxCollider[] {
+  root.updateWorldMatrix(true, true)
+  const out: BoxCollider[] = []
+  root.traverse((node) => {
+    // One box per tree/building: skip sub-meshes whose parent tree/group already
+    // matched (setFromObject on the topmost node already covers the whole thing).
+    if (insideMatched(node)) return
+    if (isBuilding(node.name)) {
+      const box = buildingBox(node)
+      if (box) out.push(box)
+    } else if (isTree(node.name)) {
+      const box = treeBox(node)
+      if (box) out.push(box)
+    }
+  })
+  return out
+}

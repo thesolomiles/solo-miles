@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
 import { WORLD } from '../config/town'
 import { InteractablesProvider, ProximitySystem } from '../systems/interactables'
+import { ColliderDebug } from './ColliderDebug'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
 import { TownModel } from './TownModel'
@@ -82,6 +83,8 @@ export function Scene() {
   // Shared player position: the controller writes it; the camera, the cyclist,
   // and the proximity system read it. Hot per-frame data stays out of React.
   const posRef = useRef(PLAYER.start.clone())
+  const debug =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
 
   return (
     <InteractablesProvider>
@@ -99,6 +102,7 @@ export function Scene() {
           Environment + Building meshes. Interactables/labels rewire per
           building once all four are modelled. */}
       <TownModel />
+      {debug && <ColliderDebug boundary={WORLD.boundary} />}
       <Interactions />
 
       <Cat />
