@@ -28,8 +28,9 @@ const STRIDE: Record<string, number> = { walk: 1.5, run: 4.0, 'ninja-run': 5.5 }
 export function RiggedFigure({ anim }: { anim: RefObject<CharAnim> }) {
   const root = useRef<THREE.Group>(null!)
   const { scene, animations } = useTownGLTF(MODEL)
-  const { actions } = useAnimations(animations, root)
+  const { actions, mixer } = useAnimations(animations, root)
   const playing = useRef<string>('')
+  const lastJump = useRef(0) // last jumpSeq we've acted on
 
   useEffect(() => {
     scene.traverse((o) => {
@@ -51,13 +52,40 @@ export function RiggedFigure({ anim }: { anim: RefObject<CharAnim> }) {
     playing.current = name
   }
 
+  // Play a jump once, holding its final pose until the gait cross-fades back in.
+  const jump = (name: string) => {
+    const clip = actions[name]
+    if (!clip) return
+    actions[playing.current]?.fadeOut(FADE)
+    clip.reset()
+    clip.setLoop(THREE.LoopOnce, 1)
+    clip.clampWhenFinished = true
+    clip.timeScale = 1
+    clip.fadeIn(FADE).play()
+    playing.current = name
+    anim.current.jumping = true
+  }
+
   useEffect(() => {
     to('idle')
+    // The only LoopOnce clips are the jumps; 'finished' means the jump ended —
+    // release the lock so the next frame cross-fades back to the live gait.
+    const onFinished = () => {
+      anim.current.jumping = false
+    }
+    mixer.addEventListener('finished', onFinished)
+    return () => mixer.removeEventListener('finished', onFinished)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions])
+  }, [actions, mixer])
 
   useFrame(() => {
     const a = anim.current
+    // A bumped jumpSeq requests a one-shot jump; it overrides gaits until done.
+    if (a.jumpSeq !== lastJump.current) {
+      lastJump.current = a.jumpSeq
+      jump(a.jumpKind)
+    }
+    if (a.jumping) return // let the one-shot play out; don't fight it with gaits
     to(a.gait)
     // Sync the moving clip's cadence to ground speed so the feet plant.
     const clip = actions[a.gait]

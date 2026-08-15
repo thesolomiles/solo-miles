@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 
-type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact'
+type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
 
 export default function App() {
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
@@ -14,7 +14,11 @@ export default function App() {
       { name: 'back', keys: ['ArrowDown', 'KeyS'] },
       { name: 'left', keys: ['ArrowLeft', 'KeyA'] },
       { name: 'right', keys: ['ArrowRight', 'KeyD'] },
-      { name: 'interact', keys: ['KeyE', 'Space', 'Enter'] },
+      // Space drives the jump; interaction/dialogue still take Space via the
+      // HUD's own listener (drei keys each physical key to ONE entry, so Space
+      // can't live here twice). E / Enter remain explicit interact keys.
+      { name: 'interact', keys: ['KeyE', 'Enter'] },
+      { name: 'jump', keys: ['Space'] },
     ],
     [],
   )

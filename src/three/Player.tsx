@@ -23,9 +23,13 @@ import { RiggedFigure } from './RiggedFigure'
 export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const group = useRef<THREE.Group>(null!)
   const yaw = useRef(0) // start facing the camera (model front is +Z)
-  const anim = useRef<CharAnim>({ moving: false, phase: 0, speed: 0, gait: 'idle' })
+  const anim = useRef<CharAnim>({
+    moving: false, phase: 0, speed: 0, gait: 'idle',
+    jumpSeq: 0, jumpKind: 'jump', jumping: false,
+  })
   const moveTime = useRef(0) // seconds of continuous movement (drives walk → run)
   const speed = useRef(PLAYER.speed) // current pace, ramped between walk and run
+  const jumpHeld = useRef(false) // edge-detect the jump key so a hold = one jump
   const [, getKeys] = useKeyboardControls()
 
   useFrame((_, delta) => {
@@ -65,10 +69,10 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
 
     const canMove = st.started && !st.dialogue && !st.section
 
+    const { forward, back, left, right, jump } = getKeys()
     let mx = 0
     let mz = 0
     if (canMove) {
-      const { forward, back, left, right } = getKeys()
       // screen-relative: forward = -Z (up-screen), right = +X
       if (forward) mz -= 1
       if (back) mz += 1
@@ -110,6 +114,20 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       anim.current.speed = 0
     }
     anim.current.moving = moving
+
+    // Spacebar jump, fired once per press (a hold won't repeat). A moving player
+    // leaps with momentum (jump-run); a standing one hops in place (jump).
+    // Suppressed while a jump already plays, or near an interactable / in a
+    // dialogue — there Space is the interact key (handled by the HUD instead).
+    if (jump && !jumpHeld.current) {
+      jumpHeld.current = true
+      if (canMove && !st.near && !anim.current.jumping) {
+        anim.current.jumpKind = moving ? 'jump-run' : 'jump'
+        anim.current.jumpSeq++
+      }
+    } else if (!jump) {
+      jumpHeld.current = false
+    }
 
     // Always resolve, not just while moving: also pushes the player out if they
     // ever start or are placed inside a collider (spawn, teleport, config edit).

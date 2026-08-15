@@ -28,6 +28,7 @@ Add a clip later (e.g. a cycling loop): drop cycle.fbx (Without Skin) in the
 folder and re-run. It appears as actions.cycle in useAnimations.
 """
 import bpy, os, sys, glob
+from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -70,7 +71,20 @@ def hierarchy(arm):
     return order
 
 def retarget(base_arm, clip_arm, clip_action, name):
-    """Bake clip_arm's world pose onto base_arm as a new action `name`."""
+    """Bake clip_arm's world pose onto base_arm as a new action `name`.
+
+    IN-PLACE root-motion removal: the controller owns the character's horizontal
+    position, but Mixamo clips (jumps especially) bake a forward HIP drift. Left
+    in, the mesh glides forward during a jump then SNAPS back when the clip
+    cross-fades out — reading as the character sliding backwards at the end.
+
+    We can't just pin the hips (or the IK targets): this is an IK rig
+    (IKTarget/IKPole drive the feet), so holding one bone still while the rest
+    animate makes the legs STRETCH to reach. Instead we shift the WHOLE skeleton
+    each frame by the hips' horizontal offset from frame 0 — every bone moves by
+    the same delta, so the pose (and every bone length) is untouched, the rig
+    just no longer travels. Vertical (Z, up) is kept, so jumps still hop.
+    """
     clip_arm.animation_data_create()
     clip_arm.animation_data.action = clip_action
     fs, fe = int(clip_action.frame_range[0]), int(clip_action.frame_range[1])
@@ -82,16 +96,33 @@ def retarget(base_arm, clip_arm, clip_action, name):
     order = hierarchy(base_arm)
     clip_pb = clip_arm.pose.bones
     base_pb = base_arm.pose.bones
+
+    # The whole-body travel lives on the hips; measure its horizontal at frame 0
+    # and subtract the per-frame drift from every bone (Blender Z-up: X/Y flat).
+    hips = next((clip_pb.get(n) for n in ("Hips", "Pelvis") if clip_pb.get(n)), None)
+    anchor = None
+    if hips is not None:
+        bpy.context.scene.frame_set(fs)
+        w = (clip_arm.matrix_world @ hips.matrix).translation
+        anchor = (w.x, w.y)
+
     for f in range(fs, fe + 1):
         bpy.context.scene.frame_set(f)
+        dx = dy = 0.0
+        if anchor is not None:
+            w = (clip_arm.matrix_world @ hips.matrix).translation
+            dx, dy = w.x - anchor[0], w.y - anchor[1]
         b2w = base_arm.matrix_world.inverted()
         for bname in order:
             cb = clip_pb.get(bname)
             if cb is None:
                 continue
             pb = base_pb[bname]
+            world = (clip_arm.matrix_world @ cb.matrix).copy()
+            t = world.translation
+            world.translation = Vector((t.x - dx, t.y - dy, t.z))  # de-drift, keep hop
             # match world pose, expressed in base armature space
-            pb.matrix = b2w @ (clip_arm.matrix_world @ cb.matrix)
+            pb.matrix = b2w @ world
             bpy.context.view_layer.update()  # so children see the new parent
             pb.keyframe_insert("location", frame=f)
             pb.keyframe_insert("rotation_quaternion", frame=f)

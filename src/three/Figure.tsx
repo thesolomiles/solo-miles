@@ -19,6 +19,12 @@ export interface CharAnim {
   phase: number // walk-cycle phase in radians
   speed: number // current ground speed (world units/sec) — syncs the locomotion clip
   gait: 'idle' | 'walk' | 'run' | 'ninja-run' // which clip the model should be playing
+  /** Bumped by the controller to request a one-shot jump; the model watches it. */
+  jumpSeq: number
+  /** Which jump to fire: a leap carried by momentum, or a standing hop. */
+  jumpKind: 'jump' | 'jump-run'
+  /** Set by the model while a jump one-shot plays — locks re-triggering + gaits. */
+  jumping: boolean
 }
 
 const SKIN = 0xf0c9a4

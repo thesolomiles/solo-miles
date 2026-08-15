@@ -32,6 +32,7 @@ function Intro() {
           ) : (
             <>
               <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
+              <span><kbd>Space</kbd> jump</span>
               <span><kbd>E</kbd> interact</span>
             </>
           )}
@@ -50,7 +51,7 @@ function Hint() {
   }, [])
   const text = isTouch
     ? 'Drag the stick to move · tap a prompt to interact'
-    : 'WASD / arrows to move · walk up to a door or a face and press E'
+    : 'WASD / arrows to move · Space to jump · walk up to a door or a face and press E'
   return <div className={'hint' + (show ? ' hint--show' : '')}>{text}</div>
 }
 
