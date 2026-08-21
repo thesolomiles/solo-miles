@@ -7,6 +7,7 @@ import {
   Vignette,
   SMAA,
 } from '@react-three/postprocessing'
+import { useLighting } from '../state/lighting'
 
 /**
  * The cozy-mood postprocessing stack (Phase 2). Order matters:
@@ -20,20 +21,27 @@ import {
  * double-tone-map here.
  */
 export function PostFX() {
+  const ao = useLighting((s) => s.ao)
+  const bloomIntensity = useLighting((s) => s.bloomIntensity)
+  const bloomThreshold = useLighting((s) => s.bloomThreshold)
+  const saturation = useLighting((s) => s.saturation)
+  const contrast = useLighting((s) => s.contrast)
+  const brightness = useLighting((s) => s.brightness)
+  const vignette = useLighting((s) => s.vignette)
   return (
     <EffectComposer multisampling={0}>
       <N8AO
         aoRadius={2.2}
         distanceFalloff={1}
-        intensity={1.5}
+        intensity={ao}
         quality="medium"
         halfRes
-        color="#2b2018"
+        color="#221812"
       />
-      <Bloom intensity={0.35} luminanceThreshold={0.85} luminanceSmoothing={0.25} mipmapBlur />
-      <HueSaturation saturation={0.08} hue={0} />
-      <BrightnessContrast brightness={0.015} contrast={0.07} />
-      <Vignette offset={0.3} darkness={0.5} />
+      <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
+      <HueSaturation saturation={saturation} hue={0} />
+      <BrightnessContrast brightness={brightness} contrast={contrast} />
+      <Vignette offset={0.28} darkness={vignette} />
       <SMAA />
     </EffectComposer>
   )

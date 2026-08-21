@@ -259,31 +259,13 @@ export interface BoxCollider {
 export type Collider = CircleCollider | BoxCollider
 
 /**
- * Colliders for the two construction sites — one per PILE, not one big box over
- * the whole pad (that walled off the open dirt between piles → invisible walls).
- * Positions are the Blender Construction props mapped to world: shop props at
- * (22 + 2·px, 20 − 2·py), mom's at (−22 + 2·px, 20 − 2·py). Kept snug/slightly
- * small so the player bumps the visible pile, never empty ground. Small stuff
- * (cones, buckets, footings, ladder, offcuts) is left walkable. Remove a site's
- * entries once a real house is built on the pad and set its `built: true` above.
+ * Construction-site colliders — REMOVED in the town rebuild (Aug 20). The prop
+ * piles are gone from town.glb, so the per-pile colliders that hugged them are
+ * gone too (leaving them would be invisible walls on now-empty ground). The two
+ * pads (Pad_bike_shop / Pad_moms) remain as bare lots. If a site returns, add
+ * one snug collider per visible pile here, mapped from its Blender world pos.
  */
-const SITE_COLLIDERS: Collider[] = [
-  // --- bike-shop site ---
-  { minX: 18.2, maxX: 19.4, minZ: 21.2, maxZ: 24.0 }, // brick pile
-  { x: 25.2, z: 22.8, r: 0.85 }, // cinder blocks
-  { minX: 17.6, maxX: 19.6, minZ: 16.3, maxZ: 18.5 }, // cement bags on pallet
-  { minX: 23.6, maxX: 26.4, minZ: 16.5, maxZ: 18.3 }, // scaffold
-  { x: 18.2, z: 20.2, r: 1.0 }, // gravel heap
-  { minX: 20.7, maxX: 23.3, minZ: 22.8, maxZ: 24.8 }, // tarp pile
-  { x: 20.8, z: 23.8, r: 0.55 }, // wheelbarrow
-  { x: 23.2, z: 16.8, r: 0.7 }, // sawhorse
-  // --- mom's site ---
-  { minX: -20.0, maxX: -17.2, minZ: 21.0, maxZ: 24.2 }, // lumber pile
-  { minX: -25.7, maxX: -24.7, minZ: 20.5, maxZ: 25.1 }, // sawhorse + plank
-  { minX: -19.9, maxX: -17.7, minZ: 16.0, maxZ: 18.4 }, // cement bags on pallet
-  { x: -25.6, z: 17.0, r: 1.0 }, // sand heap
-  { x: -21.2, z: 23.8, r: 0.55 }, // wheelbarrow
-]
+const SITE_COLLIDERS: Collider[] = []
 
 /**
  * The river (world z ≈ −23.4…−12.6, full width) as two banks with a gap at the
@@ -321,16 +303,10 @@ export interface WorkerDef {
   rot: number
   phase?: number
 }
-export const WORKERS: WorkerDef[] = [
-  // Bike-shop site (props span x ≈ 17…26.5, z ≈ 15.5…25.2)
-  { pos: [24.4, 23.6], rot: -2.2, phase: 0.0 },
-  { pos: [18.6, 21.4], rot: 0.7, phase: 0.3 },
-  { pos: [22.2, 26.6], rot: 0.1, phase: 0.6 },
-  // Mom's site (props span x ≈ -26.8…-16.4, z ≈ 15.7…25.2)
-  { pos: [-19.0, 23.6], rot: 2.2, phase: 0.15 },
-  { pos: [-25.0, 21.4], rot: -0.7, phase: 0.45 },
-  { pos: [-21.6, 26.6], rot: -0.1, phase: 0.75 },
-]
+// Removed in the town rebuild (Aug 20): the two construction sites are gone from
+// town.glb, so their ambient workers are gone too. Repopulate this when a site
+// returns — one entry per worker, positioned in the gaps between the prop piles.
+export const WORKERS: WorkerDef[] = []
 
 /** Static interactable world positions (front / near side of each building). */
 export function buildingInteractPos(b: BuildingDef): THREE.Vector3 {

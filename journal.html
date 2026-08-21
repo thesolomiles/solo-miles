@@ -87,6 +87,18 @@
           <li>Matched the house window color to the cafe's (was pure white).</li>
           <li>Created the <code>imphenzia-assets</code> skill (<code>.claude/skills/</code>) to standardize the single-palette method for all future assets.</li>
           <li>Started this dev journal.</li>
+          <li>Experiment: created a low-poly pine tree in a new <code>Landscape</code> collection via the imphenzia-assets method (shared <code>Material.004</code>, UVs collapsed onto trunk + 3 pine-green swatches). Skill validated. Tree is Blender-only, not yet exported to <code>town.glb</code>.</li>
+          <li>Building scale saga (context recovered from a prior session): buildings were ~6× player → halved → +30%; final house 6.97u (~3.9×), café 6.57u (~3.7×). Confirmed against current Blender scales (house 1.432, café 0.624).</li>
+          <li>Known bug (still open): <code>BUILDINGS.pos</code> in <code>town.ts</code> no longer matches where the rebuilt buildings sit — labels/interact zones float over wrong ground.</li>
+          <li>Scale lives in TWO places that compound: Blender per-object scale × web <code>scale=2</code> in <code>TownModel.tsx</code>. Goal: model at true 1:1 size, apply scales in Blender, set web scale to 1, so nothing is ever scaled at runtime.</li>
+          <li>Removed all building interactions (kept forest trail) and temporarily disabled collision (commented out <code>resolveCollisions</code> in <code>Player.tsx</code>) while the town is re-laid-out.</li>
+          <li>Fresh start on the landscape: deleted the old river + all its leftovers (Water, RiverRocks, orphaned materials) down to house/caf&eacute;/tree/ground.</li>
+          <li>Rebuilt the river the Imphenzia way, with a <strong>real dug channel</strong>: replaced the flat 19-poly ground with a low-poly grid terrain and carved a meandering trench into it (grass top + dirt banks, all on <code>Material.004</code>). Organic meander, varying width, steeper banks, scattered rocks.</li>
+          <li>Water is now its own faceted low-poly mesh with a dedicated translucent + reflective <code>Water</code> material (the one sanctioned exception to the single-palette rule) &mdash; you see the dug bed through it, so depth is real geometry, not painted color. Final reflective/translucent shading will be a three.js job on export.</li>
+          <li>Gotcha caught: picked a water swatch by color alone and it turned out to be an <em>emissive</em> swatch &rarr; the water blew out white. Fixed by remapping to the matte blue of the same color. Both lessons folded into the imphenzia-assets skill.</li>
+          <li>Landscape: raised the north strip on a smoothstep gradient (gentle hill rising toward the north), added a low-poly grass scrub, and scattered 3 more organic pines (varied tier count, size, lean, vertex jitter, green mix) so they don't read as clones.</li>
+          <li>Exported the whole scene to <code>public/models/town.glb</code> (Draco, 155&nbsp;KB) &mdash; terrain, river+water, rocks, 4 pines, grass, house, caf&eacute;.</li>
+          <li><strong>Baked out the runtime scale:</strong> the new landscape is authored at true size (~56u), so the old <code>TownModel</code> <code>scale=2</code> made everything giant. Flipped it to <code>scale=1</code> &mdash; the town now renders at 1:1 with the player correctly proportioned. Going forward, assets are modelled at true world size and nothing is scaled at runtime.</li>
         </ul>
       </article>
     </main>

@@ -13,6 +13,7 @@ import { Cat } from './actors/Cat'
 import { Rider } from './actors/Rider'
 import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
+import { useLighting } from '../state/lighting'
 
 /** Vertical gradient sky as the scene background (prototype look). */
 function SkyBackground() {
@@ -52,6 +53,8 @@ const SUN_OFFSET = new THREE.Vector3(24, 30, 16)
  */
 function SunRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const light = useRef<THREE.DirectionalLight>(null!)
+  const intensity = useLighting((s) => s.sunIntensity)
+  const shadowRadius = useLighting((s) => s.shadowRadius)
   useFrame(() => {
     const p = posRef.current
     light.current.position.set(p.x + SUN_OFFSET.x, SUN_OFFSET.y, p.z + SUN_OFFSET.z)
@@ -61,11 +64,11 @@ function SunRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   return (
     <directionalLight
       ref={light}
-      intensity={2.1}
-      color={0xffe6bf}
+      intensity={intensity}
+      color={0xffd9a0}
       castShadow
       shadow-mapSize={[2048, 2048]}
-      shadow-radius={3.5}
+      shadow-radius={shadowRadius}
       shadow-blurSamples={16}
       shadow-camera-near={1}
       shadow-camera-far={90}
@@ -86,6 +89,10 @@ export function Scene() {
   const debug =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
 
+  const hemisphere = useLighting((s) => s.hemisphere)
+  const ambient = useLighting((s) => s.ambient)
+  const fill = useLighting((s) => s.fill)
+
   return (
     <InteractablesProvider>
       <SkyBackground />
@@ -93,10 +100,12 @@ export function Scene() {
 
       {/* Phase 2 warm rig: cool sky/ground ambient, a warm key sun casting soft
           shadows, and a dim cool fill from the opposite side to shape forms. */}
-      <hemisphereLight args={[0xdcebf2, 0x6b7350, 0.55]} />
-      <ambientLight intensity={0.12} color={0xfff2e0} />
+      {/* Moody rig: less flat fill so shadows go deep, a strong warm key.
+          Intensities come from the lighting store (tunable via ?debug panel). */}
+      <hemisphereLight args={[0xdcebf2, 0x6b7350, hemisphere]} />
+      <ambientLight intensity={ambient} color={0xfff2e0} />
       <SunRig posRef={posRef} />
-      <directionalLight position={[-18, 14, -12]} intensity={0.35} color={0xbcd4e6} />
+      <directionalLight position={[-18, 14, -12]} intensity={fill} color={0xbcd4e6} />
 
       {/* Phase 3: the real Blender-modelled town replaces the greybox
           Environment + Building meshes. Interactables/labels rewire per

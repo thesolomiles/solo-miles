@@ -70,6 +70,29 @@ Workflow for a new asset:
    that are lit in the emission atlas; everything else onto matte swatches.
 4. Verify with a viewport screenshot.
 
+**Before using any swatch for a surface that should NOT glow, verify it's matte** —
+sample the *emission* atlas at that UV and confirm it's black. The palette has
+several swatches whose albedo color also has a lit (emissive) twin, and they can
+sit right next to each other. Picking one by albedo color alone will make the
+surface bloom out white even though you never asked for glow. (This bit a whole
+river: a shallow-blue swatch turned out to be emissive; the water blew out until
+it was remapped to the matte blue of the same color.) Find a matte match by
+scanning the albedo for the target color while skipping any pixel where the
+emission atlas is non-black:
+
+```python
+def matte_swatch(target_rgb):  # returns UV of nearest MATTE swatch
+    best=None
+    for y in range(0,H,2):
+        for x in range(0,W,2):
+            i=(y*W+x)*4
+            if EPX[i]+EPX[i+1]+EPX[i+2] > 0.05:  # skip emissive swatches
+                continue
+            d=sum((APX[i+k]-target_rgb[k])**2 for k in range(3))
+            if best is None or d<best[0]: best=(d,x,y)
+    _,x,y=best; return ((x+1)/W,(y+1)/H)
+```
+
 ## Rules that keep the town consistent
 
 - **Never create a bespoke colored or emissive material** (e.g. a hand-made
@@ -78,6 +101,19 @@ Workflow for a new asset:
   re-tuned by hand forever. If you find one, unify it: reassign its faces to
   `Material.004` and collapse their UVs onto the correct swatch, then delete the
   orphan material.
+- **The one allowed exception: transmissive/reflective surfaces (water, glass).**
+  These need real PBR — transmission (translucency), low roughness (reflection),
+  IOR — which a flat matte swatch simply cannot express. So water/glass get their
+  own dedicated material (e.g. a `Water` material: blue base, roughness ~0.05,
+  transmission ~0.6, IOR 1.33), NOT a palette swatch. This is not "drift" — the
+  single-palette rule is about matte *color*, and these surfaces are a *shader*
+  need. Keep such exceptions to genuinely transmissive/reflective materials only;
+  everything opaque still lives on the shared palette. Note the real reflection/
+  refraction is a three.js runtime job — Blender only previews it (enable EEVEE
+  raytracing to see it); the geometry is what exports, the water shader is tuned
+  in three.js. A low-poly water surface with slight per-vertex height (rippled
+  facets, flat-shaded) reads far better than a dead-flat plane, since each facet
+  catches the light differently.
 - **Emissive brightness scales with face AREA, not just strength.** The strength
   (5.0) is global, so a big glowing face pours out far more light than a small
   one and blooms out. Keep emissive faces to the size of an actual window pane or

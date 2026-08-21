@@ -4,8 +4,13 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
+import { LightingPanel } from './ui/LightingPanel'
 
 type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
+
+// The lighting tuner only exists with `?debug` in the URL — production is clean.
+const DEBUG =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
 
 export default function App() {
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
@@ -38,6 +43,7 @@ export default function App() {
       </KeyboardControls>
 
       <Hud />
+      {DEBUG && <LightingPanel />}
     </div>
   )
 }

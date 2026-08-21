@@ -1,21 +1,14 @@
-import { useMemo } from 'react'
-import { BUILDINGS, TRAIL, buildingInteractPos, type BuildingDef } from '../config/town'
+import { TRAIL } from '../config/town'
 import { useRegisterInteractable } from '../systems/interactables'
 import { Label } from './Label'
 
 /**
- * Interaction zones for the modelled town. The building meshes now live in
- * town.glb (see `TownModel`), so this registers only the invisible proximity
- * zones + floating name tags at each pad — the door/face you walk up to and
- * press E on. Positions come from `BUILDINGS`/`TRAIL` in config; when a real
- * building lands, its interaction is already here, driven by the same data.
+ * Interaction zones for the modelled town. Building interactions (the press-E
+ * door zones) were removed while the town is being re-laid-out at true scale —
+ * the old `BUILDINGS.pos` no longer matches where the rebuilt buildings sit, so
+ * they triggered over the wrong ground. Only the forest trail zone remains for
+ * now; building zones will be re-driven from the glb once positions are final.
  */
-function BuildingZone({ def }: { def: BuildingDef }) {
-  const pos = useMemo(() => buildingInteractPos(def), [def])
-  useRegisterInteractable(def.interact, pos)
-  return <Label text={def.interact.name} position={[def.pos[0], 5, def.pos[1]]} />
-}
-
 function TrailZone() {
   useRegisterInteractable(TRAIL.interact, TRAIL.interactPos)
   return (
@@ -24,12 +17,5 @@ function TrailZone() {
 }
 
 export function Interactions() {
-  return (
-    <>
-      {BUILDINGS.map((b) => (
-        <BuildingZone key={b.id} def={b} />
-      ))}
-      <TrailZone />
-    </>
-  )
+  return <TrailZone />
 }
