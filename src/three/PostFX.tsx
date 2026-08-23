@@ -10,6 +10,7 @@ import {
 import type { ReactElement } from 'react'
 import { useLighting } from '../state/lighting'
 import { IS_MOBILE } from '../systems/device'
+import { DIAG_NOPOST } from '../systems/diag'
 
 /**
  * The cozy-mood postprocessing stack (Phase 2). Order matters:
@@ -30,6 +31,8 @@ export function PostFX() {
   const contrast = useLighting((s) => s.contrast)
   const brightness = useLighting((s) => s.brightness)
   const vignette = useLighting((s) => s.vignette)
+  // `?d=nopost` (and `?d=unlit`) strip the whole composer for on-device bisecting.
+  if (DIAG_NOPOST) return null
   // N8AO's half-res depth pass renders enclosed geometry as black blobs on iOS
   // Safari GPUs, so it's skipped on mobile — shadows still ground the scene.
   // Desktop keeps the full occlusion grade. See systems/device.ts. Built as a
