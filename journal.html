@@ -74,11 +74,21 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-08-23">2026-08-23</a>
       <a href="#2026-08-22">2026-08-22</a>
       <a href="#2026-08-21">2026-08-21</a>
     </nav>
     <main>
       <!-- newest first: add new <article> blocks at the top -->
+      <article id="2026-08-23">
+        <h3><a class="perma" href="#2026-08-23">2026-08-23 · Saturday</a></h3>
+        <ul>
+          <li>Refined the <strong>car</strong> (Leonard iterated the model too): moved the front wheels forward, then caught that each wheel is a black tire + a separate grey hubcap on swatch <code>(0.271,0.964)</code> &mdash; had to move both. Then aligned the wheels to the body: tucked in, set flush with the body sides, then nudged out ~0.05 so they peek out and stay visible from 3/4.</li>
+          <li><strong>South-field forest with a gradient</strong> (Leonard's spec): stumps + short trees near the town, growing to tall dense forest at the south edge. Built 3 stump meshes (short tapered octagonal cylinders on the pine-trunk swatch <code>(0.387,0.238)</code>) and scattered them + ~110 pines scaled by <em>2D distance from the town box</em> (first tries used a Y-only metric and flung the stumps to the map corners; the box-distance metric put them in the frontage). Road/buildings/garage/car kept clear. ~35 stumps after a fill pass.</li>
+          <li><strong>Shipped to prod.</strong> Re-exported <code>town.glb</code> (Draco, ~485&nbsp;KB, 614 objects), ran <code>pnpm build</code> (tsc + vite clean &mdash; only the three.js bundle-size advisory), committed, pushed <code>main</code> &rarr; Vercel <code>solo-miles</code> (thesolomiles.com).</li>
+          <li>Perf note carried forward: the scene is now <strong>~614 objects</strong> (all the scatter as individual linked-mesh dups). Frustum culling holds for now; if draw calls bite, merge each scatter group or instance them.</li>
+        </ul>
+      </article>
       <article id="2026-08-22">
         <h3><a class="perma" href="#2026-08-22">2026-08-22 · Friday</a></h3>
         <ul>
@@ -101,7 +111,9 @@
           <li><strong>Rocks + vegetation pass on the river</strong> (from a real-river reference). Built 3 low-poly boulder meshes (flattened jittered icospheres, rock swatch <code>#babbc0</code>) and 3 bush meshes (clustered green blobs, grass swatch) and scattered, seated on the terrain, across the river corridor by zone (classified Ground faces into wet <em>bed</em> Z&lt;&minus;0.55 / dirt <em>bank</em> / grass <em>fringe</em>): <strong>155 rocks</strong> (100 in-water poking through the surface + 55 bigger on the banks), <strong>130 grass tufts</strong> (dup'd <code>GrassScrub</code>, size-varied so big ones read as scrub), <strong>34 bushes</strong>. Bridge corridor (x &minus;2.5..3.5) kept clear; all decorative (names avoid the <code>Pine_/Rock_</code> collider prefixes). Re-exported <code>town.glb</code> (Draco, ~325&nbsp;KB, now 498 meshes) and verified in-game &mdash; reads like the rocky reference. This export also baked in Leonard's own tarmac-color edit (road now renders as grey, not the near-black void).</li>
           <li>River refinement pass (Leonard's notes): <strong>reduced rocks</strong> 155&rarr;45, deleted all bank rocks so <strong>rocks live only in the water</strong> (banks keep grass + bushes), and <strong>matched the bridge deck tarmac to the road</strong>. Leonard's road-tarmac edit had moved the swatch to <code>(0.416, 0.958)</code>; the bridge deck top sat 0.01 off at <code>(0.416, 0.968)</code> (a darker swatch) &mdash; remapped the deck faces to the road's exact swatch. Side effect: the deck's grey concrete side faces (0.399) were within tolerance and also got the tarmac swatch, so the whole deck is now uniform tarmac (fine/cleaner). Down to <strong>388 objects</strong>, ~296&nbsp;KB.</li>
           <li>Watch: the town.glb is now <strong>388 objects</strong> (rocks/grass/bushes/pines are individual linked-mesh duplicates). Frustum culling covers it for now, but if draw-call perf bites, merge each scatter group into one mesh or use instancing.</li>
-          <li>Still open (unchanged): <code>BUILDINGS.pos</code> in <code>town.ts</code> (&plusmn;22) doesn't match the glb building positions (&plusmn;7.9) &rarr; labels/interact zones float over wrong ground; collision still disabled in <code>Player.tsx</code> (now also needs the bigger building footprints when re-enabled).</li>
+          <li><strong>Contained the water in the square.</strong> The River water mesh ran to X&plusmn;28.58 while the Ground square is &plusmn;28, so it overhung the terrain edge into the void (the "cut off" look). Clamped the 4 overhanging edge verts back to &plusmn;28 &mdash; water now terminates flush with the landscape on both sides. Verified top-down.</li>
+          <li><strong>Garage + car</strong> on the highlighted plot just west of the house (plot X[&minus;17.2,&minus;13.2] Y[1.2,4.4], center &minus;15.2,2.8). Built via the imphenzia method (all on <code>Material.004</code>, UVs collapsed onto matte swatches): open-front garage (tan walls <code>0.159,0.288</code>, dark flat roof <code>0.492,0.199</code>, concrete floor pad <code>0.499,0.331</code>, front facing &minus;Y toward the camera like the other buildings), and a low-poly red car (body <code>0.194,0.253</code>, window cabin <code>0.206,0.382</code>, 8-seg cylinder wheels, and two small <em>emissive</em> headlights on the lit swatch <code>0.508,0.492</code>). New objects <code>Garage</code> + <code>Car</code>. Re-exported (~318&nbsp;KB) and verified in-game.</li>
+          <li>Still open (unchanged): <code>BUILDINGS.pos</code> in <code>town.ts</code> (&plusmn;22) doesn't match the glb building positions (&plusmn;7.9) &rarr; labels/interact zones float over wrong ground; collision still disabled in <code>Player.tsx</code> (now also needs the bigger building footprints + garage when re-enabled).</li>
         </ul>
       </article>
       <article id="2026-08-21">
