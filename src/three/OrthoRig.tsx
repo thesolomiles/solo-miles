@@ -6,6 +6,20 @@ import { CAMERA } from '../config/constants'
 const _desired = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
 
+// Half-extent of the town.glb Ground square. The camera is clamped so its
+// visible footprint never reaches past this, i.e. the raw map edge / void beyond
+// it never enters frame. A hair under the true ±28 so the bevelled edge itself
+// also stays just out of view.
+const GROUND_HALF = 27.5
+
+/** Clamp a view-centre coord so the visible half-extent stays inside ±GROUND_HALF.
+ *  If the view is wider than the map on this axis, centre it (nothing to clamp to). */
+function clampCentre(v: number, half: number): number {
+  const limit = GROUND_HALF - half
+  if (limit <= 0) return 0
+  return Math.max(-limit, Math.min(limit, v))
+}
+
 /**
  * The fixed three-quarter orthographic camera rig.
  *
@@ -44,6 +58,29 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     return new THREE.Quaternion().setFromRotationMatrix(m)
   }, [])
 
+  // Constants for mapping the fixed camera to the ground plane it centres on, so
+  // the edge-clamp can reason in ground-space. The camera never re-aims, so the
+  // view direction and the player→ground-centre offset are both constant.
+  //  - `sinPitch`   : how a vertical screen span projects onto the tilted ground
+  //  - `groundOffZ` : ground-centre.z − player.z (screen centre lands a touch
+  //                   north of the player because of the tilt)
+  //  - `groundFromCamZ` : ground-centre.z − camera.z, to convert a clamped
+  //                       ground centre back into a camera position
+  const rig = useMemo(() => {
+    const dir = new THREE.Vector3(
+      -CAMERA.offset.x,
+      CAMERA.lookAtHeight - CAMERA.offset.y,
+      -CAMERA.offset.z,
+    ).normalize()
+    const s = -CAMERA.offset.y / dir.y // ray param from camera to ground y=0 (player.y≈0)
+    const groundFromCamZ = s * dir.z
+    return {
+      sinPitch: -dir.y, // dir.y is negative (looking down)
+      groundOffZ: CAMERA.offset.z + groundFromCamZ,
+      groundFromCamZ,
+    }
+  }, [])
+
   useEffect(() => {
     cam.near = CAMERA.near
     cam.far = CAMERA.far
@@ -68,7 +105,24 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
     cam.quaternion.copy(fixedQuat) // constant — locked, never re-aimed
-    _desired.copy(posRef.current).add(CAMERA.offset)
+
+    const p = posRef.current
+    // Visible half-extents on the ground plane. Screen-X maps straight to world-X
+    // (no yaw); screen-Y projects along the tilt, so its ground span is stretched
+    // by 1/sinPitch.
+    const aspect = size.width / size.height
+    const halfX = (CAMERA.worldViewHeight * aspect) / 2
+    const halfZ = CAMERA.worldViewHeight / 2 / rig.sinPitch
+
+    // Where following the player would centre the view on the ground, then clamp
+    // that centre so the view never spills past the map edge.
+    const cgx = clampCentre(p.x, halfX)
+    const cgz = clampCentre(p.z + rig.groundOffZ, halfZ)
+
+    // Convert the clamped ground centre back into a camera position. With no yaw,
+    // camera.x == ground-centre.x; camera.z is the ground centre minus the fixed
+    // camera→ground z-offset.
+    _desired.set(cgx, p.y + CAMERA.offset.y, cgz - rig.groundFromCamZ)
     cam.position.lerp(_desired, 1 - Math.pow(CAMERA.followDamping, dt))
   })
 

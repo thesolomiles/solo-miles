@@ -4,10 +4,8 @@ import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
 import { TRAIL } from '../config/town'
-// Collision temporarily disabled while the town is re-laid-out at true scale.
-// Restore these two imports and the resolveCollisions() call below to re-enable.
-// import { colliders } from '../systems/colliders'
-// import { resolveCollisions } from '../systems/collision'
+import { colliders } from '../systems/colliders'
+import { resolveCollisions } from '../systems/collision'
 import { touchMove } from '../systems/input'
 import { useGame } from '../state/store'
 import { type CharAnim } from './Figure'
@@ -131,9 +129,10 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       jumpHeld.current = false
     }
 
-    // Collision temporarily disabled (walk through everything, no world edge)
-    // while the town is re-laid-out at true scale. Restore to re-enable:
-    // resolveCollisions(posRef.current, colliders)
+    // Resolve against the derived town colliders (buildings, trees, stumps),
+    // the river banks, and the square world edge — in place, before we place
+    // the group. See systems/collision.ts.
+    resolveCollisions(posRef.current, colliders)
 
     group.current.position.set(posRef.current.x, 0, posRef.current.z)
     group.current.rotation.y = yaw.current

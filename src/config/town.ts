@@ -63,9 +63,10 @@ export interface BuildingDef {
 /** World-scale layout constants. */
 export const WORLD = {
   groundRadius: 48, // visible ground disc
-  boundary: 54, // half-extent of the SQUARE roam area (see collision.ts). The
-  // ground is ±56, so this walls the player in just shy of the edge, hidden in
-  // the outer forest. Trees/rocks/buildings do the containing inside it.
+  boundary: 27, // half-extent of the SQUARE roam area (see collision.ts). The
+  // town.glb Ground square runs to ±28, so this walls the player in one unit shy
+  // of the raw terrain edge. The camera edge-clamp (OrthoRig) keeps that edge off
+  // screen; trees/stumps/river/buildings do the containing inside it.
   plazaRadius: 8,
   // forest ring
   forestRings: 3,
@@ -268,15 +269,15 @@ export type Collider = CircleCollider | BoxCollider
 const SITE_COLLIDERS: Collider[] = []
 
 /**
- * The river (world z ≈ −23.4…−12.6, full width) as two banks with a gap at the
- * bridge (deck spans x ≈ −3.2…3.2) so the player can only cross on the bridge.
- * Outer extents run to the ground edge (the player now roams the whole map, so
- * the river must block its full width); the gap is a touch narrower than the
- * deck to keep the player off the rails.
+ * The river (world z ≈ −14…−4.6, full width in the current town.glb) as two
+ * banks with a gap at the bridge (deck spans x ≈ −1.6…2.4) so the player can
+ * only cross on the bridge. Outer extents run past the ground edge (±28) since
+ * the player roams the whole map; the gap is a touch narrower than the deck to
+ * keep the player off the rails.
  */
 const WATER_COLLIDERS: BoxCollider[] = [
-  { minX: -56, maxX: -3.0, minZ: -23.6, maxZ: -12.4 }, // west of the bridge
-  { minX: 3.0, maxX: 56, minZ: -23.6, maxZ: -12.4 }, // east of the bridge
+  { minX: -30, maxX: -1.2, minZ: -14.2, maxZ: -4.6 }, // west of the bridge
+  { minX: 2.0, maxX: 30, minZ: -14.2, maxZ: -4.6 }, // east of the bridge
 ]
 
 /**

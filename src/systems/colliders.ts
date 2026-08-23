@@ -16,7 +16,10 @@ import { STATIC_COLLIDERS, WORLD, type BoxCollider, type Collider } from '../con
 
 // Top-level GLB group names whose walls block. Add a name here when its house is
 // built, and drop the matching SITE_COLLIDERS entries at the same time.
-const SOLID_GROUPS = ['Home', 'Cafe']
+// (The current town.glb names its structures Building / Garage / Cube; the old
+// Home / Cafe names are kept in case an earlier export is loaded — a name that
+// matches nothing just yields no box.)
+const SOLID_GROUPS = ['Home', 'Cafe', 'Building', 'Garage', 'Cube']
 
 // A mesh joins a building's footprint only if it is rooted to the ground (base
 // near y=0) AND rises to roughly head height — i.e. a wall or post. This drops
@@ -32,9 +35,12 @@ const TALL_MIN_Y = 2.0
 // overshoot, so corners stay tight.
 const BUILDING_PAD = 0.35
 
-// Node-name prefixes for the solid scatter (pines, round trees, rocks). Bushes
-// (Bush_*) are left walkable — they're small ground cover, not obstacles.
-const TREE_PREFIXES = ['Pine_', 'Round_', 'Rock_']
+// Node-name prefixes for the solid scatter (pines, tree stumps). `PineTree`
+// covers both the tall pines and the short `PineTree_s*` variants; `Stump`
+// covers the south-field stumps. River rocks sit inside the water collider and
+// river grass / bushes are walkable ground cover, so neither gets a box. The
+// old Pine_ / Round_ / Rock_ prefixes are retained harmlessly for older exports.
+const TREE_PREFIXES = ['Pine_', 'Round_', 'Rock_', 'PineTree', 'Stump']
 
 // Canopy boxes are generous; keep only the inner part of each so the sparse
 // pointy tips don't block, and the player can tuck right up against the foliage.
