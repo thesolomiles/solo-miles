@@ -74,12 +74,22 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-08-24">2026-08-24</a>
       <a href="#2026-08-23">2026-08-23</a>
       <a href="#2026-08-22">2026-08-22</a>
       <a href="#2026-08-21">2026-08-21</a>
     </nav>
     <main>
       <!-- newest first: add new <article> blocks at the top -->
+      <article id="2026-08-24">
+        <h3><a class="perma" href="#2026-08-24">2026-08-24 · Sunday</a></h3>
+        <ul>
+          <li><strong>Mobile black-blob bug.</strong> Leonard reported thesolomiles.com on an iPhone showing large <em>pure-black</em> blobs over the buildings/car (garage interior + parked car rendered as a solid black silhouette), while the lit-window glow band rendered fine. Confirmed via the in-app browser that the scene renders <em>correctly</em> on a normal (host) GPU &mdash; so it's an <strong>iOS-Safari-GPU-specific</strong> rendering failure, not a logic bug, and it's localized to enclosed/shadowed geometry (not full-screen).</li>
+          <li><strong>Root cause: two iOS-hostile effects.</strong> (1) <code>THREE.VSMShadowMap</code> (set on the <code>&lt;Canvas shadows&gt;</code>) &mdash; VSM's shadow map is a half-float target that iOS filters unreliably, and its blur pass smears the failure into soft black clouds over anything in shadow. (2) <code>N8AO</code> with <code>halfRes</code> in the PostFX stack &mdash; the half-resolution depth reconstruction misfires on mobile GPUs and paints enclosed geometry black. Both match the symptom exactly.</li>
+          <li><strong>Fix: a mobile render path</strong> (<code>systems/device.ts</code> &rarr; <code>IS_MOBILE</code>, keyed off <code>matchMedia('(pointer: coarse)')</code>, the same signal the touch HUD uses). On mobile only: shadows fall back to the robust <code>PCFSoftShadowMap</code> (App.tsx) and the <code>N8AO</code> pass is skipped (PostFX.tsx, rebuilt as a filtered effects array since <code>EffectComposer</code>'s children type rejects <code>false</code>). <strong>Desktop is byte-for-byte unchanged</strong> &mdash; still VSM + full N8AO grade. Shadows still ground the scene on mobile, so the diorama look survives.</li>
+          <li>Verified: <code>pnpm build</code> clean (only the known three.js bundle-size advisory); desktop scene re-checked in-browser (house/caf&eacute; glow, player shadow, AO, no black blobs). The true confirmation is on Leonard's iPhone once shipped &mdash; the in-app browser can't reproduce the iOS GPU quirk (same host GPU either way).</li>
+        </ul>
+      </article>
       <article id="2026-08-23">
         <h3><a class="perma" href="#2026-08-23">2026-08-23 · Saturday</a></h3>
         <ul>

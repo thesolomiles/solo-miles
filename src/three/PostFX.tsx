@@ -7,7 +7,9 @@ import {
   Vignette,
   SMAA,
 } from '@react-three/postprocessing'
+import type { ReactElement } from 'react'
 import { useLighting } from '../state/lighting'
+import { IS_MOBILE } from '../systems/device'
 
 /**
  * The cozy-mood postprocessing stack (Phase 2). Order matters:
@@ -28,9 +30,14 @@ export function PostFX() {
   const contrast = useLighting((s) => s.contrast)
   const brightness = useLighting((s) => s.brightness)
   const vignette = useLighting((s) => s.vignette)
-  return (
-    <EffectComposer multisampling={0}>
+  // N8AO's half-res depth pass renders enclosed geometry as black blobs on iOS
+  // Safari GPUs, so it's skipped on mobile — shadows still ground the scene.
+  // Desktop keeps the full occlusion grade. See systems/device.ts. Built as a
+  // filtered array because EffectComposer's children type rejects `false`.
+  const effects = [
+    IS_MOBILE ? null : (
       <N8AO
+        key="ao"
         aoRadius={2.2}
         distanceFalloff={1}
         intensity={ao}
@@ -38,11 +45,12 @@ export function PostFX() {
         halfRes
         color="#221812"
       />
-      <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
-      <HueSaturation saturation={saturation} hue={0} />
-      <BrightnessContrast brightness={brightness} contrast={contrast} />
-      <Vignette offset={0.28} darkness={vignette} />
-      <SMAA />
-    </EffectComposer>
-  )
+    ),
+    <Bloom key="bloom" intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />,
+    <HueSaturation key="hue" saturation={saturation} hue={0} />,
+    <BrightnessContrast key="bc" brightness={brightness} contrast={contrast} />,
+    <Vignette key="vig" offset={0.28} darkness={vignette} />,
+    <SMAA key="smaa" />,
+  ].filter(Boolean) as ReactElement[]
+  return <EffectComposer multisampling={0}>{effects}</EffectComposer>
 }

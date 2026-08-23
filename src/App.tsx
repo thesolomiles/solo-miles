@@ -6,6 +6,7 @@ import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
+import { IS_MOBILE } from './systems/device'
 
 type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
 
@@ -36,7 +37,10 @@ export default function App() {
     <div className="app">
       <KeyboardControls map={map}>
         <Canvas
-          shadows={{ type: THREE.VSMShadowMap }}
+          // VSM shadow maps render as black blobs on iOS Safari (half-float
+          // filtering). Mobile falls back to the robust PCF-soft path; desktop
+          // keeps the tuned VSM look. See systems/device.ts.
+          shadows={{ type: IS_MOBILE ? THREE.PCFSoftShadowMap : THREE.VSMShadowMap }}
           dpr={[1, 2]}
           gl={{ antialias: false }}
           // A default camera is created then immediately replaced by OrthoRig.
