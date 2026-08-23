@@ -1,71 +1,132 @@
-import { useState } from 'react'
-import type { BoxCollider } from '../config/town'
+import { useEffect, useState } from 'react'
 import { useColliderEdit } from '../state/colliderEdit'
+
+// A successful Save rewrites the data file, which triggers a Vite HMR remount —
+// wiping the button's "Saved ✓" state. Stash a timestamp so the freshly-mounted
+// panel can re-show the confirmation for the rest of its window.
+const SAVED_KEY = 'solomiles.colliderSavedAt'
 
 /**
  * Dev-only toolbar for the collision editor. Rendered ONLY with `?edit` (see
- * App.tsx). Add / delete / seed / clear the hand-authored boxes, then "Copy
- * JSON" dumps the current set as a `MANUAL_COLLIDERS` snippet to paste into
- * src/config/colliders.data.ts and commit — that's what ships. Until then the
- * live edits persist in localStorage, so a reload keeps your work.
- *
- * Boxes are drawn + dragged in-scene by three/ColliderEditor.tsx.
+ * App.tsx), and collapsed by default — click the header to bring it out, like
+ * the lighting panel. Add / delete / seed / clear the hand-authored boxes, then
+ * "Save" writes them into src/config/colliders.data.ts and git-commits (via the
+ * dev-server endpoint in vite-plugin-save-colliders) — the old Copy JSON →
+ * paste → commit, in one click. Boxes are drawn + dragged in-scene by
+ * three/ColliderEditor.tsx.
  */
+type SaveState = 'idle' | 'saving' | 'ok' | 'err'
+
 export function ColliderEditorPanel() {
-  const { boxes, selected, add, remove, seedFromDerived, clear } = useColliderEdit()
-  const [copied, setCopied] = useState(false)
+  const { open, toggle, boxes, selected, add, remove, seedFromDerived, clear } = useColliderEdit()
+  const [save, setSave] = useState<SaveState>(() => {
+    try {
+      const t = Number(sessionStorage.getItem(SAVED_KEY))
+      if (t && Date.now() - t < 3000) return 'ok'
+    } catch {
+      /* ignore */
+    }
+    return 'idle'
+  })
 
-  const fmt = (b: BoxCollider) =>
-    `  { minX: ${round(b.minX)}, maxX: ${round(b.maxX)}, minZ: ${round(b.minZ)}, maxZ: ${round(b.maxZ)} },`
-  const snippet = `export const MANUAL_COLLIDERS: BoxCollider[] = [\n${boxes.map(fmt).join('\n')}\n]`
+  // Clear a restored/just-set confirmation after its window (survives remount).
+  useEffect(() => {
+    if (save !== 'ok') return
+    const id = setTimeout(() => {
+      setSave('idle')
+      try {
+        sessionStorage.removeItem(SAVED_KEY)
+      } catch {
+        /* ignore */
+      }
+    }, 2000)
+    return () => clearTimeout(id)
+  }, [save])
 
-  const copy = () => {
-    // Always log — the guaranteed path if the clipboard API is blocked (some
-    // embedded/headless browsers deny writeText); grab it from the console then.
-    // eslint-disable-next-line no-console
-    console.log(snippet)
-    navigator.clipboard?.writeText(snippet).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1400)
+  const doSave = async () => {
+    setSave('saving')
+    try {
+      const res = await fetch('/__save-colliders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(boxes),
+      })
+      const data = (await res.json()) as { ok: boolean; committed?: boolean }
+      if (!res.ok || !data.ok) throw new Error('save failed')
+      // File is now the source of truth — drop the localStorage draft so it
+      // can't shadow future file edits.
+      try {
+        localStorage.removeItem('solomiles.manualColliders')
+        sessionStorage.setItem(SAVED_KEY, String(Date.now()))
+      } catch {
+        /* ignore */
+      }
+      setSave('ok')
+    } catch {
+      setSave('err')
+      setTimeout(() => setSave('idle'), 2000)
+    }
   }
 
   const sel = selected != null ? boxes[selected] : null
+  const saveLabel =
+    save === 'saving'
+      ? 'Saving…'
+      : save === 'ok'
+        ? 'Saved ✓ committed'
+        : save === 'err'
+          ? 'Save failed (dev only)'
+          : 'Save'
 
   return (
     <div style={S.panel}>
-      <div style={S.title}>▦ Collision editor</div>
-      <div style={S.hint}>
-        Click a box to select · drag its face to move · drag a yellow corner to resize
+      {/* Whole header toggles; the +/- is a visual affordance (no own handler,
+          so a click on it bubbles to this div and toggles exactly once). */}
+      <div style={S.head} onClick={toggle}>
+        <span style={S.title}>▦ Collision {open ? '' : '(hidden)'}</span>
+        <span style={S.btnSm}>{open ? '–' : '+'}</span>
       </div>
 
-      <div style={S.stat}>
-        {boxes.length} box{boxes.length === 1 ? '' : 'es'}
-        {sel &&
-          ` · sel ${round(sel.maxX - sel.minX)}×${round(sel.maxZ - sel.minZ)} @ (${round((sel.minX + sel.maxX) / 2)}, ${round((sel.minZ + sel.maxZ) / 2)})`}
-      </div>
+      {open && (
+        <>
+          <div style={S.hint}>
+            Click a box to select · drag its face to move · drag a yellow corner to resize
+          </div>
 
-      <div style={S.grid}>
-        <button style={S.btn} onClick={add}>
-          + Add box
-        </button>
-        <button
-          style={{ ...S.btn, opacity: selected == null ? 0.4 : 1 }}
-          disabled={selected == null}
-          onClick={() => selected != null && remove(selected)}
-        >
-          Delete sel
-        </button>
-        <button style={S.btnAlt} onClick={seedFromDerived}>
-          Seed town.glb
-        </button>
-        <button style={S.btnAlt} onClick={() => confirm('Clear all boxes?') && clear()}>
-          Clear all
-        </button>
-      </div>
+          <div style={S.stat}>
+            {boxes.length} box{boxes.length === 1 ? '' : 'es'}
+            {sel &&
+              ` · sel ${round(sel.maxX - sel.minX)}×${round(sel.maxZ - sel.minZ)} @ (${round((sel.minX + sel.maxX) / 2)}, ${round((sel.minZ + sel.maxZ) / 2)})`}
+          </div>
 
-      <button style={S.copy} onClick={copy}>
-        {copied ? 'Copied ✓ — paste into colliders.data.ts' : 'Copy JSON'}
-      </button>
+          <div style={S.grid}>
+            <button style={S.btn} onClick={add}>
+              + Add box
+            </button>
+            <button
+              style={{ ...S.btn, opacity: selected == null ? 0.4 : 1 }}
+              disabled={selected == null}
+              onClick={() => selected != null && remove(selected)}
+            >
+              Delete sel
+            </button>
+            <button style={S.btnAlt} onClick={seedFromDerived}>
+              Seed town.glb
+            </button>
+            <button style={S.btnAlt} onClick={() => confirm('Clear all boxes?') && clear()}>
+              Clear all
+            </button>
+          </div>
+
+          <button
+            style={{ ...S.save, background: save === 'err' ? 'rgba(255,90,90,0.9)' : S.save.background }}
+            onClick={doSave}
+            disabled={save === 'saving'}
+          >
+            {saveLabel}
+          </button>
+        </>
+      )}
     </div>
   )
 }
@@ -89,8 +150,14 @@ const S: Record<string, React.CSSProperties> = {
     zIndex: 50,
     userSelect: 'none',
   },
-  title: { fontSize: 12, fontWeight: 600, letterSpacing: 0.3, marginBottom: 6 },
-  hint: { fontSize: 10, opacity: 0.6, lineHeight: 1.4, marginBottom: 8 },
+  head: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    cursor: 'pointer',
+  },
+  title: { fontSize: 12, fontWeight: 600, letterSpacing: 0.3 },
+  hint: { fontSize: 10, opacity: 0.6, lineHeight: 1.4, margin: '8px 0' },
   stat: {
     margin: '0 0 8px',
     padding: '4px 6px',
@@ -119,7 +186,7 @@ const S: Record<string, React.CSSProperties> = {
     font: `11px ${mono}`,
     cursor: 'pointer',
   },
-  copy: {
+  save: {
     width: '100%',
     marginTop: 8,
     padding: '6px 0',
@@ -130,5 +197,15 @@ const S: Record<string, React.CSSProperties> = {
     font: `11px ${mono}`,
     fontWeight: 600,
     cursor: 'pointer',
+  },
+  btnSm: {
+    width: 22,
+    height: 22,
+    background: 'rgba(255,255,255,0.1)',
+    color: '#f2e9df',
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    lineHeight: '20px',
   },
 }

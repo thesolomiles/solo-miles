@@ -12,6 +12,10 @@ import { colliders, derivedColliders, setManualColliders } from '../systems/coll
  * updates the instant you drag, and survives a reload until you export the JSON.
  */
 interface ColliderEditState {
+  /** Editor visible? Off by default — brought out on demand, like the lighting
+   *  panel. When closed the in-scene handles hide and the panel collapses. */
+  open: boolean
+  toggle: () => void
   boxes: BoxCollider[]
   /** Index of the box showing drag handles, or null. */
   selected: number | null
@@ -29,6 +33,24 @@ function initialBoxes(): BoxCollider[] {
   return colliders.filter((c): c is BoxCollider => 'minX' in c).map((b) => ({ ...b }))
 }
 
+// Persist the open/closed state so a Save (which rewrites the data file and thus
+// triggers a Vite HMR remount) doesn't snap the panel shut mid-edit.
+const OPEN_KEY = 'solomiles.colliderOpen'
+function readOpen(): boolean {
+  try {
+    return sessionStorage.getItem(OPEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function writeOpen(v: boolean) {
+  try {
+    sessionStorage.setItem(OPEN_KEY, v ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Sync helper: push to the live registry + persist, then update store state. */
 function commit(set: (s: Partial<ColliderEditState>) => void, boxes: BoxCollider[], selected: number | null) {
   setManualColliders(boxes)
@@ -36,6 +58,13 @@ function commit(set: (s: Partial<ColliderEditState>) => void, boxes: BoxCollider
 }
 
 export const useColliderEdit = create<ColliderEditState>((set, get) => ({
+  open: readOpen(),
+  toggle: () =>
+    set((s) => {
+      const open = !s.open
+      writeOpen(open)
+      return { open, selected: open ? s.selected : null }
+    }),
   boxes: initialBoxes(),
   selected: null,
 

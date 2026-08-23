@@ -137,8 +137,12 @@ function EditableBox({ box, index }: { box: BoxCollider; index: number }) {
 }
 
 export function ColliderEditor() {
+  const open = useColliderEdit((s) => s.open)
   const boxes = useColliderEdit((s) => s.boxes)
   const clearSel = useColliderEdit((s) => s.select)
+
+  // Hidden until the panel is toggled open — a clean view otherwise.
+  if (!open) return null
 
   return (
     <group>
