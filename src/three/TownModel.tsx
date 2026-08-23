@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { buildSceneColliders, setSceneColliders } from '../systems/colliders'
 import { densifyForest } from '../systems/forest'
+import { instanceScatter } from '../systems/instancing'
 import { useTownGLTF } from './gltf'
 import { useLighting } from '../state/lighting'
 
@@ -93,6 +94,10 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     // Derive colliders (buildings + trees) from the real geometry now the model
     // is in the scene graph (so world matrices reflect its placement + scale).
     setSceneColliders(buildSceneColliders(scene))
+    // Finally, batch the scattered props (trees/rocks/grass/bushes/stumps) into
+    // instanced meshes — runs after colliders so those still read the named
+    // geometry. Turns ~600 draw calls into a handful; authoring stays per-object.
+    instanceScatter(scene)
   }, [scene])
 
   return <primitive object={scene} scale={scale} />

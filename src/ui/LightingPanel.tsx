@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LIGHTING_CONTROLS, useLighting } from '../state/lighting'
+import { usePerf } from '../state/perf'
 
 /**
  * Dev-only lighting tuner. Rendered ONLY when the URL has `?debug` (see
@@ -10,6 +11,7 @@ import { LIGHTING_CONTROLS, useLighting } from '../state/lighting'
  */
 export function LightingPanel() {
   const state = useLighting()
+  const perf = usePerf()
   const [open, setOpen] = useState(true)
   const [copied, setCopied] = useState(false)
 
@@ -31,6 +33,9 @@ export function LightingPanel() {
 
       {open && (
         <>
+          <div style={S.perf}>
+            ▲ {perf.calls} draw calls · {(perf.tris / 1000).toFixed(0)}k tris · {perf.fps} fps
+          </div>
           {LIGHTING_CONTROLS.map(([key, label, min, max, step]) => (
             <label key={key} style={S.row}>
               <span style={S.label}>{label}</span>
@@ -79,6 +84,15 @@ const S: Record<string, React.CSSProperties> = {
   },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   title: { fontSize: 12, fontWeight: 600, letterSpacing: 0.3 },
+  perf: {
+    margin: '0 0 8px',
+    padding: '4px 6px',
+    background: 'rgba(255,255,255,0.06)',
+    borderRadius: 6,
+    fontSize: 10,
+    opacity: 0.85,
+    letterSpacing: 0.2,
+  },
   row: { display: 'flex', alignItems: 'center', gap: 6, margin: '3px 0' },
   label: { width: 74, opacity: 0.85, flexShrink: 0 },
   slider: { flex: 1, accentColor: '#e08a3c', height: 14 },

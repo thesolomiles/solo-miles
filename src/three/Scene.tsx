@@ -14,6 +14,7 @@ import { Rider } from './actors/Rider'
 import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
 import { useLighting } from '../state/lighting'
+import { usePerf } from '../state/perf'
 
 /** Vertical gradient sky as the scene background (prototype look). */
 function SkyBackground() {
@@ -82,6 +83,41 @@ function SunRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   )
 }
 
+/**
+ * Debug-only: sample the renderer's per-frame stats (draw calls, triangles) and
+ * a smoothed FPS into the perf store, ~4×/sec, for the HUD. `gl.info` resets
+ * each frame; read in useFrame it reflects the frame just drawn.
+ */
+function PerfProbe() {
+  const gl = useThree((s) => s.gl)
+  const set = usePerf((s) => s.set)
+  const acc = useRef({ t: 0, fps: 60 })
+  // The scene renders through PostFX's composer (several passes/frame). three
+  // auto-resets `info` at each render() call, so by useFrame we'd only see the
+  // final composite pass. Turn auto-reset off and reset once per frame ourselves
+  // so the count reflects a whole frame (scene + post).
+  useEffect(() => {
+    gl.info.autoReset = false
+    return () => {
+      gl.info.autoReset = true
+    }
+  }, [gl])
+  useFrame((_, dt) => {
+    const a = acc.current
+    // At useFrame time `info` holds the previous frame's full accumulation.
+    const calls = gl.info.render.calls
+    const tris = gl.info.render.triangles
+    gl.info.reset()
+    a.fps = a.fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1
+    a.t += dt
+    if (a.t >= 0.25) {
+      set({ calls, tris, fps: Math.round(a.fps) })
+      a.t = 0
+    }
+  })
+  return null
+}
+
 export function Scene() {
   // Shared player position: the controller writes it; the camera, the cyclist,
   // and the proximity system read it. Hot per-frame data stays out of React.
@@ -112,6 +148,7 @@ export function Scene() {
           building once all four are modelled. */}
       <TownModel />
       {debug && <ColliderDebug boundary={WORLD.boundary} />}
+      {debug && <PerfProbe />}
       <Interactions />
 
       <Cat />
