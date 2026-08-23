@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { buildSceneColliders, setSceneColliders } from '../systems/colliders'
+import { captureDerivedColliders } from '../systems/colliders'
 import { densifyForest } from '../systems/forest'
 import { instanceScatter } from '../systems/instancing'
 import { useTownGLTF } from './gltf'
@@ -91,9 +91,10 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
       m.castShadow = true
       m.receiveShadow = true
     })
-    // Derive colliders (buildings + trees) from the real geometry now the model
-    // is in the scene graph (so world matrices reflect its placement + scale).
-    setSceneColliders(buildSceneColliders(scene))
+    // Collision is hand-authored now (config/colliders.data.ts). Still derive the
+    // building/tree boxes from the real geometry and stash them so the ?edit
+    // collider editor can offer them as a seed — but don't apply them at runtime.
+    captureDerivedColliders(scene)
     // Finally, batch the scattered props (trees/rocks/grass/bushes/stumps) into
     // instanced meshes — runs after colliders so those still read the named
     // geometry. Turns ~600 draw calls into a handful; authoring stays per-object.

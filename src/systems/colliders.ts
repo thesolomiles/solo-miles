@@ -1,18 +1,34 @@
 import * as THREE from 'three'
-import { STATIC_COLLIDERS, WORLD, type BoxCollider, type Collider } from '../config/town'
+import { WORLD, type BoxCollider, type Collider } from '../config/town'
+import { MANUAL_COLLIDERS } from '../config/colliders.data'
 
 /**
- * Colliders derived from the real town.glb geometry rather than hand-tuned, so
- * they hug what's actually on screen. Two kinds, both boxes:
+ * Collision is HAND-AUTHORED. The live registry the Player reads every frame is
+ * the hand-drawn box set (config/colliders.data.ts), editable live in-browser
+ * with `?edit` (see three/ColliderEditor.tsx). A `?edit` session persists its
+ * work-in-progress to localStorage, which overrides the committed defaults so
+ * edits survive a reload until they're exported back into the data file.
  *
- * - Buildings (SOLID_GROUPS). Each built house is a group with its walls, roof,
- *   porch, furniture and landscaping parented together; we box only the *walls*
- *   (grounded + tall meshes), so the collider hugs the footprint and leaves the
- *   porch, patio and empty fringe around the house walkable.
- * - Trees & rocks (TREE_PREFIXES). Each gets a canopy-sized box — the player
- *   bumps the whole tree, not a trunk. Only ones inside the roam area are boxed;
- *   the dense forest ring beyond the boundary is skipped (unreachable anyway).
+ * The auto-derivation below (buildings + trees, boxed from the real town.glb
+ * geometry) is kept ONLY as a seed source: the editor can pull it in as a
+ * starting point via `derivedColliders`. It is no longer applied at runtime.
  */
+
+const STORAGE_KEY = 'solomiles.manualColliders'
+
+/** Load the hand-authored set: a live `?edit` draft in localStorage wins over
+ *  the committed defaults, so in-browser edits survive reloads until exported. */
+function loadManual(): BoxCollider[] {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      if (raw) return JSON.parse(raw) as BoxCollider[]
+    } catch {
+      /* corrupt draft — fall back to the committed defaults */
+    }
+  }
+  return MANUAL_COLLIDERS.map((b) => ({ ...b }))
+}
 
 // Top-level GLB group names whose walls block. Add a name here when its house is
 // built, and drop the matching SITE_COLLIDERS entries at the same time.
@@ -52,16 +68,40 @@ const TREE_SHRINK = 0.72
 const TREE_REACH = WORLD.boundary + 2
 
 /**
- * Live collider registry the Player reads every frame. It starts as the static
- * (site + river) set; TownModel appends the GLB-derived boxes once the model has
- * loaded. Mutated in place so the Player never needs to re-subscribe.
+ * Live collider registry the Player reads every frame. Starts from the
+ * hand-authored set (localStorage draft, else the committed defaults). Mutated
+ * in place so the Player never needs to re-subscribe. The editor drives it via
+ * setManualColliders on every change, so collision updates as you drag.
  */
-export const colliders: Collider[] = [...STATIC_COLLIDERS]
+export const colliders: Collider[] = [...loadManual()]
 
-/** Replace the derived portion of the registry (keeps the static base intact). */
-export function setSceneColliders(boxes: BoxCollider[]) {
+/**
+ * Replace the whole live registry with a hand-authored box set and persist it as
+ * the `?edit` draft. Called by the collider editor on every add/move/delete, so
+ * you can walk into a box the moment you place it.
+ */
+export function setManualColliders(boxes: BoxCollider[]) {
   colliders.length = 0
-  colliders.push(...STATIC_COLLIDERS, ...boxes)
+  colliders.push(...boxes.map((b) => ({ ...b })))
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(boxes))
+    } catch {
+      /* storage full / disabled — the in-memory registry still updates */
+    }
+  }
+}
+
+/**
+ * The auto-derived boxes from the last town.glb load, captured by TownModel and
+ * kept ONLY so the editor's "Seed from town.glb" button can offer them as a
+ * starting point. Not applied to the live registry (collision is hand-authored).
+ */
+export let derivedColliders: BoxCollider[] = []
+
+/** Called by TownModel once the model is in the scene graph. */
+export function captureDerivedColliders(root: THREE.Object3D) {
+  derivedColliders = buildSceneColliders(root)
 }
 
 const _box = new THREE.Box3()

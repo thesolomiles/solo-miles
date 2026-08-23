@@ -5,12 +5,16 @@ import * as THREE from 'three'
 import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
+import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
 
 type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
 
-// The lighting tuner only exists with `?debug` in the URL — production is clean.
-const DEBUG =
-  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
+// Dev overlays are URL-gated so production stays clean: `?debug` = lighting/perf
+// tuner, `?edit` = the hand-authored collision editor toolbar.
+const params =
+  typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
+const DEBUG = !!params?.has('debug')
+const EDIT = !!params?.has('edit')
 
 export default function App() {
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
@@ -44,6 +48,7 @@ export default function App() {
 
       <Hud />
       {DEBUG && <LightingPanel />}
+      {EDIT && <ColliderEditorPanel />}
     </div>
   )
 }
