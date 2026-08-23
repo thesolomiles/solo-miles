@@ -15,8 +15,7 @@ import type { BoxCollider } from './town'
  * systems/collision.ts and is not listed here.
  */
 export const MANUAL_COLLIDERS: BoxCollider[] = [
-  // Hand-drawn in ?edit (Leonard) — the full 27-box town layout: map-edge walls,
-  // the east café/shop block, the west house block, the river, and the trail.
+  // Hand-drawn in ?edit (Leonard), saved straight from the browser editor.
   { minX: -28.6, maxX: -23, minZ: -7.3, maxZ: 28.6 },
   { minX: -23.4, maxX: -15.4, minZ: 14.1, maxZ: 27.7 },
   { minX: -15.6, maxX: -7.8, minZ: 16.1, maxZ: 28.1 },
@@ -29,19 +28,22 @@ export const MANUAL_COLLIDERS: BoxCollider[] = [
   { minX: 19.9, maxX: 29.2, minZ: -5.6, maxZ: 0.8 },
   { minX: 19.4, maxX: 28.5, minZ: -9.4, maxZ: -4.1 },
   { minX: 13, maxX: 20.5, minZ: -11.5, maxZ: -7.9 },
-  { minX: 6.7, maxX: 12.7, minZ: -8.9, maxZ: 0.4 },
+  { minX: 6.7, maxX: 13.2, minZ: -8.9, maxZ: 0.5 },
   { minX: 2.1, maxX: 14.2, minZ: -22.3, maxZ: -7 },
   { minX: 5.9, maxX: 9.9, minZ: -3.5, maxZ: 0.5 },
   { minX: 3.6, maxX: 15.2, minZ: -30.6, maxZ: -19.7 },
   { minX: -5.3, maxX: -1.3, minZ: -22, maxZ: -5.4 },
-  { minX: -12.6, maxX: -6.4, minZ: -6.1, maxZ: 1.7 },
+  { minX: -13, maxX: -5.8, minZ: -6.1, maxZ: 1.8 },
   { minX: -18.3, maxX: -4.6, minZ: -9.3, maxZ: -5.3 },
   { minX: -5.3, maxX: -3.2, minZ: -7, maxZ: -0.3 },
-  { minX: -19, maxX: -12, minZ: -5.2, maxZ: 0.2 },
+  { minX: -19, maxX: -11.6, minZ: -6.6, maxZ: 0.2 },
   { minX: -28.4, maxX: -17.6, minZ: -10.2, maxZ: -6.2 },
   { minX: -7.2, maxX: -3.2, minZ: -29.3, maxZ: -21.4 },
   { minX: -18.5, maxX: -14.5, minZ: 11.2, maxZ: 15.2 },
   { minX: -25.1, maxX: -21.3, minZ: 8.5, maxZ: 16.7 },
   { minX: -25.4, maxX: -21.3, minZ: -7.2, maxZ: 3 },
   { minX: -23.9, maxX: -19.9, minZ: -7.7, maxZ: -3.7 },
+  { minX: 1.9, maxX: 2.9, minZ: -14.7, maxZ: -4.9 },
+  { minX: -2.3, maxX: -1.1, minZ: -14.5, maxZ: -5.4 },
+  { minX: -9.9, maxX: -6.7, minZ: -1, maxZ: 2.5 },
 ]
