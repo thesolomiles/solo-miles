@@ -15,6 +15,7 @@ import type { BoxCollider } from './town'
  * systems/collision.ts and is not listed here.
  */
 export const MANUAL_COLLIDERS: BoxCollider[] = [
-  // Cleared — author collision from scratch in ?edit (the ±27 world edge in
-  // systems/collision.ts still keeps the player on the map).
+  // Hand-drawn in ?edit (Leonard) — the two boxes by the west house.
+  { minX: -12.8, maxX: -6.4, minZ: -8.2, maxZ: 2.1 },
+  { minX: -17.1, maxX: -11.1, minZ: -6.8, maxZ: 0.1 },
 ]
