@@ -45,6 +45,32 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     })
   }, [scene, cafeGlow, houseGlow])
 
+  // Stylized water. The Blender `Water` material exports as glTF transmission
+  // (KHR_materials_transmission + IOR, roughness 0.04) — three.js renders that as
+  // a MeshPhysicalMaterial doing screen-space refraction, which on a faceted,
+  // double-sided, shadow-receiving low-poly mesh streaks with diagonal artifacts.
+  // We replace it with a flat-shaded translucent surface: reads as low-poly water,
+  // no refraction pass, no shadow acne. (This is the "water = a three.js job on
+  // export" the art pass always intended.)
+  const waterMat = useRef<THREE.MeshStandardMaterial | null>(null)
+  if (!waterMat.current) {
+    waterMat.current = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0x3f86a3),
+      roughness: 0.35,
+      metalness: 0,
+      flatShading: true,
+      // Near-opaque: the water doesn't receive shadows, so its own lit blue
+      // stays put — but if it were very translucent you'd see the shadowed dirt
+      // bed through it (near-black under the bridge). A hint of translucency
+      // keeps some depth without letting the bed's shadow bleed through.
+      transparent: true,
+      opacity: 0.93,
+      // The water mesh's faces are wound downward (it exported doubleSided), so
+      // rendering both sides is what keeps the top surface visible from above.
+      side: THREE.DoubleSide,
+    })
+  }
+
   useEffect(() => {
     // Fill the bare gaps in the forest first, so the clones get shadows below
     // and canopy colliders (they keep the Pine_/Round_ names the collider and
@@ -52,10 +78,17 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     densifyForest(scene)
     scene.traverse((o) => {
       const m = o as THREE.Mesh
-      if (m.isMesh) {
-        m.castShadow = true
-        m.receiveShadow = true
+      if (!m.isMesh) return
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material
+      // Water: swap in the stylized material and keep it out of the shadow pass.
+      if (mat && (mat as THREE.Material).name === 'Water') {
+        m.material = waterMat.current!
+        m.castShadow = false
+        m.receiveShadow = false
+        return
       }
+      m.castShadow = true
+      m.receiveShadow = true
     })
     // Derive colliders (buildings + trees) from the real geometry now the model
     // is in the scene graph (so world matrices reflect its placement + scale).

@@ -33,18 +33,18 @@ export interface LightingState {
 
 /** The shipped look. Edit these to change what production renders. */
 export const LIGHTING_DEFAULTS: LightingState = {
-  sunIntensity: 2.35,
-  hemisphere: 0.32,
+  sunIntensity: 4,
+  hemisphere: 0.84,
   ambient: 0.06,
-  fill: 0.2,
+  fill: 1.5,
   shadowRadius: 2.4,
-  bloomIntensity: 0.5,
-  bloomThreshold: 0.8,
+  bloomIntensity: 0.9,
+  bloomThreshold: 0.53,
   saturation: 0.22,
-  contrast: 0.18,
+  contrast: 0.12,
   brightness: -0.01,
-  vignette: 0.75,
-  ao: 2.3,
+  vignette: 0.09,
+  ao: 0.75,
   cafeGlow: 1.0,
   houseGlow: 1.0,
 }
