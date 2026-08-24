@@ -8,6 +8,7 @@ import {
   SMAA,
 } from '@react-three/postprocessing'
 import type { ReactElement } from 'react'
+import * as THREE from 'three'
 import { useLighting } from '../state/lighting'
 import { IS_MOBILE } from '../systems/device'
 import { DIAG_NOPOST } from '../systems/diag'
@@ -33,9 +34,9 @@ export function PostFX() {
   const vignette = useLighting((s) => s.vignette)
   // `?d=nopost` (and `?d=unlit`) strip the whole composer for on-device bisecting.
   if (DIAG_NOPOST) return null
-  // N8AO's half-res depth pass renders enclosed geometry as black blobs on iOS
-  // Safari GPUs, so it's skipped on mobile — shadows still ground the scene.
-  // Desktop keeps the full occlusion grade. See systems/device.ts. Built as a
+  // N8AO is a half-res, half-float depth pass — another effect iOS WebKit
+  // filters unreliably — so it's skipped on mobile (also a perf win). Shadows
+  // still ground the scene; desktop keeps the full occlusion grade. Built as a
   // filtered array because EffectComposer's children type rejects `false`.
   const effects = [
     IS_MOBILE ? null : (
@@ -55,5 +56,18 @@ export function PostFX() {
     <Vignette key="vig" offset={0.28} darkness={vignette} />,
     <SMAA key="smaa" />,
   ].filter(Boolean) as ReactElement[]
-  return <EffectComposer multisampling={0}>{effects}</EffectComposer>
+  // THE iOS FIX. Bloom's mipmapBlur needs linear filtering of the composer's
+  // HDR (half-float) buffer, which iOS WebKit does unreliably — NaNs spread
+  // through the blur and paint black blobs around the brightest emissive spots
+  // (window glass, headlights). An 8-bit (UnsignedByte / LDR) buffer filters
+  // reliably everywhere, so mobile runs the composer in LDR: bloom still glows,
+  // no NaN, no blobs. Desktop keeps the HDR buffer for full bloom range.
+  return (
+    <EffectComposer
+      multisampling={0}
+      frameBufferType={IS_MOBILE ? THREE.UnsignedByteType : THREE.HalfFloatType}
+    >
+      {effects}
+    </EffectComposer>
+  )
 }
