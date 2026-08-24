@@ -8,6 +8,7 @@ import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
 import { DIAG_NOSHADOW, DIAG_INFO } from './systems/diag'
 import { IS_MOBILE } from './systems/device'
+import { MOBILE_CANVAS_FILTER } from './three/PostFX'
 
 /** `?d=info` overlay — reads the device flags on the actual phone so we can see
  *  whether IS_MOBILE (and thus the mobile render path) is firing. Temporary. */
@@ -73,7 +74,11 @@ export default function App() {
           // shadows entirely for on-device bisecting (systems/diag.ts).
           shadows={DIAG_NOSHADOW ? false : { type: THREE.VSMShadowMap }}
           dpr={[1, 2]}
-          gl={{ antialias: false }}
+          // Mobile skips the WebGL post composer (iOS black-blob bug, see
+          // PostFX.tsx) and antialiasing goes to MSAA instead of the SMAA pass;
+          // the colour grade is re-applied here as a cheap CSS filter.
+          gl={{ antialias: IS_MOBILE }}
+          style={IS_MOBILE ? { filter: MOBILE_CANVAS_FILTER } : undefined}
           // A default camera is created then immediately replaced by OrthoRig.
           camera={{ position: [0, 16, 25] }}
         >

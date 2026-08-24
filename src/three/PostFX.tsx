@@ -23,7 +23,21 @@ import { DIAG_NOPOST, DIAG_NOBLOOM, DIAG_LDR } from '../systems/diag'
  *
  * Tone mapping is left to the renderer's default ACES filmic pass, so we don't
  * double-tone-map here.
+ *
+ * MOBILE: the whole composer is skipped. On-device bisecting (?d=nopost) proved
+ * that iOS WebKit corrupts this scene the moment it's routed through the
+ * offscreen composer target — pure-black blobs around the bright emissive spots
+ * — regardless of the effects run or the buffer format (LDR didn't help, and it
+ * happened with Bloom removed too). No composer = clean. The colour grade is
+ * re-applied cheaply as a CSS filter on the canvas instead (see App.tsx /
+ * MOBILE_CANVAS_FILTER); mobile loses only the bloom halo, AO, and vignette.
  */
+
+/** CSS-filter stand-in for the mobile colour grade (saturation + a touch of
+ *  contrast), matching the HueSaturation/BrightnessContrast pass closely enough
+ *  without a WebGL composer. Applied to the <Canvas> style on mobile. */
+export const MOBILE_CANVAS_FILTER = 'saturate(1.2) contrast(1.05)'
+
 export function PostFX() {
   const ao = useLighting((s) => s.ao)
   const bloomIntensity = useLighting((s) => s.bloomIntensity)
@@ -32,24 +46,19 @@ export function PostFX() {
   const contrast = useLighting((s) => s.contrast)
   const brightness = useLighting((s) => s.brightness)
   const vignette = useLighting((s) => s.vignette)
-  // `?d=nopost` (and `?d=unlit`) strip the whole composer for on-device bisecting.
-  if (DIAG_NOPOST) return null
-  // N8AO is a half-res, half-float depth pass — another effect iOS WebKit
-  // filters unreliably — so it's skipped on mobile (also a perf win). Shadows
-  // still ground the scene; desktop keeps the full occlusion grade. Built as a
-  // filtered array because EffectComposer's children type rejects `false`.
+  // Mobile renders straight to screen — see the module comment above. `?d=nopost`
+  // (and `?d=unlit`) also strip the composer, for on-device bisecting.
+  if (IS_MOBILE || DIAG_NOPOST) return null
   const effects = [
-    IS_MOBILE ? null : (
-      <N8AO
-        key="ao"
-        aoRadius={2.2}
-        distanceFalloff={1}
-        intensity={ao}
-        quality="medium"
-        halfRes
-        color="#221812"
-      />
-    ),
+    <N8AO
+      key="ao"
+      aoRadius={2.2}
+      distanceFalloff={1}
+      intensity={ao}
+      quality="medium"
+      halfRes
+      color="#221812"
+    />,
     DIAG_NOBLOOM ? null : (
       <Bloom key="bloom" intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
     ),
@@ -58,16 +67,10 @@ export function PostFX() {
     <Vignette key="vig" offset={0.28} darkness={vignette} />,
     <SMAA key="smaa" />,
   ].filter(Boolean) as ReactElement[]
-  // THE iOS FIX. Bloom's mipmapBlur needs linear filtering of the composer's
-  // HDR (half-float) buffer, which iOS WebKit does unreliably — NaNs spread
-  // through the blur and paint black blobs around the brightest emissive spots
-  // (window glass, headlights). An 8-bit (UnsignedByte / LDR) buffer filters
-  // reliably everywhere, so mobile runs the composer in LDR: bloom still glows,
-  // no NaN, no blobs. Desktop keeps the HDR buffer for full bloom range.
   return (
     <EffectComposer
       multisampling={0}
-      frameBufferType={IS_MOBILE || DIAG_LDR ? THREE.UnsignedByteType : THREE.HalfFloatType}
+      frameBufferType={DIAG_LDR ? THREE.UnsignedByteType : THREE.HalfFloatType}
     >
       {effects}
     </EffectComposer>
