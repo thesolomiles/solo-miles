@@ -6,39 +6,8 @@ import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
-import { DIAG_NOSHADOW, DIAG_INFO } from './systems/diag'
 import { IS_MOBILE } from './systems/device'
 import { MOBILE_CANVAS_FILTER } from './three/PostFX'
-
-/** `?d=info` overlay — reads the device flags on the actual phone so we can see
- *  whether IS_MOBILE (and thus the mobile render path) is firing. Temporary. */
-function DiagInfo() {
-  const coarse =
-    typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
-  const touch = typeof navigator !== 'undefined' ? navigator.maxTouchPoints : -1
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 8,
-        left: 8,
-        zIndex: 9999,
-        maxWidth: '92vw',
-        padding: '8px 10px',
-        background: 'rgba(0,0,0,0.8)',
-        color: '#fff',
-        font: '12px/1.4 monospace',
-        borderRadius: 6,
-        pointerEvents: 'none',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-      }}
-    >
-      {`IS_MOBILE=${IS_MOBILE}\npointer:coarse=${coarse}\nmaxTouchPoints=${touch}\nUA=${ua}`}
-    </div>
-  )
-}
 
 type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
 
@@ -69,10 +38,9 @@ export default function App() {
     <div className="app">
       <KeyboardControls map={map}>
         <Canvas
-          // VSM shadows work fine on iOS — the black-blob bug was the post
-          // pipeline, not shadows (see PostFX.tsx). `?d=noshadow` disables
-          // shadows entirely for on-device bisecting (systems/diag.ts).
-          shadows={DIAG_NOSHADOW ? false : { type: THREE.VSMShadowMap }}
+          // VSM shadows render fine on iOS — the black-blob bug was the post
+          // composer, not shadows (see PostFX.tsx).
+          shadows={{ type: THREE.VSMShadowMap }}
           dpr={[1, 2]}
           // Mobile skips the WebGL post composer (iOS black-blob bug, see
           // PostFX.tsx) and antialiasing goes to MSAA instead of the SMAA pass;
@@ -89,7 +57,6 @@ export default function App() {
       <Hud />
       {DEBUG && <LightingPanel />}
       {EDIT && <ColliderEditorPanel />}
-      {DIAG_INFO && <DiagInfo />}
     </div>
   )
 }

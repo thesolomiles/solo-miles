@@ -7,11 +7,8 @@ import {
   Vignette,
   SMAA,
 } from '@react-three/postprocessing'
-import type { ReactElement } from 'react'
-import * as THREE from 'three'
 import { useLighting } from '../state/lighting'
 import { IS_MOBILE } from '../systems/device'
-import { DIAG_NOPOST, DIAG_NOBLOOM, DIAG_LDR, DIAG_MSAA } from '../systems/diag'
 
 /**
  * The cozy-mood postprocessing stack (Phase 2). Order matters:
@@ -24,13 +21,16 @@ import { DIAG_NOPOST, DIAG_NOBLOOM, DIAG_LDR, DIAG_MSAA } from '../systems/diag'
  * Tone mapping is left to the renderer's default ACES filmic pass, so we don't
  * double-tone-map here.
  *
- * MOBILE: the whole composer is skipped. On-device bisecting (?d=nopost) proved
+ * MOBILE: the whole composer is skipped. On-device bisecting on iPhone proved
  * that iOS WebKit corrupts this scene the moment it's routed through the
  * offscreen composer target — pure-black blobs around the bright emissive spots
- * — regardless of the effects run or the buffer format (LDR didn't help, and it
- * happened with Bloom removed too). No composer = clean. The colour grade is
- * re-applied cheaply as a CSS filter on the canvas instead (see App.tsx /
- * MOBILE_CANVAS_FILTER); mobile loses only the bloom halo, AO, and vignette.
+ * — no matter what: with Bloom removed, with an LDR (UnsignedByte) buffer, and
+ * with multisampling all still black; only *no composer* rendered clean. So
+ * mobile renders straight to screen (the renderer's own ACES tone-map + sRGB),
+ * and the colour grade is re-applied cheaply as a CSS filter on the canvas
+ * (see App.tsx / MOBILE_CANVAS_FILTER). Mobile loses only the bloom halo, AO,
+ * and vignette. (A real glow would need dedicated glow geometry, since every
+ * lit window is just emissive-masked faces on the one shared Material.004.)
  */
 
 /** CSS-filter stand-in for the mobile colour grade (saturation + a touch of
@@ -46,17 +46,12 @@ export function PostFX() {
   const contrast = useLighting((s) => s.contrast)
   const brightness = useLighting((s) => s.brightness)
   const vignette = useLighting((s) => s.vignette)
-  // Mobile renders straight to screen — see the module comment above. `?d=nopost`
-  // (and `?d=unlit`) also strip the composer, for on-device bisecting. The
-  // `?d=msaa` experiment re-enables the composer on mobile (multisampled + LDR)
-  // to test whether that path dodges the iOS bug and restores real bloom.
-  const mobileComposer = IS_MOBILE && DIAG_MSAA
-  if ((IS_MOBILE && !DIAG_MSAA) || DIAG_NOPOST) return null
-  const effects = [
-    // N8AO stays off on mobile (half-res/half-float depth pass iOS mishandles).
-    mobileComposer ? null : (
+  // Mobile renders straight to screen — the composer is unusable on iOS (see
+  // the module comment above).
+  if (IS_MOBILE) return null
+  return (
+    <EffectComposer multisampling={0}>
       <N8AO
-        key="ao"
         aoRadius={2.2}
         distanceFalloff={1}
         intensity={ao}
@@ -64,21 +59,11 @@ export function PostFX() {
         halfRes
         color="#221812"
       />
-    ),
-    DIAG_NOBLOOM ? null : (
-      <Bloom key="bloom" intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
-    ),
-    <HueSaturation key="hue" saturation={saturation} hue={0} />,
-    <BrightnessContrast key="bc" brightness={brightness} contrast={contrast} />,
-    <Vignette key="vig" offset={0.28} darkness={vignette} />,
-    <SMAA key="smaa" />,
-  ].filter(Boolean) as ReactElement[]
-  return (
-    <EffectComposer
-      multisampling={mobileComposer ? 4 : 0}
-      frameBufferType={mobileComposer || DIAG_LDR ? THREE.UnsignedByteType : THREE.HalfFloatType}
-    >
-      {effects}
+      <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
+      <HueSaturation saturation={saturation} hue={0} />
+      <BrightnessContrast brightness={brightness} contrast={contrast} />
+      <Vignette offset={0.28} darkness={vignette} />
+      <SMAA />
     </EffectComposer>
   )
 }

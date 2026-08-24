@@ -5,7 +5,6 @@ import { densifyForest } from '../systems/forest'
 import { instanceScatter } from '../systems/instancing'
 import { useTownGLTF } from './gltf'
 import { useLighting } from '../state/lighting'
-import { DIAG_UNLIT } from '../systems/diag'
 
 const URL = '/models/town.glb'
 
@@ -91,17 +90,6 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
       }
       m.castShadow = true
       m.receiveShadow = true
-      // `?d=unlit`: replace lit materials with flat albedo (texture + base
-      // colour, no lighting/shadow) so we can tell whether the black blobs come
-      // from the geometry/texture itself or from the lighting pipeline.
-      if (DIAG_UNLIT) {
-        const src = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial
-        m.material = new THREE.MeshBasicMaterial({
-          map: src?.map ?? null,
-          color: src?.color?.clone() ?? new THREE.Color(0xffffff),
-          side: src?.side ?? THREE.FrontSide,
-        })
-      }
     })
     // Collision is hand-authored now (config/colliders.data.ts). Still derive the
     // building/tree boxes from the real geometry and stash them so the ?edit
