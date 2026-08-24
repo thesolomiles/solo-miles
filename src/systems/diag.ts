@@ -22,3 +22,7 @@ export const DIAG_NOPOST = DIAG === 'nopost' || DIAG_UNLIT
 export const DIAG_NOBLOOM = DIAG === 'nobloom'
 export const DIAG_LDR = DIAG === 'ldr'
 export const DIAG_INFO = DIAG === 'info'
+// Experiment: re-enable the WebGL post composer on mobile with multisampling +
+// LDR, to test whether a multisampled target dodges the iOS composer bug (and
+// thus brings real bloom back to mobile). Default mobile stays composer-free.
+export const DIAG_MSAA = DIAG === 'msaa'

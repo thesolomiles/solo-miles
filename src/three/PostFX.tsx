@@ -11,7 +11,7 @@ import type { ReactElement } from 'react'
 import * as THREE from 'three'
 import { useLighting } from '../state/lighting'
 import { IS_MOBILE } from '../systems/device'
-import { DIAG_NOPOST, DIAG_NOBLOOM, DIAG_LDR } from '../systems/diag'
+import { DIAG_NOPOST, DIAG_NOBLOOM, DIAG_LDR, DIAG_MSAA } from '../systems/diag'
 
 /**
  * The cozy-mood postprocessing stack (Phase 2). Order matters:
@@ -47,18 +47,24 @@ export function PostFX() {
   const brightness = useLighting((s) => s.brightness)
   const vignette = useLighting((s) => s.vignette)
   // Mobile renders straight to screen — see the module comment above. `?d=nopost`
-  // (and `?d=unlit`) also strip the composer, for on-device bisecting.
-  if (IS_MOBILE || DIAG_NOPOST) return null
+  // (and `?d=unlit`) also strip the composer, for on-device bisecting. The
+  // `?d=msaa` experiment re-enables the composer on mobile (multisampled + LDR)
+  // to test whether that path dodges the iOS bug and restores real bloom.
+  const mobileComposer = IS_MOBILE && DIAG_MSAA
+  if ((IS_MOBILE && !DIAG_MSAA) || DIAG_NOPOST) return null
   const effects = [
-    <N8AO
-      key="ao"
-      aoRadius={2.2}
-      distanceFalloff={1}
-      intensity={ao}
-      quality="medium"
-      halfRes
-      color="#221812"
-    />,
+    // N8AO stays off on mobile (half-res/half-float depth pass iOS mishandles).
+    mobileComposer ? null : (
+      <N8AO
+        key="ao"
+        aoRadius={2.2}
+        distanceFalloff={1}
+        intensity={ao}
+        quality="medium"
+        halfRes
+        color="#221812"
+      />
+    ),
     DIAG_NOBLOOM ? null : (
       <Bloom key="bloom" intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
     ),
@@ -69,8 +75,8 @@ export function PostFX() {
   ].filter(Boolean) as ReactElement[]
   return (
     <EffectComposer
-      multisampling={0}
-      frameBufferType={DIAG_LDR ? THREE.UnsignedByteType : THREE.HalfFloatType}
+      multisampling={mobileComposer ? 4 : 0}
+      frameBufferType={mobileComposer || DIAG_LDR ? THREE.UnsignedByteType : THREE.HalfFloatType}
     >
       {effects}
     </EffectComposer>
