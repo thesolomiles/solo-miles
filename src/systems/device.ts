@@ -1,18 +1,18 @@
 /**
  * Coarse device/GPU capability flags, resolved once at load.
  *
- * `IS_MOBILE` gates a more conservative render path for phones/tablets. Two of
- * the desktop effects render as large **pure-black blobs** on iOS Safari GPUs:
- *  - `THREE.VSMShadowMap` — its shadow map is a half-float target that iOS
- *    filters unreliably; the VSM blur then smears the failure into soft black
- *    clouds over anything in shadow (the garage interior, the parked car, …).
- *  - `N8AO` with `halfRes` — the half-resolution depth reconstruction misfires
- *    on mobile GPUs and paints enclosed geometry black.
- * On mobile we fall back to `PCFSoftShadowMap` and skip the SSAO pass. The
- * desktop look (tuned in the ?debug panel) is unchanged.
- *
- * Coarse pointer is the reliable signal for "phone/tablet browser" — it's what
- * iOS Safari and Android Chrome match, and what the touch HUD already keys off.
+ * `IS_MOBILE` gates a conservative render path for phones/tablets, where iOS
+ * WebKit mishandles the desktop post pipeline (Bloom's mipmapBlur reading a
+ * half-float HDR buffer → NaN → black blobs). We detect "mobile" from several
+ * signals so it fires on iPhone Chrome/Safari and Android alike — coarse
+ * pointer alone proved unreliable, so touch-point count and the UA back it up.
  */
-export const IS_MOBILE =
-  typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+function detectMobile(): boolean {
+  if (typeof window === 'undefined') return false
+  const coarse = !!window.matchMedia?.('(pointer: coarse)').matches
+  const touch = (navigator.maxTouchPoints ?? 0) > 0 || 'ontouchstart' in window
+  const ua = /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent || '')
+  return coarse || touch || ua
+}
+
+export const IS_MOBILE = detectMobile()

@@ -6,7 +6,38 @@ import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
-import { DIAG_NOSHADOW } from './systems/diag'
+import { DIAG_NOSHADOW, DIAG_INFO } from './systems/diag'
+import { IS_MOBILE } from './systems/device'
+
+/** `?d=info` overlay — reads the device flags on the actual phone so we can see
+ *  whether IS_MOBILE (and thus the mobile render path) is firing. Temporary. */
+function DiagInfo() {
+  const coarse =
+    typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+  const touch = typeof navigator !== 'undefined' ? navigator.maxTouchPoints : -1
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 8,
+        left: 8,
+        zIndex: 9999,
+        maxWidth: '92vw',
+        padding: '8px 10px',
+        background: 'rgba(0,0,0,0.8)',
+        color: '#fff',
+        font: '12px/1.4 monospace',
+        borderRadius: 6,
+        pointerEvents: 'none',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-all',
+      }}
+    >
+      {`IS_MOBILE=${IS_MOBILE}\npointer:coarse=${coarse}\nmaxTouchPoints=${touch}\nUA=${ua}`}
+    </div>
+  )
+}
 
 type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
 
@@ -53,6 +84,7 @@ export default function App() {
       <Hud />
       {DEBUG && <LightingPanel />}
       {EDIT && <ColliderEditorPanel />}
+      {DIAG_INFO && <DiagInfo />}
     </div>
   )
 }

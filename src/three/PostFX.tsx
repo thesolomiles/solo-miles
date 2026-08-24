@@ -11,7 +11,7 @@ import type { ReactElement } from 'react'
 import * as THREE from 'three'
 import { useLighting } from '../state/lighting'
 import { IS_MOBILE } from '../systems/device'
-import { DIAG_NOPOST } from '../systems/diag'
+import { DIAG_NOPOST, DIAG_NOBLOOM, DIAG_LDR } from '../systems/diag'
 
 /**
  * The cozy-mood postprocessing stack (Phase 2). Order matters:
@@ -50,7 +50,9 @@ export function PostFX() {
         color="#221812"
       />
     ),
-    <Bloom key="bloom" intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />,
+    DIAG_NOBLOOM ? null : (
+      <Bloom key="bloom" intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
+    ),
     <HueSaturation key="hue" saturation={saturation} hue={0} />,
     <BrightnessContrast key="bc" brightness={brightness} contrast={contrast} />,
     <Vignette key="vig" offset={0.28} darkness={vignette} />,
@@ -65,7 +67,7 @@ export function PostFX() {
   return (
     <EffectComposer
       multisampling={0}
-      frameBufferType={IS_MOBILE ? THREE.UnsignedByteType : THREE.HalfFloatType}
+      frameBufferType={IS_MOBILE || DIAG_LDR ? THREE.UnsignedByteType : THREE.HalfFloatType}
     >
       {effects}
     </EffectComposer>
