@@ -11,7 +11,8 @@ const MODEL = '/models/cafe-worker.glb'
 // player + construction workers).
 const SCALE = 0.9
 const FADE = 0.35 // cross-fade between clips
-const WALK_SPEED = 0.7 // world u/s — a slow bustle in a small space
+const WALK_SPEED = 1.0 // world u/s — ~matches the walk clip's stride so the feet
+// plant instead of slipping (the clip covers ~1.25u of ground per ~1s cycle)
 const ROAM_X = 2.0 // how far along the counter a worker strays from its home x
 const TURN = 8 // yaw lerp rate (rad/s-ish, via dt clamp)
 
