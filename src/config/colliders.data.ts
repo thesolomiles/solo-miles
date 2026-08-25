@@ -35,7 +35,7 @@ export const MANUAL_COLLIDERS: BoxCollider[] = [
   { minX: -5.3, maxX: -1.3, minZ: -22, maxZ: -5.4 },
   { minX: -13, maxX: -5.8, minZ: -6.1, maxZ: 1.8 },
   { minX: -18.3, maxX: -4.6, minZ: -9.3, maxZ: -5.3 },
-  { minX: -5.3, maxX: -3.2, minZ: -7, maxZ: -0.3 },
+  { minX: -4.9, maxX: -3.2, minZ: -7, maxZ: -0.1 },
   { minX: -19, maxX: -11.6, minZ: -6.6, maxZ: 0.2 },
   { minX: -28.4, maxX: -17.6, minZ: -10.2, maxZ: -6.2 },
   { minX: -7.2, maxX: -3.2, minZ: -29.3, maxZ: -21.4 },
@@ -46,4 +46,7 @@ export const MANUAL_COLLIDERS: BoxCollider[] = [
   { minX: 1.9, maxX: 2.9, minZ: -14.7, maxZ: -4.9 },
   { minX: -2.3, maxX: -1.1, minZ: -14.5, maxZ: -5.4 },
   { minX: -9.9, maxX: -6.7, minZ: -1, maxZ: 2.5 },
+  { minX: -7.3, maxX: -3.3, minZ: -7, maxZ: -3 },
+  { minX: -12.9, maxX: -10.7, minZ: -1.2, maxZ: 3 },
+  { minX: -19.1, maxX: -17.9, minZ: -2.1, maxZ: 0.9 },
 ]
