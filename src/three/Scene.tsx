@@ -5,7 +5,8 @@ import { PLAYER } from '../config/constants'
 import { WORLD } from '../config/town'
 import { InteractablesProvider, ProximitySystem, ZoneProximity } from '../systems/interactables'
 import { ColliderDebug } from './ColliderDebug'
-import { ColliderEditor } from './ColliderEditor'
+import { ColliderEditor, ColliderEditorFor } from './ColliderEditor'
+import { useCafeColliderEdit } from '../state/cafeColliderEdit'
 import { ZoneEditor } from './ZoneEditor'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
@@ -13,6 +14,7 @@ import { Player } from './Player'
 import { AmbientSound } from './AmbientSound'
 import { TownModel } from './TownModel'
 import { CafeModel } from './CafeModel'
+import { CafeWorkers } from './actors/CafeWorker'
 import { CafeBgm } from './CafeBgm'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
@@ -255,7 +257,13 @@ export function Scene() {
           InteriorController below. The Player, camera, sound and post stay
           mounted across the transition. */}
       {interior === 'cafe' ? (
-        <CafeModel />
+        <>
+          <CafeModel />
+          <CafeWorkers />
+          {/* Café collision editor (?edit) — same draggable boxes as the town,
+              driven by the café registry. */}
+          {edit && <ColliderEditorFor store={useCafeColliderEdit} />}
+        </>
       ) : (
         <>
           {/* Phase 3: the real Blender-modelled town replaces the greybox

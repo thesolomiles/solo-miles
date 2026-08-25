@@ -7,6 +7,8 @@ import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
 import { ZoneEditorPanel } from './ui/ZoneEditorPanel'
+import { useGame } from './state/store'
+import { useCafeColliderEdit } from './state/cafeColliderEdit'
 import { IS_MOBILE } from './systems/device'
 import { MOBILE_CANVAS_FILTER } from './three/PostFX'
 
@@ -22,6 +24,9 @@ const EDIT = !!params?.has('edit')
 const ZONES = !!params?.has('zones')
 
 export default function App() {
+  // Which world's collision editor the ?edit toolbar drives — the café while
+  // inside it, the town otherwise.
+  const inCafe = useGame((s) => s.interior === 'cafe')
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
     () => [
       { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
@@ -59,7 +64,18 @@ export default function App() {
 
       <Hud />
       {DEBUG && <LightingPanel />}
-      {EDIT && <ColliderEditorPanel />}
+      {EDIT &&
+        (inCafe ? (
+          <ColliderEditorPanel
+            store={useCafeColliderEdit}
+            saveUrl="/__save-cafe-colliders"
+            savedKey="solomiles.cafeColliderSavedAt"
+            draftKey="solomiles.cafeColliders"
+            title="Café collision"
+          />
+        ) : (
+          <ColliderEditorPanel />
+        ))}
       {ZONES && <ZoneEditorPanel />}
     </div>
   )

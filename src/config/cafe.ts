@@ -54,16 +54,24 @@ export const CAFE = {
    *  lands at y=0 where the player + staff stand. */
   floorDrop: 0.16,
 
-  /** Two ambient baristas behind the service counter — a cloned skinned
-   *  cafe-worker.glb each, cycling active clips (making a drink, chatting,
-   *  glancing round) in place. Placed in the staff gap between the counter
-   *  (z≈−3.5..−4.5) and the back bar (z≈−6), facing the customer (+Z, model
-   *  front). `phase` desyncs the two so they never move in lockstep; `primary`
-   *  is the clip each favours. See three/actors/CafeWorker. */
+  /** Two ambient baristas working behind the service counter — a cloned skinned
+   *  cafe-worker.glb each. They wander the staff strip below (walk → stop → an
+   *  active clip: make a drink, chat, glance round → walk again), each on its own
+   *  randomised timeline so they never move in lockstep. `pos` is the home spot
+   *  they roam around, `rot` the rest facing (+Z = model front = toward the
+   *  customer), `phase` staggers the two, `primary` is the clip each favours.
+   *  See three/actors/CafeWorker. */
   workers: [
-    { pos: [0.6, -5.1] as [number, number], rot: 0, phase: 0, primary: 'bartend' },
-    { pos: [-3.4, -5.1] as [number, number], rot: 0, phase: 1, primary: 'talk' },
+    { pos: [0.9, -5.2] as [number, number], rot: 0, phase: 0, primary: 'bartend' },
+    { pos: [-3.2, -5.2] as [number, number], rot: 0, phase: 1, primary: 'talk' },
   ],
+
+  /** The walkable staff strip the baristas roam: the gap between the counter's
+   *  back edge (z≈−4.45) and the back bar (z≈−6.0), spanning most of the counter
+   *  length. Kept clear of the counter/back-bar geometry so they don't clip into
+   *  it. This region sits inside the player's counter collider, so customers
+   *  can't follow them back here. */
+  workZone: { minX: -4.6, maxX: 3.4, minZ: -5.9, maxZ: -4.6 },
 
   /** The exit "door": standing on the entrance carpet shows an Exit prompt;
    *  pressing E returns to the town. */

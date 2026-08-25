@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
 import type { BoxCollider } from '../config/town'
-import { useColliderEdit } from '../state/colliderEdit'
+import { useColliderEdit, type ColliderEditStore } from '../state/colliderEdit'
 
 /**
  * In-scene collision editor (enabled with `?edit`). Draws every hand-authored
@@ -12,6 +12,10 @@ import { useColliderEdit } from '../state/colliderEdit'
  * box, live, into the collider registry via the store — so you can walk into a
  * wall the instant you place it. The HTML toolbar (ui/ColliderEditorPanel) adds
  * add / delete / seed / clear / copy-JSON.
+ *
+ * The drag logic is store-agnostic: `ColliderEditorFor` takes any collider-edit
+ * store (the town's `useColliderEdit` or the café's `useCafeColliderEdit`) so
+ * the same editor drives whichever world is active.
  */
 
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
@@ -53,10 +57,15 @@ interface Drag {
   offZ?: number
 }
 
-function EditableBox({ box, index }: { box: BoxCollider; index: number }) {
-  const selected = useColliderEdit((s) => s.selected === index)
-  const select = useColliderEdit((s) => s.select)
-  const update = useColliderEdit((s) => s.update)
+interface BoxProps {
+  box: BoxCollider
+  index: number
+  selected: boolean
+  select: (i: number | null) => void
+  update: (i: number, box: BoxCollider) => void
+}
+
+function EditableBox({ box, index, selected, select, update }: BoxProps) {
   const drag = useRef<Drag | null>(null)
 
   const cx = (box.minX + box.maxX) / 2
@@ -136,10 +145,14 @@ function EditableBox({ box, index }: { box: BoxCollider; index: number }) {
   )
 }
 
-export function ColliderEditor() {
-  const open = useColliderEdit((s) => s.open)
-  const boxes = useColliderEdit((s) => s.boxes)
-  const clearSel = useColliderEdit((s) => s.select)
+/** The draggable boxes for a given collider-edit store. Renders nothing until
+ *  that store's editor is toggled open. */
+export function ColliderEditorFor({ store }: { store: ColliderEditStore }) {
+  const open = store((s) => s.open)
+  const boxes = store((s) => s.boxes)
+  const selected = store((s) => s.selected)
+  const select = store((s) => s.select)
+  const update = store((s) => s.update)
 
   // Hidden until the panel is toggled open — a clean view otherwise.
   if (!open) return null
@@ -150,14 +163,19 @@ export function ColliderEditor() {
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0.02, 0]}
-        onPointerDown={() => clearSel(null)}
+        onPointerDown={() => select(null)}
       >
         <planeGeometry args={[400, 400]} />
         <meshBasicMaterial visible={false} />
       </mesh>
       {boxes.map((b, i) => (
-        <EditableBox key={i} box={b} index={i} />
+        <EditableBox key={i} box={b} index={i} selected={selected === i} select={select} update={update} />
       ))}
     </group>
   )
+}
+
+/** The town's collision editor (the default `?edit` world). */
+export function ColliderEditor() {
+  return <ColliderEditorFor store={useColliderEdit} />
 }

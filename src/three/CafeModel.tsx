@@ -24,7 +24,9 @@ export function CafeModel() {
     })
   }, [scene])
 
-  return <primitive object={scene} />
+  // Drop the room so its floor-plank top sits at y=0 (see CAFE.floorDrop),
+  // otherwise the ~0.16u-high planks bury the player's/staff's lower legs.
+  return <primitive object={scene} position={[0, -CAFE.floorDrop, 0]} />
 }
 
 useTownGLTF.preload(CAFE.url)

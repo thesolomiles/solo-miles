@@ -11,7 +11,14 @@ import { colliders, derivedColliders, setManualColliders } from '../systems/coll
  * setManualColliders — which also saves a localStorage draft — so collision
  * updates the instant you drag, and survives a reload until you export the JSON.
  */
-interface ColliderEditState {
+/**
+ * Shape shared by both collision editors — the town's (this store) and the
+ * café's (state/cafeColliderEdit). The in-scene editor (three/ColliderEditor)
+ * and the toolbar (ui/ColliderEditorPanel) are written against this interface so
+ * one editor drives whichever world is active. `seedFromDerived` is town-only
+ * (pull in auto-derived town.glb boxes); the café has no such source.
+ */
+export interface ColliderEditState {
   /** Editor visible? Off by default — brought out on demand, like the lighting
    *  panel. When closed the in-scene handles hide and the panel collapses. */
   open: boolean
@@ -23,9 +30,15 @@ interface ColliderEditState {
   update: (i: number, box: BoxCollider) => void
   remove: (i: number) => void
   select: (i: number | null) => void
-  seedFromDerived: () => void
   clear: () => void
+  /** Town-only: append the auto-derived building/tree boxes as a starting point.
+   *  Absent in the café editor. */
+  seedFromDerived?: () => void
 }
+
+/** The zustand hook type shared by both editors (town + café), so the editor
+ *  components can take either store as a prop. */
+export type ColliderEditStore = typeof useColliderEdit
 
 /** Seed the editor from whatever the registry already holds (localStorage draft
  *  or the committed defaults); the registry only ever carries boxes here. */

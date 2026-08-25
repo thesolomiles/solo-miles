@@ -1,27 +1,45 @@
 import { useEffect, useState } from 'react'
-import { useColliderEdit } from '../state/colliderEdit'
-
-// A successful Save rewrites the data file, which triggers a Vite HMR remount —
-// wiping the button's "Saved ✓" state. Stash a timestamp so the freshly-mounted
-// panel can re-show the confirmation for the rest of its window.
-const SAVED_KEY = 'solomiles.colliderSavedAt'
+import { useColliderEdit, type ColliderEditStore } from '../state/colliderEdit'
 
 /**
- * Dev-only toolbar for the collision editor. Rendered ONLY with `?edit` (see
+ * Dev-only toolbar for a collision editor. Rendered ONLY with `?edit` (see
  * App.tsx), and collapsed by default — click the header to bring it out, like
  * the lighting panel. Add / delete / seed / clear the hand-authored boxes, then
- * "Save" writes them into src/config/colliders.data.ts and git-commits (via the
- * dev-server endpoint in vite-plugin-save-colliders) — the old Copy JSON →
- * paste → commit, in one click. Boxes are drawn + dragged in-scene by
- * three/ColliderEditor.tsx.
+ * "Save" writes them into the world's config file and git-commits (via the
+ * dev-server endpoint) — the old Copy JSON → paste → commit, in one click. Boxes
+ * are drawn + dragged in-scene by three/ColliderEditor.tsx.
+ *
+ * Store-driven so the same toolbar serves both worlds: the town (default) and
+ * the café. App picks the store + save endpoint for whichever world is active.
  */
 type SaveState = 'idle' | 'saving' | 'ok' | 'err'
 
-export function ColliderEditorPanel() {
-  const { open, toggle, boxes, selected, add, remove, seedFromDerived, clear } = useColliderEdit()
+interface Props {
+  /** Which collider-edit store to drive (town or café). */
+  store?: ColliderEditStore
+  /** Dev-server endpoint the Save button POSTs the boxes to. */
+  saveUrl?: string
+  /** sessionStorage key for the "Saved ✓" timestamp (per world, so two panels
+   *  don't share it). */
+  savedKey?: string
+  /** localStorage `?edit` draft key to drop once the file is the source of
+   *  truth. */
+  draftKey?: string
+  /** Panel heading. */
+  title?: string
+}
+
+export function ColliderEditorPanel({
+  store = useColliderEdit,
+  saveUrl = '/__save-colliders',
+  savedKey = 'solomiles.colliderSavedAt',
+  draftKey = 'solomiles.manualColliders',
+  title = 'Collision',
+}: Props = {}) {
+  const { open, toggle, boxes, selected, add, remove, seedFromDerived, clear } = store()
   const [save, setSave] = useState<SaveState>(() => {
     try {
-      const t = Number(sessionStorage.getItem(SAVED_KEY))
+      const t = Number(sessionStorage.getItem(savedKey))
       if (t && Date.now() - t < 3000) return 'ok'
     } catch {
       /* ignore */
@@ -35,18 +53,18 @@ export function ColliderEditorPanel() {
     const id = setTimeout(() => {
       setSave('idle')
       try {
-        sessionStorage.removeItem(SAVED_KEY)
+        sessionStorage.removeItem(savedKey)
       } catch {
         /* ignore */
       }
     }, 2000)
     return () => clearTimeout(id)
-  }, [save])
+  }, [save, savedKey])
 
   const doSave = async () => {
     setSave('saving')
     try {
-      const res = await fetch('/__save-colliders', {
+      const res = await fetch(saveUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(boxes),
@@ -56,8 +74,8 @@ export function ColliderEditorPanel() {
       // File is now the source of truth — drop the localStorage draft so it
       // can't shadow future file edits.
       try {
-        localStorage.removeItem('solomiles.manualColliders')
-        sessionStorage.setItem(SAVED_KEY, String(Date.now()))
+        localStorage.removeItem(draftKey)
+        sessionStorage.setItem(savedKey, String(Date.now()))
       } catch {
         /* ignore */
       }
@@ -83,7 +101,7 @@ export function ColliderEditorPanel() {
       {/* Whole header toggles; the +/- is a visual affordance (no own handler,
           so a click on it bubbles to this div and toggles exactly once). */}
       <div style={S.head} onClick={toggle}>
-        <span style={S.title}>▦ Collision {open ? '' : '(hidden)'}</span>
+        <span style={S.title}>▦ {title} {open ? '' : '(hidden)'}</span>
         <span style={S.btnSm}>{open ? '–' : '+'}</span>
       </div>
 
@@ -110,9 +128,11 @@ export function ColliderEditorPanel() {
             >
               Delete sel
             </button>
-            <button style={S.btnAlt} onClick={seedFromDerived}>
-              Seed town.glb
-            </button>
+            {seedFromDerived && (
+              <button style={S.btnAlt} onClick={seedFromDerived}>
+                Seed town.glb
+              </button>
+            )}
             <button style={S.btnAlt} onClick={() => confirm('Clear all boxes?') && clear()}>
               Clear all
             </button>

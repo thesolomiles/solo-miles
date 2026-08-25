@@ -164,6 +164,70 @@ function saveColliders(): Plugin {
   }
 }
 
+// ---- Café colliders — twin of the town collider save above, but the target is
+// the CAFE.colliders array in src/config/cafe.ts (the café interior's obstacle
+// boxes), driven by the café's ?edit editor. ----
+const CAFE_FILE = 'src/config/cafe.ts'
+const CAFE_BLOCK_RE = /  colliders: \[[\s\S]*?\n  \] as BoxCollider\[\],/
+
+function renderCafeBlock(boxes: Box[]): string {
+  const lines = boxes
+    .map(
+      (b) =>
+        `    { minX: ${round(b.minX)}, maxX: ${round(b.maxX)}, minZ: ${round(b.minZ)}, maxZ: ${round(b.maxZ)} },`,
+    )
+    .join('\n')
+  return (
+    '  colliders: [\n' +
+    '    // Hand-drawn in ?edit inside the café (Leonard), saved from the editor.\n' +
+    (lines ? lines + '\n' : '') +
+    '  ] as BoxCollider[],'
+  )
+}
+
+function saveCafeColliders(): Plugin {
+  return {
+    name: 'save-cafe-colliders',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-cafe-colliders', (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        void (async () => {
+          try {
+            const boxes = JSON.parse(await readBody(req)) as Box[]
+            if (!Array.isArray(boxes)) throw new Error('expected an array of boxes')
+
+            const path = resolve(server.config.root, CAFE_FILE)
+            const src = readFileSync(path, 'utf8')
+            if (!CAFE_BLOCK_RE.test(src))
+              throw new Error(`CAFE.colliders block not found in ${CAFE_FILE}`)
+            writeFileSync(path, src.replace(CAFE_BLOCK_RE, renderCafeBlock(boxes)), 'utf8')
+
+            let committed = true
+            try {
+              execFileSync('git', ['add', CAFE_FILE], { cwd: server.config.root })
+              execFileSync(
+                'git',
+                ['commit', '-m', `Save café collision (${boxes.length} boxes) from ?edit`],
+                { cwd: server.config.root },
+              )
+            } catch {
+              committed = false
+            }
+
+            res.setHeader('content-type', 'application/json')
+            res.end(JSON.stringify({ ok: true, count: boxes.length, committed }))
+          } catch (err) {
+            res.statusCode = 400
+            res.setHeader('content-type', 'application/json')
+            res.end(JSON.stringify({ ok: false, error: String(err) }))
+          }
+        })()
+      })
+    },
+  }
+}
+
 // ---- Journal screenshots: save a browser canvas capture straight to disk. ----
 // POST { name, dataUrl } to /__save-shot and it decodes the base64 image and
 // writes it to journal-assets/<name> — a milestone screenshot to embed in
@@ -204,5 +268,5 @@ function saveShot(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), saveColliders(), saveZones(), saveShot()],
+  plugins: [react(), saveColliders(), saveCafeColliders(), saveZones(), saveShot()],
 })
