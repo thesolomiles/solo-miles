@@ -1,5 +1,5 @@
 import { useThree, useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { CAMERA } from '../config/constants'
 import { useGame } from '../state/store'
@@ -41,6 +41,9 @@ function clampCentre(v: number, half: number): number {
 export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const size = useThree((s) => s.size)
   const set = useThree((s) => s.set)
+  // Tracks the world (town / café) so a swap can hard-SNAP the camera rather than
+  // glide — the transition should be a plain fade, never a visible "move in".
+  const prevInterior = useRef(useGame.getState().interior)
 
   const cam = useMemo(() => {
     const c = new THREE.OrthographicCamera()
@@ -119,7 +122,12 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // instead of following the player (which shoves the room to one side and
     // reveals the void beside it), lock the camera on a fixed room centre. The
     // player moves around inside a stable, fully-framed shot.
-    const inInterior = useGame.getState().interior !== null
+    const interiorNow = useGame.getState().interior
+    const inInterior = interiorNow !== null
+    // A town↔café swap (flag flips at full black) must SNAP the camera into the
+    // new room's framed shot, so the fade-in reveals it already in place.
+    const swapped = interiorNow !== prevInterior.current
+    prevInterior.current = interiorNow
 
     // Where following the player would centre the view on the ground, then clamp
     // that centre so the view never spills past the map edge.
@@ -132,11 +140,10 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // camera.x == ground-centre.x; camera.z is the ground centre minus the fixed
     // camera→ground z-offset.
     _desired.set(cgx, p.y + CAMERA.offset.y, cgz - rig.groundFromCamZ)
-    // Normal follow is a smooth glide, but a teleport (entering/leaving the café
-    // swaps worlds and jumps the player far) should SNAP — otherwise the camera
-    // pans across the void between the two spaces. Anything beyond a stride is a
-    // jump, not movement.
-    if (cam.position.distanceTo(_desired) > 12) cam.position.copy(_desired)
+    // Normal follow is a smooth glide, but a world SWAP (entering/leaving the
+    // café) — or any teleport that jumps the player far — should SNAP, so the
+    // fade reveals a still, framed shot instead of the camera panning in.
+    if (swapped || cam.position.distanceTo(_desired) > 12) cam.position.copy(_desired)
     else cam.position.lerp(_desired, 1 - Math.pow(CAMERA.followDamping, dt))
   })
 
