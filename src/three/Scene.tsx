@@ -3,15 +3,16 @@ import { useThree, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
 import { WORLD } from '../config/town'
-import { InteractablesProvider, ProximitySystem } from '../systems/interactables'
+import { InteractablesProvider, ProximitySystem, ZoneProximity } from '../systems/interactables'
 import { ColliderDebug } from './ColliderDebug'
 import { ColliderEditor } from './ColliderEditor'
+import { ZoneEditor } from './ZoneEditor'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
 import { TownModel } from './TownModel'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
-import { Rider } from './actors/Rider'
+// import { Rider } from './actors/Rider' // hidden for now — see Scene render below
 import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
 import { useLighting } from '../state/lighting'
@@ -129,6 +130,8 @@ export function Scene() {
   // `?edit` opens the hand-authored collision editor (draggable boxes) instead
   // of the static red debug slabs. See three/ColliderEditor + ui panel.
   const edit = !!params?.has('edit')
+  // `?zones` opens the interaction-zone editor (named "door" boxes, blue).
+  const zonesEdit = !!params?.has('zones')
 
   const hemisphere = useLighting((s) => s.hemisphere)
   const ambient = useLighting((s) => s.ambient)
@@ -153,17 +156,21 @@ export function Scene() {
           building once all four are modelled. */}
       <TownModel />
       {edit && <ColliderEditor />}
+      {zonesEdit && <ZoneEditor />}
       {debug && !edit && <ColliderDebug boundary={WORLD.boundary} />}
       {(debug || edit) && <PerfProbe />}
       <Interactions />
 
       <Cat />
-      <Rider playerPos={posRef} />
+      {/* Cyclist Leonard hidden for now (ride-picker flow is built; re-enable when
+          the ride UI/content is ready). Un-rendering also drops his interactable. */}
+      {/* <Rider playerPos={posRef} /> */}
       <Workers />
       <Player posRef={posRef} />
 
       <OrthoRig posRef={posRef} />
       <ProximitySystem playerPos={posRef} />
+      <ZoneProximity playerPos={posRef} />
 
       <PostFX />
     </InteractablesProvider>

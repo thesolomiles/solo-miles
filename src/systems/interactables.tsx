@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { Interactable } from '../config/town'
 import { useGame } from '../state/store'
+import { zones } from './zones'
 
 /**
  * A tiny registry of everything interactable in the world. Buildings and the
@@ -68,6 +69,36 @@ export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vect
       }
     })
     setNear(best)
+  })
+
+  return null
+}
+
+/**
+ * Each frame, test whether the player is standing inside any hand-authored
+ * interaction zone (systems/zones.ts) and publish it to the store (which
+ * dedupes). Box containment — the twin of ProximitySystem's radius test, but for
+ * the named "door" boxes. Suppressed while a dialogue/section/rides overlay is
+ * open, or before the intro is dismissed. First matching box wins.
+ */
+export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
+  const setNearZone = useGame((s) => s.setNearZone)
+
+  useFrame(() => {
+    const st = useGame.getState()
+    if (!st.started || st.dialogue || st.section || st.ridesOpen) {
+      if (st.nearZone) setNearZone(null)
+      return
+    }
+    const p = playerPos.current
+    let hit: (typeof zones)[number] | null = null
+    for (const z of zones) {
+      if (p.x >= z.minX && p.x <= z.maxX && p.z >= z.minZ && p.z <= z.maxZ) {
+        hit = z
+        break
+      }
+    }
+    setNearZone(hit)
   })
 
   return null

@@ -6,7 +6,7 @@ import { PLAYER } from '../config/constants'
 import { TRAIL } from '../config/town'
 import { colliders } from '../systems/colliders'
 import { resolveCollisions } from '../systems/collision'
-import { touchMove } from '../systems/input'
+import { touchMove, isTypingTarget } from '../systems/input'
 import { useGame } from '../state/store'
 import { type CharAnim } from './Figure'
 import { RiggedFigure } from './RiggedFigure'
@@ -67,7 +67,11 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       return // input is locked while we ride back
     }
 
-    const canMove = st.started && !st.dialogue && !st.section
+    // Also freeze keyboard movement while a dev panel's text field is focused —
+    // drei's KeyboardControls listens on window, so WASD would otherwise walk the
+    // player around as you type a zone's name.
+    const typing = typeof document !== 'undefined' && isTypingTarget(document.activeElement)
+    const canMove = st.started && !st.dialogue && !st.section && !st.ridesOpen && !typing
 
     const { forward, back, left, right, jump } = getKeys()
     let mx = 0

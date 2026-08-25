@@ -46,6 +46,80 @@ async function readBody(req: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
+// ---- Interaction zones ("door" boxes) — twin of the collider save above. ----
+const ZONES_FILE = 'src/config/zones.data.ts'
+const ZONES_BLOCK_RE = /export const INTERACT_ZONES: InteractZone\[\] = \[[\s\S]*?\n\]/
+
+interface Zone extends Box {
+  id: string
+  verb?: string
+}
+
+function renderZonesBlock(zones: Zone[]): string {
+  const lines = zones
+    .map((z) => {
+      const parts = [`id: ${JSON.stringify(z.id)}`]
+      if (z.verb) parts.push(`verb: ${JSON.stringify(z.verb)}`)
+      parts.push(
+        `minX: ${round(z.minX)}`,
+        `maxX: ${round(z.maxX)}`,
+        `minZ: ${round(z.minZ)}`,
+        `maxZ: ${round(z.maxZ)}`,
+      )
+      return `  { ${parts.join(', ')} },`
+    })
+    .join('\n')
+  return (
+    'export const INTERACT_ZONES: InteractZone[] = [\n' +
+    '  // Hand-drawn in ?zones (Leonard), saved straight from the browser editor.\n' +
+    (lines ? lines + '\n' : '') +
+    ']'
+  )
+}
+
+function saveZones(): Plugin {
+  return {
+    name: 'save-zones',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-zones', (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        void (async () => {
+          try {
+            const zones = JSON.parse(await readBody(req)) as Zone[]
+            if (!Array.isArray(zones)) throw new Error('expected an array of zones')
+
+            const path = resolve(server.config.root, ZONES_FILE)
+            const src = readFileSync(path, 'utf8')
+            if (!ZONES_BLOCK_RE.test(src))
+              throw new Error(`INTERACT_ZONES block not found in ${ZONES_FILE}`)
+            writeFileSync(path, src.replace(ZONES_BLOCK_RE, renderZonesBlock(zones)), 'utf8')
+
+            let committed = true
+            try {
+              execFileSync('git', ['add', ZONES_FILE], { cwd: server.config.root })
+              execFileSync(
+                'git',
+                ['commit', '-m', `Save interaction zones (${zones.length}) from ?zones`],
+                { cwd: server.config.root },
+              )
+            } catch {
+              committed = false
+            }
+
+            res.setHeader('content-type', 'application/json')
+            res.end(JSON.stringify({ ok: true, count: zones.length, committed }))
+          } catch (err) {
+            res.statusCode = 400
+            res.setHeader('content-type', 'application/json')
+            res.end(JSON.stringify({ ok: false, error: String(err) }))
+          }
+        })()
+      })
+    },
+  }
+}
+
 function saveColliders(): Plugin {
   return {
     name: 'save-colliders',
@@ -92,5 +166,5 @@ function saveColliders(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), saveColliders()],
+  plugins: [react(), saveColliders(), saveZones()],
 })

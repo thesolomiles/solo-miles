@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useGame } from '../state/store'
-import { SECTIONS, type Interactable } from '../config/town'
+import { SECTIONS, type Interactable, type InteractZone } from '../config/town'
 import { TouchControls } from './TouchControls'
+import { RidesModal } from './RidesModal'
+import { isTypingTarget } from '../systems/input'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -61,6 +63,17 @@ function Prompt({ near }: { near: Interactable }) {
     <button className="prompt prompt--show" onClick={() => useGame.getState().interact()}>
       <span className="prompt__key">{isTouch ? '›' : 'E'}</span>
       <span>{(near.verb || 'Talk') + ' · ' + near.name}</span>
+    </button>
+  )
+}
+
+function ZonePrompt({ zone }: { zone: InteractZone }) {
+  // Same chip as the interactable prompt; pressing it fires the zone (which
+  // currently just announces itself — see store.interact / `solomiles:zone`).
+  return (
+    <button className="prompt prompt--show" onClick={() => useGame.getState().interact()}>
+      <span className="prompt__key">{isTouch ? '›' : 'E'}</span>
+      <span>{zone.verb || 'Enter'}</span>
     </button>
   )
 }
@@ -133,10 +146,15 @@ export function Hud() {
   const dialogue = useGame((s) => s.dialogue)
   const line = useGame((s) => s.line)
   const section = useGame((s) => s.section)
+  const ridesOpen = useGame((s) => s.ridesOpen)
+  const nearZone = useGame((s) => s.nearZone)
 
   // The single interact key (mirrors the prototype's edge handling).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Let text fields (the dev editor panels' name/verb inputs) keep their
+      // keystrokes — otherwise we'd preventDefault "E"/Space/Enter out of them.
+      if (isTypingTarget(e.target)) return
       const st = useGame.getState()
       // Number keys resolve a choice dialogue (Leonard's Yes/No).
       const choices = st.dialogue?.choices
@@ -153,7 +171,8 @@ export function Hud() {
         useGame.getState().interact()
       } else if (e.code === 'Escape') {
         const st = useGame.getState()
-        if (st.section) st.closeSection()
+        if (st.ridesOpen) st.closeRides()
+        else if (st.section) st.closeSection()
         else if (st.dialogue) st.closeDialogue()
       }
     }
@@ -165,10 +184,14 @@ export function Hud() {
     <div className="hud">
       {!started && <Intro />}
       {started && <Hint />}
-      {started && isTouch && !dialogue && !section && <TouchControls />}
-      {started && near && !dialogue && !section && <Prompt near={near} />}
+      {started && isTouch && !dialogue && !section && !ridesOpen && <TouchControls />}
+      {started && near && !dialogue && !section && !ridesOpen && <Prompt near={near} />}
+      {started && !near && nearZone && !dialogue && !section && !ridesOpen && (
+        <ZonePrompt zone={nearZone} />
+      )}
       {dialogue && <Dialogue item={dialogue} line={line} />}
       {section && <SectionOverlay id={section} />}
+      {ridesOpen && <RidesModal />}
     </div>
   )
 }

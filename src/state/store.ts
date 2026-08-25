@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { DialogueChoice, Interactable, SectionId } from '../config/town'
+import type { DialogueChoice, Interactable, InteractZone, SectionId } from '../config/town'
 
 /**
  * Discrete game/UI state shared between the r3f scene and the React HUD.
@@ -15,17 +15,23 @@ interface GameState {
   started: boolean
   /** Interactable currently in range (drives the E-prompt). null when none. */
   near: Interactable | null
+  /** Named interaction zone the player is standing inside (drives its own
+      E-prompt). null when not in any box. See systems/zones.ts. */
+  nearZone: InteractZone | null
   /** Interactable whose dialogue is open, plus which line we're on. */
   dialogue: Interactable | null
   line: number
   /** Open content section overlay (About, Cycling, …), or null for the town. */
   section: SectionId | null
+  /** True while Leonard's ride-picker card modal is open. */
+  ridesOpen: boolean
   /** Latched when a dialogue asks to send the player back toward town; the
       Player controller consumes it, glides there, and clears it. */
   sendBack: boolean
 
   start: () => void
   setNear: (i: Interactable | null) => void
+  setNearZone: (z: InteractZone | null) => void
   /** The single "E / interact" action — mirrors the prototype's edge handling. */
   interact: () => void
   advance: () => void
@@ -35,14 +41,17 @@ interface GameState {
   clearSendBack: () => void
   openSection: (s: SectionId) => void
   closeSection: () => void
+  closeRides: () => void
 }
 
 export const useGame = create<GameState>((set, get) => ({
   started: false,
   near: null,
+  nearZone: null,
   dialogue: null,
   line: 0,
   section: null,
+  ridesOpen: false,
   sendBack: false,
 
   start: () => set({ started: true }),
@@ -53,13 +62,27 @@ export const useGame = create<GameState>((set, get) => ({
     set({ near: i })
   },
 
+  setNearZone: (z) => {
+    if (get().nearZone?.id === z?.id) return
+    set({ nearZone: z })
+  },
+
   interact: () => {
-    const { dialogue, near, section } = get()
-    if (section) return // content overlay handles its own input
+    const { dialogue, near, nearZone, section, ridesOpen } = get()
+    if (section || ridesOpen) return // an overlay handles its own input
     if (dialogue) {
       get().advance()
     } else if (near) {
       set({ dialogue: near, line: 0, near: null })
+    } else if (nearZone) {
+      // A named zone does NOTHING on its own — it just announces itself so a
+      // specific box can be wired to real behaviour later (enter a map, open a
+      // modal, start a dialogue). Listen for `solomiles:zone` (detail = the zone)
+      // to hook one up by name/id.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('solomiles:zone', { detail: nearZone }))
+        if (import.meta.env?.DEV) console.info('[zone] entered:', nearZone.id)
+      }
     }
   },
 
@@ -85,10 +108,12 @@ export const useGame = create<GameState>((set, get) => ({
   choose: (choice) => {
     set({ dialogue: null, line: 0 })
     if (choice.outcome === 'sendBack') set({ sendBack: true })
+    else if (choice.outcome === 'openRides') set({ ridesOpen: true })
   },
 
   closeDialogue: () => set({ dialogue: null, line: 0 }),
   clearSendBack: () => set({ sendBack: false }),
   openSection: (s) => set({ section: s, dialogue: null, line: 0 }),
   closeSection: () => set({ section: null }),
+  closeRides: () => set({ ridesOpen: false }),
 }))

@@ -96,7 +96,8 @@ export function Rider({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
     group.current.position.y = Math.sin(st.started ? t * 0.002 : 0) * 0.03
 
     // "!" over his head while the player is in range and free to talk.
-    const alert = st.started && !st.dialogue && !st.section && distToPlayer < R.interact.radius
+    const alert =
+      st.started && !st.dialogue && !st.section && !st.ridesOpen && distToPlayer < R.interact.radius
     if (mark.current) {
       mark.current.visible = alert
       mark.current.position.y = 2.65 + Math.sin(t * 0.006) * 0.09

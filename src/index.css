@@ -433,6 +433,219 @@ canvas {
   margin-bottom: 18px;
 }
 
+/* --- Rides modal (Leonard's ride-picker cards) --- */
+.rides {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: radial-gradient(120% 90% at 50% 20%, rgba(159, 199, 221, 0.28), rgba(43, 38, 32, 0.6));
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.22s ease;
+  padding: 20px;
+}
+.rides__panel {
+  position: relative;
+  width: min(880px, 100%);
+  max-height: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #fffaf0, var(--paper));
+  border: 1px solid rgba(43, 38, 32, 0.14);
+  border-radius: 22px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 28px 70px rgba(43, 38, 32, 0.36);
+  animation: rise 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rides__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rides__eyebrow {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--clay-deep);
+  margin: 0 0 4px;
+}
+.rides__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.rides__close {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(43, 38, 32, 0.14);
+  background: var(--paper-80);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ink-70);
+}
+.rides__close:hover {
+  color: var(--ink);
+  border-color: rgba(43, 38, 32, 0.3);
+}
+
+/* horizontal card shelf (game-like), scrolls when it overflows */
+.rides__shelf {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 14px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.rides__shelf::-webkit-scrollbar {
+  height: 8px;
+}
+.rides__shelf::-webkit-scrollbar-thumb {
+  background: rgba(43, 38, 32, 0.2);
+  border-radius: 999px;
+}
+
+.ride {
+  flex: 0 0 210px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 0;
+  background: #fff;
+  border: 1px solid rgba(43, 38, 32, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  box-shadow: 0 8px 20px rgba(43, 38, 32, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.ride:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(43, 38, 32, 0.22);
+  border-color: rgba(217, 138, 90, 0.6);
+}
+.ride:active {
+  transform: translateY(-1px);
+}
+
+.ride__thumb {
+  position: relative;
+  height: 118px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ride__glyph {
+  font-size: 46px;
+  filter: drop-shadow(0 3px 5px rgba(43, 38, 32, 0.35));
+}
+.ride__stars {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  display: flex;
+  gap: 1px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(43, 38, 32, 0.42);
+  backdrop-filter: blur(2px);
+  font-size: 11px;
+  line-height: 1;
+}
+.ride__star {
+  color: rgba(255, 255, 255, 0.35);
+}
+.ride__star--on {
+  color: #ffcf4d;
+  text-shadow: 0 0 5px rgba(255, 191, 60, 0.7);
+}
+
+.ride__body {
+  padding: 11px 13px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ride__place {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.ride__region {
+  font-size: 11.5px;
+  color: #8a7f6f;
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+.ride__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ride__stat {
+  background: rgba(43, 38, 32, 0.05);
+  border: 1px solid rgba(43, 38, 32, 0.08);
+  border-radius: 10px;
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ride__stat-val {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--clay-deep);
+  line-height: 1;
+}
+.ride__stat-val i {
+  font-style: normal;
+  font-weight: 600;
+  font-size: 10px;
+  color: #8a7f6f;
+  margin-left: 1px;
+}
+.ride__stat-lbl {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a7f6f;
+  font-weight: 600;
+}
+
+.rides__foot {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ink-70);
+  text-align: center;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

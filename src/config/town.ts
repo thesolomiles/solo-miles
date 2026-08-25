@@ -14,10 +14,11 @@ export type SectionId = 'about' | 'cycling' | 'travel' | 'contact' | 'story'
 
 /**
  * What choosing a dialogue option does.
- * - `dismiss`  — just close the dialogue.
- * - `sendBack` — close, then send the player back to the bridge, facing town.
+ * - `dismiss`   — just close the dialogue.
+ * - `sendBack`  — close, then send the player back to the bridge, facing town.
+ * - `openRides` — close, then open Leonard's ride-picker card modal.
  */
-export type ChoiceOutcome = 'dismiss' | 'sendBack'
+export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openRides'
 
 /** A branch offered at the end of a dialogue (Leonard's "go for a ride?"). */
 export interface DialogueChoice {
@@ -38,6 +39,29 @@ export interface Interactable {
   section?: SectionId
   /** If set, the last line ends with a choice instead of a "Continue". */
   choices?: DialogueChoice[]
+}
+
+/**
+ * A box on the ground the player can stand in and press E — the seed for a
+ * "door" (enter another map, open a modal, start a dialogue…). Authored by hand
+ * in the `?zones` editor (three/ZoneEditor.tsx), stored in config/zones.data.ts,
+ * and detected each frame by ZoneProximity (systems/interactables.tsx).
+ *
+ * By design a zone does NOTHING on its own: pressing E inside it fires a
+ * `solomiles:zone` window event carrying the zone's `id` (and logs it in dev),
+ * so a specific box gets wired to real behaviour later by id. The `id` (shown in
+ * the editor panel and floating over the box) is how you point at a box ("wire
+ * the `z8x2k1` zone to open the menu").
+ */
+export interface InteractZone {
+  /** Stable, auto-generated handle used in code + the fired event. */
+  id: string
+  /** E-prompt verb (defaults to "Enter"). */
+  verb?: string
+  minX: number
+  maxX: number
+  minZ: number
+  maxZ: number
 }
 
 export interface BuildingDef {
@@ -221,8 +245,10 @@ export const ACTORS = {
   },
   rider: {
     id: 'rider',
-    // At the very end of the trail, centred where the path meets the forest.
-    post: new THREE.Vector3(0, 0, -30.5),
+    // At the reachable end of the trail — north of the bridge, on the road just
+    // before the forest closes in. Kept inside WORLD.boundary (±27) so the
+    // player can actually walk up to him (he used to sit at z −30.5, off-map).
+    post: new THREE.Vector3(0, 0, -26),
     jersey: 0x2f8f83,
     interact: {
       id: 'rider',
@@ -231,11 +257,14 @@ export const ACTORS = {
       verb: 'Talk',
       color: 0x2f8f83,
       radius: 3.6,
-      lines: ['Hey there! You wanna go for a ride?'],
-      // For now both answers send you back down toward town; "Yes" hooks into a
-      // real ride later.
+      lines: [
+        'Hey there! I love cycling — been to more places than I can count.',
+        'Wanna tag along for a ride?',
+      ],
+      // "Yes" opens the ride-picker cards; "No" glides you back toward town,
+      // facing south.
       choices: [
-        { label: 'Yes', outcome: 'sendBack' },
+        { label: 'Yes', outcome: 'openRides' },
         { label: 'No', outcome: 'sendBack' },
       ],
     } satisfies Interactable,

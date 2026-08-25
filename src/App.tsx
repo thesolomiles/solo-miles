@@ -6,17 +6,20 @@ import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
+import { ZoneEditorPanel } from './ui/ZoneEditorPanel'
 import { IS_MOBILE } from './systems/device'
 import { MOBILE_CANVAS_FILTER } from './three/PostFX'
 
 type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
 
 // Dev overlays are URL-gated so production stays clean: `?debug` = lighting/perf
-// tuner, `?edit` = the hand-authored collision editor toolbar.
+// tuner, `?edit` = the collision editor toolbar, `?zones` = the interaction-zone
+// (named "door" box) editor toolbar.
 const params =
   typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
 const DEBUG = !!params?.has('debug')
 const EDIT = !!params?.has('edit')
+const ZONES = !!params?.has('zones')
 
 export default function App() {
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
@@ -57,6 +60,7 @@ export default function App() {
       <Hud />
       {DEBUG && <LightingPanel />}
       {EDIT && <ColliderEditorPanel />}
+      {ZONES && <ZoneEditorPanel />}
     </div>
   )
 }

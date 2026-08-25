@@ -7,3 +7,16 @@
  * z = down(+)/up(−) — so "up-screen" is −z, i.e. forward. Magnitude 0…1.
  */
 export const touchMove = { x: 0, z: 0 }
+
+/**
+ * True when the focus is in a text field (the dev editor panels' name/verb
+ * inputs, etc.). Movement/interact keys must yield to it — otherwise the HUD's
+ * global keydown listener preventDefault()s "E"/Space/Enter (so you can't type
+ * them) and WASD drives the player while you're typing.
+ */
+export function isTypingTarget(el: EventTarget | null): boolean {
+  const n = el as HTMLElement | null
+  if (!n) return false
+  const tag = n.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || n.isContentEditable
+}
