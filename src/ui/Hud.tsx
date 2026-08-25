@@ -140,6 +140,48 @@ function SectionOverlay({ id }: { id: keyof typeof SECTIONS }) {
   )
 }
 
+/**
+ * Full-screen fade-to-black over a town↔café transition. Fades out, swaps the
+ * world at full black (commitInterior — model + collision swap + player teleport
+ * all happen unseen), holds a beat so the new scene renders, then fades back in.
+ * Driven by `transition` in the store; blocks input while active.
+ */
+function Transition() {
+  const transition = useGame((s) => s.transition)
+  const [phase, setPhase] = useState<'idle' | 'out' | 'hold' | 'in'>('idle')
+
+  useEffect(() => {
+    if (transition && phase === 'idle') setPhase('out')
+  }, [transition, phase])
+
+  const onEnd = () => {
+    if (phase === 'out') {
+      useGame.getState().commitInterior() // swap unseen, at full black
+      setPhase('hold')
+      window.setTimeout(() => setPhase('in'), 140) // let the new scene render
+    } else if (phase === 'in') {
+      useGame.getState().endTransition()
+      setPhase('idle')
+    }
+  }
+
+  const opaque = phase === 'out' || phase === 'hold'
+  return (
+    <div
+      onTransitionEnd={onEnd}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#000',
+        opacity: opaque ? 1 : 0,
+        pointerEvents: phase === 'idle' ? 'none' : 'auto',
+        transition: 'opacity 260ms ease',
+        zIndex: 50,
+      }}
+    />
+  )
+}
+
 export function Hud() {
   const started = useGame((s) => s.started)
   const near = useGame((s) => s.near)
@@ -192,6 +234,7 @@ export function Hud() {
       {dialogue && <Dialogue item={dialogue} line={line} />}
       {section && <SectionOverlay id={section} />}
       {ridesOpen && <RidesModal />}
+      <Transition />
     </div>
   )
 }

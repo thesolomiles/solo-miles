@@ -2,6 +2,7 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, type RefObject } from 'react'
 import * as THREE from 'three'
 import { CAMERA } from '../config/constants'
+import { useGame } from '../state/store'
 
 const _desired = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
@@ -114,16 +115,29 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     const halfX = (CAMERA.worldViewHeight * aspect) / 2
     const halfZ = CAMERA.worldViewHeight / 2 / rig.sinPitch
 
+    // Interiors (the café) are small single rooms — smaller than the view — so
+    // instead of following the player (which shoves the room to one side and
+    // reveals the void beside it), lock the camera on a fixed room centre. The
+    // player moves around inside a stable, fully-framed shot.
+    const inInterior = useGame.getState().interior !== null
+
     // Where following the player would centre the view on the ground, then clamp
     // that centre so the view never spills past the map edge.
-    const cgx = clampCentre(p.x, halfX)
-    const cgz = clampCentre(p.z + rig.groundOffZ, halfZ)
+    const cgx = inInterior ? 0 : clampCentre(p.x, halfX)
+    // Frame the room a touch north of centre so the counter/back wall reads
+    // (the café spans z ≈ ±7; the entrance is at +z, the counter at −z).
+    const cgz = inInterior ? -1.0 : clampCentre(p.z + rig.groundOffZ, halfZ)
 
     // Convert the clamped ground centre back into a camera position. With no yaw,
     // camera.x == ground-centre.x; camera.z is the ground centre minus the fixed
     // camera→ground z-offset.
     _desired.set(cgx, p.y + CAMERA.offset.y, cgz - rig.groundFromCamZ)
-    cam.position.lerp(_desired, 1 - Math.pow(CAMERA.followDamping, dt))
+    // Normal follow is a smooth glide, but a teleport (entering/leaving the café
+    // swaps worlds and jumps the player far) should SNAP — otherwise the camera
+    // pans across the void between the two spaces. Anything beyond a stride is a
+    // jump, not movement.
+    if (cam.position.distanceTo(_desired) > 12) cam.position.copy(_desired)
+    else cam.position.lerp(_desired, 1 - Math.pow(CAMERA.followDamping, dt))
   })
 
   return null

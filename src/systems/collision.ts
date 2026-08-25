@@ -1,5 +1,6 @@
 import type * as THREE from 'three'
 import { WORLD, type Collider } from '../config/town'
+import type { Boundary } from './activeWorld'
 
 /**
  * Resolve the player's position against colliders and the world edge, in
@@ -15,7 +16,11 @@ import { WORLD, type Collider } from '../config/town'
  * (Brief: start simple; only reach for a physics engine if this stops being
  * enough — it won't for a town this size.)
  */
-export function resolveCollisions(pos: THREE.Vector3, colliders: Collider[]) {
+export function resolveCollisions(
+  pos: THREE.Vector3,
+  colliders: Collider[],
+  boundary: Boundary = WORLD.boundary,
+) {
   for (const c of colliders) {
     if ('minX' in c) {
       // Box: only act when the player is strictly inside.
@@ -40,12 +45,17 @@ export function resolveCollisions(pos: THREE.Vector3, colliders: Collider[]) {
       }
     }
   }
-  // Square world edge (matches the square ground), not a circle: a circular
-  // clamp cut through the open meadows this scattered forest leaves between the
-  // town and the trees, reading as an invisible wall on open grass. Now the only
-  // hard wall is at the ground's edge, screened by the outer forest; everything
-  // in between is contained by the tree/rock/building colliders themselves.
-  const b = WORLD.boundary
-  pos.x = Math.max(-b, Math.min(b, pos.x))
-  pos.z = Math.max(-b, Math.min(b, pos.z))
+  // World edge. The town uses a SQUARE clamp (a single half-extent number): a
+  // circular clamp cut through the open meadows the scattered forest leaves
+  // between town and trees, reading as an invisible wall on open grass. The
+  // only hard wall is at the ground's edge, screened by the outer forest.
+  // An interior (the café) passes a rectangular AABB instead, keeping the player
+  // inside the room.
+  if (typeof boundary === 'number') {
+    pos.x = Math.max(-boundary, Math.min(boundary, pos.x))
+    pos.z = Math.max(-boundary, Math.min(boundary, pos.z))
+  } else {
+    pos.x = Math.max(boundary.minX, Math.min(boundary.maxX, pos.x))
+    pos.z = Math.max(boundary.minZ, Math.min(boundary.maxZ, pos.z))
+  }
 }

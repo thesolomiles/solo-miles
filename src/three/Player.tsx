@@ -4,7 +4,7 @@ import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
 import { TRAIL } from '../config/town'
-import { colliders } from '../systems/colliders'
+import { getActiveWorld } from '../systems/activeWorld'
 import { resolveCollisions } from '../systems/collision'
 import { touchMove, isTypingTarget } from '../systems/input'
 import { useGame } from '../state/store'
@@ -71,7 +71,8 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // drei's KeyboardControls listens on window, so WASD would otherwise walk the
     // player around as you type a zone's name.
     const typing = typeof document !== 'undefined' && isTypingTarget(document.activeElement)
-    const canMove = st.started && !st.dialogue && !st.section && !st.ridesOpen && !typing
+    const canMove =
+      st.started && !st.dialogue && !st.section && !st.ridesOpen && !st.transition && !typing
 
     const { forward, back, left, right, jump } = getKeys()
     let mx = 0
@@ -133,10 +134,11 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       jumpHeld.current = false
     }
 
-    // Resolve against the derived town colliders (buildings, trees, stumps),
-    // the river banks, and the square world edge — in place, before we place
-    // the group. See systems/collision.ts.
-    resolveCollisions(posRef.current, colliders)
+    // Resolve against the ACTIVE world's colliders + boundary — the town
+    // (buildings/trees/river banks + square edge) or the café interior (its
+    // counter/arcades + room bounds). See systems/activeWorld + collision.ts.
+    const world = getActiveWorld()
+    resolveCollisions(posRef.current, world.colliders, world.boundary)
 
     group.current.position.set(posRef.current.x, 0, posRef.current.z)
     group.current.rotation.y = yaw.current

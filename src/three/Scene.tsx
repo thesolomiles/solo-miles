@@ -12,6 +12,8 @@ import { Player } from './Player'
 // import { Bgm } from './Bgm' // BGM disabled for now — see Scene render below
 import { AmbientSound } from './AmbientSound'
 import { TownModel } from './TownModel'
+import { CafeModel } from './CafeModel'
+import { CafeBgm } from './CafeBgm'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
 // import { Rider } from './actors/Rider' // hidden for now — see Scene render below
@@ -19,11 +21,27 @@ import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
 import { useLighting } from '../state/lighting'
 import { usePerf } from '../state/perf'
+import { useGame } from '../state/store'
+import { setActiveWorld } from '../systems/activeWorld'
+import { CAFE } from '../config/cafe'
 
-/** Vertical gradient sky as the scene background (prototype look). */
-function SkyBackground() {
+// Interiors sit in a dark surround (a single room floating in space would
+// otherwise show the bright town sky around it). A warm near-black frames the
+// café's wood + amber glow as "a room in the dark".
+const INTERIOR_BG = new THREE.Color('#171009')
+
+/** Scene background: the town's vertical gradient sky, or a dark surround while
+ *  inside an interior (the café). */
+function SkyBackground({ interior }: { interior: string | null }) {
   const scene = useThree((s) => s.scene)
   useEffect(() => {
+    if (interior) {
+      const prev = scene.background
+      scene.background = INTERIOR_BG
+      return () => {
+        scene.background = prev
+      }
+    }
     const c = document.createElement('canvas')
     c.width = 8
     c.height = 256
@@ -42,7 +60,7 @@ function SkyBackground() {
       scene.background = prev
       tex.dispose()
     }
-  }, [scene])
+  }, [scene, interior])
   return null
 }
 
@@ -122,10 +140,85 @@ function PerfProbe() {
   return null
 }
 
+/**
+ * Watches the `interior` flag and, on each town↔café transition, swaps the
+ * active collision world and teleports the player to the right spawn (café
+ * entrance carpet on the way in, town café-door on the way out). Skips the
+ * initial mount so it never yanks the player off their town spawn on load.
+ */
+function InteriorController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
+  const interior = useGame((s) => s.interior)
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    if (interior === 'cafe') {
+      setActiveWorld('cafe')
+      posRef.current.set(CAFE.spawn.x, 0, CAFE.spawn.z)
+    } else {
+      setActiveWorld('town')
+      posRef.current.set(CAFE.townReturn.x, 0, CAFE.townReturn.z)
+    }
+  }, [interior, posRef])
+  return null
+}
+
+// Café window positions in three-space, nudged just inside each pane (Blender
+// Y-up export: +Y/north → −Z). A warm point light at each makes the windows
+// actually cast light into the room, not merely glow.
+const CAFE_WINDOW_LIGHTS: [number, number, number][] = [
+  [-6.4, 2.0, -4.0], // left · north
+  [-6.4, 2.0, 1.5], // left · south
+  [6.4, 2.0, -4.0], // right · north
+  [6.4, 2.0, 1.5], // right · south
+]
+
+/**
+ * Lighting for the café interior — its own rig, independent of the town's sun.
+ * The room is lit by warm daylight spilling in the four windows plus a low
+ * ambient so nothing goes pitch-black; the emissive sconces / menu / arcade
+ * screens add their own glow on top.
+ */
+function CafeLights() {
+  return (
+    <>
+      <ambientLight intensity={0.35} color={'#ffe6c2'} />
+      {/* A general overhead fill so the middle of the room isn't dark — a warm
+          ceiling glow centred over the tables, independent of the town sun. */}
+      <pointLight position={[0, 6.5, -0.5]} color={'#ffdcb0'} intensity={55} distance={26} decay={2} />
+      {CAFE_WINDOW_LIGHTS.map((p, i) => (
+        <pointLight
+          key={i}
+          position={p}
+          color={'#ffd39a'}
+          intensity={22}
+          distance={18}
+          decay={2}
+        />
+      ))}
+    </>
+  )
+}
+
 export function Scene() {
   // Shared player position: the controller writes it; the camera, the cyclist,
   // and the proximity system read it. Hot per-frame data stays out of React.
   const posRef = useRef(PLAYER.start.clone())
+  const interior = useGame((s) => s.interior)
+
+  // Dev-only handle (matches window.__ambient / __bgm): inspect/teleport the
+  // player and poke game state from the console while iterating.
+  useEffect(() => {
+    if (import.meta.env?.DEV && typeof window !== 'undefined') {
+      ;(window as unknown as Record<string, unknown>).__solo = {
+        game: useGame,
+        pos: () => posRef.current,
+        tp: (x: number, z: number) => posRef.current.set(x, 0, z),
+      }
+    }
+  }, [])
   const params =
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
   const debug = !!params?.has('debug')
@@ -141,33 +234,47 @@ export function Scene() {
 
   return (
     <InteractablesProvider>
-      <SkyBackground />
-      <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
+      <SkyBackground interior={interior} />
+      {!interior && <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />}
 
-      {/* Phase 2 warm rig: cool sky/ground ambient, a warm key sun casting soft
-          shadows, and a dim cool fill from the opposite side to shape forms. */}
-      {/* Moody rig: less flat fill so shadows go deep, a strong warm key.
-          Intensities come from the lighting store (tunable via ?debug panel). */}
-      <hemisphereLight args={[0xdcebf2, 0x6b7350, hemisphere]} />
-      <ambientLight intensity={ambient} color={0xfff2e0} />
-      <SunRig posRef={posRef} />
-      <directionalLight position={[-18, 14, -12]} intensity={fill} color={0xbcd4e6} />
+      {/* Town rig: cool sky/ground ambient, a warm key sun casting soft shadows,
+          and a dim cool fill from the opposite side. Gated OFF inside an interior
+          — the café lights itself (CafeLights) so the town sun never washes it. */}
+      {!interior && (
+        <>
+          <hemisphereLight args={[0xdcebf2, 0x6b7350, hemisphere]} />
+          <ambientLight intensity={ambient} color={0xfff2e0} />
+          <SunRig posRef={posRef} />
+          <directionalLight position={[-18, 14, -12]} intensity={fill} color={0xbcd4e6} />
+        </>
+      )}
+      {interior === 'cafe' && <CafeLights />}
 
-      {/* Phase 3: the real Blender-modelled town replaces the greybox
-          Environment + Building meshes. Interactables/labels rewire per
-          building once all four are modelled. */}
-      <TownModel />
-      {edit && <ColliderEditor />}
-      {zonesEdit && <ZoneEditor />}
-      {debug && !edit && <ColliderDebug boundary={WORLD.boundary} />}
+      {/* Town vs café interior. Pressing E on the town's café door flips
+          `interior` (store), which swaps the model + collision world here and in
+          InteriorController below. The Player, camera, sound and post stay
+          mounted across the transition. */}
+      {interior === 'cafe' ? (
+        <CafeModel />
+      ) : (
+        <>
+          {/* Phase 3: the real Blender-modelled town replaces the greybox
+              Environment + Building meshes. */}
+          <TownModel />
+          {edit && <ColliderEditor />}
+          {zonesEdit && <ZoneEditor />}
+          {debug && !edit && <ColliderDebug boundary={WORLD.boundary} />}
+          <Interactions />
+          <Cat />
+          {/* Cyclist Leonard hidden for now (ride-picker flow is built; re-enable
+              when the ride UI/content is ready). */}
+          {/* <Rider playerPos={posRef} /> */}
+          <Workers />
+        </>
+      )}
       {(debug || edit) && <PerfProbe />}
-      <Interactions />
 
-      <Cat />
-      {/* Cyclist Leonard hidden for now (ride-picker flow is built; re-enable when
-          the ride UI/content is ready). Un-rendering also drops his interactable. */}
-      {/* <Rider playerPos={posRef} /> */}
-      <Workers />
+      <InteriorController posRef={posRef} />
       <Player posRef={posRef} />
 
       <OrthoRig posRef={posRef} />
@@ -178,6 +285,7 @@ export function Scene() {
           line; the crossfade-on-bridge logic in three/Bgm.tsx is kept intact. */}
       {/* <Bgm playerPos={posRef} /> */}
       <AmbientSound playerPos={posRef} />
+      <CafeBgm />
 
       <PostFX />
     </InteractablesProvider>

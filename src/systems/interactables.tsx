@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import type { Interactable } from '../config/town'
 import { useGame } from '../state/store'
 import { zones } from './zones'
+import { CAFE } from '../config/cafe'
 
 /**
  * A tiny registry of everything interactable in the world. Buildings and the
@@ -52,7 +53,10 @@ export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vect
 
   useFrame(() => {
     const st = useGame.getState()
-    if (!st.started || st.dialogue || st.section) {
+    // Town interactables don't exist inside an interior (the café), so stand down
+    // there — otherwise a town door at similar coords could ghost a prompt. Also
+    // stand down during a transition fade.
+    if (!st.started || st.dialogue || st.section || st.interior || st.transition) {
       if (st.near) setNear(null)
       return
     }
@@ -86,13 +90,16 @@ export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector
 
   useFrame(() => {
     const st = useGame.getState()
-    if (!st.started || st.dialogue || st.section || st.ridesOpen) {
+    if (!st.started || st.dialogue || st.section || st.ridesOpen || st.transition) {
       if (st.nearZone) setNearZone(null)
       return
     }
     const p = playerPos.current
-    let hit: (typeof zones)[number] | null = null
-    for (const z of zones) {
+    // In the café interior the only "door" is its exit zone; in the town it's the
+    // hand-authored zone set (systems/zones.ts).
+    const list = st.interior === 'cafe' ? [CAFE.exitZone] : zones
+    let hit: (typeof list)[number] | null = null
+    for (const z of list) {
       if (p.x >= z.minX && p.x <= z.maxX && p.z >= z.minZ && p.z <= z.maxZ) {
         hit = z
         break

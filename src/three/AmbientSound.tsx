@@ -81,10 +81,13 @@ export function AmbientSound({ playerPos }: { playerPos: RefObject<THREE.Vector3
     const b = bird.current
     const r = river.current
     if (!b || !r) return
-    const started = useGame.getState().started
+    const st = useGame.getState()
+    // Outdoor ambience is the TOWN's — silence the birds + river inside an
+    // interior (the café), which has its own BGM instead.
+    const outdoors = st.started && !st.interior
     const k = Math.min(1, delta * FADE_K)
-    const birdTarget = started ? BIRD_VOL : 0
-    const riverTarget = started ? riverNearness(playerPos.current.z) * RIVER_MAX : 0
+    const birdTarget = outdoors ? BIRD_VOL : 0
+    const riverTarget = outdoors ? riverNearness(playerPos.current.z) * RIVER_MAX : 0
     b.volume = THREE.MathUtils.clamp(b.volume + (birdTarget - b.volume) * k, 0, 1)
     r.volume = THREE.MathUtils.clamp(r.volume + (riverTarget - r.volume) * k, 0, 1)
   })
