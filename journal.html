@@ -72,11 +72,19 @@
   article ul { margin: 0; padding-left: 20px; }
   article li { margin: 6px 0; }
   a.perma { color: inherit; text-decoration: none; }
+  figure { margin: 14px 0 4px; }
+  figure img {
+    display: block;
+    max-width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  figcaption { margin-top: 6px; font-size: 0.82rem; color: var(--muted); }
 </style>
 </head>
 <body>
   <h1>Solo Miles <span>— Dev Journal</span></h1>
-  <p class="note">High-level log — decisions made and what changed. Deeper technical detail lives in the code and in Claude's memory, not here.</p>
+  <p class="note">High-level log — decisions made and what changed. Deeper technical detail lives in the code and in Claude's memory, not here. Milestone screenshots go in <code>journal-assets/</code> (saved from the running dev app via the <code>/__save-shot</code> endpoint) and embed with a <code>&lt;figure&gt;</code>.</p>
   <div class="layout">
     <nav>
       <h2>Entries</h2>
@@ -99,6 +107,10 @@
           <li><strong>Built the café interior</strong> (new <code>cafe.blend</code> → <code>cafe.glb</code>): wood-plank room, open south entrance + exit carpet, back counter with a silver espresso machine + pastry fridge + sink, chalkboard menu, two arcade machines, windows, and dim lighting with warm emissive lamps.</li>
           <li><strong>Wired "press E to enter the café."</strong> Town↔café swap (model + collision + spawn), a fade-to-black transition, the café lights itself (windows that cast light + a central fill, town sun off inside), café BGM that crossfades with the town ambience, and a fixed dark-framed interior camera. <strong>Shipped to prod</strong> (<code>7bcab25a</code>). Open follow-up: table collision (tables are walkable for now).</li>
         </ul>
+        <figure>
+          <img src="journal-assets/cafe-interior.jpg" alt="The café interior in-game — warm wood room lit by its windows, counter with coffee machine, tables, arcade machines, player on the exit carpet.">
+          <figcaption>The café interior in-game — you enter this by pressing E on the town's café door.</figcaption>
+        </figure>
       </article>
       <article id="2026-08-24">
         <h3><a class="perma" href="#2026-08-24">2026-08-24 · Sunday</a></h3>

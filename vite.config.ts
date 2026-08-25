@@ -164,7 +164,45 @@ function saveColliders(): Plugin {
   }
 }
 
+// ---- Journal screenshots: save a browser canvas capture straight to disk. ----
+// POST { name, dataUrl } to /__save-shot and it decodes the base64 image and
+// writes it to journal-assets/<name> — a milestone screenshot to embed in
+// journal.html. Keeps the image bytes off any other path (they go straight
+// browser → dev server → file). Dev-only like the editors above; the deployed
+// site has no endpoint. Does NOT commit — the shot lands with its journal entry.
+function saveShot(): Plugin {
+  return {
+    name: 'save-shot',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-shot', (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        void (async () => {
+          try {
+            const { name, dataUrl } = JSON.parse(await readBody(req)) as {
+              name: string
+              dataUrl: string
+            }
+            if (!name || !/^[\w.-]+\.(jpg|jpeg|png|webp)$/i.test(name))
+              throw new Error('bad or missing image name')
+            const m = /^data:image\/\w+;base64,(.+)$/.exec(dataUrl || '')
+            if (!m) throw new Error('expected a base64 image data URL')
+            const buf = Buffer.from(m[1], 'base64')
+            writeFileSync(resolve(server.config.root, 'journal-assets', name), buf)
+            res.setHeader('content-type', 'application/json')
+            res.end(JSON.stringify({ ok: true, path: `journal-assets/${name}`, bytes: buf.length }))
+          } catch (err) {
+            res.statusCode = 400
+            res.setHeader('content-type', 'application/json')
+            res.end(JSON.stringify({ ok: false, error: String(err) }))
+          }
+        })()
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), saveColliders(), saveZones()],
+  plugins: [react(), saveColliders(), saveZones(), saveShot()],
 })
