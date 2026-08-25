@@ -9,6 +9,8 @@ import { ColliderEditor } from './ColliderEditor'
 import { ZoneEditor } from './ZoneEditor'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
+// import { Bgm } from './Bgm' // BGM disabled for now — see Scene render below
+import { AmbientSound } from './AmbientSound'
 import { TownModel } from './TownModel'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
@@ -171,6 +173,11 @@ export function Scene() {
       <OrthoRig posRef={posRef} />
       <ProximitySystem playerPos={posRef} />
       <ZoneProximity playerPos={posRef} />
+      {/* BGM disabled for now (couldn't get the right feel — went with ambient
+          environment sound instead). Re-enable by uncommenting the import + this
+          line; the crossfade-on-bridge logic in three/Bgm.tsx is kept intact. */}
+      {/* <Bgm playerPos={posRef} /> */}
+      <AmbientSound playerPos={posRef} />
 
       <PostFX />
     </InteractablesProvider>
