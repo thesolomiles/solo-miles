@@ -39,9 +39,31 @@ export const CAFE = {
    *  pastry fridge line, and the two arcade machines against the left wall.
    *  Tables are left walkable for now. */
   colliders: [
-    { minX: -5.0, maxX: 4.8, minZ: -4.5, maxZ: -3.5 }, // counter + pastry fridge
-    { minX: -6.6, maxX: -5.9, minZ: 3.1, maxZ: 5.4 }, // arcade machines
+    // Hand-drawn in ?edit inside the café (Leonard), saved from the editor.
+    { minX: -5.7, maxX: 5.6, minZ: -8.3, maxZ: -2.8 },
+    { minX: -7.6, maxX: -5.4, minZ: 2.4, maxZ: 5.9 },
+    { minX: -4.6, maxX: -1, minZ: -0.3, maxZ: 3.7 },
+    { minX: 0.9, maxX: 4.6, minZ: -0.3, maxZ: 3.5 },
+    { minX: -7.4, maxX: -5.5, minZ: -2.7, maxZ: 3.5 },
+    { minX: 5.3, maxX: 7.8, minZ: -2.5, maxZ: 3.6 },
   ] as BoxCollider[],
+
+  /** Floor lift: the café's wood planks sit ~0.16u above y=0 (their modelled
+   *  top), so a character standing at y=0 sinks its shins into the floor. Drop
+   *  the whole café model by this much (three/CafeModel) so the plank surface
+   *  lands at y=0 where the player + staff stand. */
+  floorDrop: 0.16,
+
+  /** Two ambient baristas behind the service counter — a cloned skinned
+   *  cafe-worker.glb each, cycling active clips (making a drink, chatting,
+   *  glancing round) in place. Placed in the staff gap between the counter
+   *  (z≈−3.5..−4.5) and the back bar (z≈−6), facing the customer (+Z, model
+   *  front). `phase` desyncs the two so they never move in lockstep; `primary`
+   *  is the clip each favours. See three/actors/CafeWorker. */
+  workers: [
+    { pos: [0.6, -5.1] as [number, number], rot: 0, phase: 0, primary: 'bartend' },
+    { pos: [-3.4, -5.1] as [number, number], rot: 0, phase: 1, primary: 'talk' },
+  ],
 
   /** The exit "door": standing on the entrance carpet shows an Exit prompt;
    *  pressing E returns to the town. */
