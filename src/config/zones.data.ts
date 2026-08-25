@@ -16,4 +16,5 @@ export const INTERACT_ZONES: InteractZone[] = [
   // Hand-drawn in ?zones (Leonard), saved straight from the browser editor.
   { id: "ze6h68k", verb: "Enter cafe", minX: 11.6, maxX: 12.8, minZ: -0.7, maxZ: 1.4 },
   { id: "zkjs0ff", verb: "Use vending machine", minX: 5.8, maxX: 6.7, minZ: -2.1, maxZ: 0.5 },
+  { id: "z9mqziw", minX: -9.7, maxX: -7, minZ: -1.4, maxZ: 2.8 },
 ]
