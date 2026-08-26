@@ -66,6 +66,19 @@ export const CAFE = {
     { pos: [-3.2, -5.2] as [number, number], rot: 0, phase: 1, primary: 'talk' },
   ],
 
+  /** Seated customers. Each is a cloned patron GLB frozen on its `sit` clip at a
+   *  chair. `model` is the GLB (patron-1 = sit-and-talk, patron-2 = cross-legged),
+   *  `pos` the chair's floor spot (three-space x,z), `rot` the facing (+Z = model
+   *  front = toward the camera / into the room; π = toward the back wall), `yFix`
+   *  nudges the seat height. See three/actors/Patron. */
+  patrons: [
+    // Left-wall 2-top (T2L1): the two share a table, facing each other across it.
+    // patron-1 at the north chair faces +Z (toward the table + camera; we see his
+    // face); patron-2 opposite at the south chair faces −Z (toward him).
+    { model: '/models/patron-1.glb', pos: [-6.35, -2.3] as [number, number], rot: 0, yFix: 0 },
+    { model: '/models/patron-2.glb', pos: [-6.35, -0.7] as [number, number], rot: Math.PI, yFix: 0 },
+  ],
+
   /** The walkable staff strip the baristas roam: the gap between the counter's
    *  back edge (z≈−4.45) and the back bar (z≈−6.0), spanning most of the counter
    *  length. Kept clear of the counter/back-bar geometry so they don't clip into

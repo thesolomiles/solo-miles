@@ -14,7 +14,7 @@ import cafeBgmUrl from '../../assets/audio/cafe-bgm.mp3'
  * browser's autoplay policy is already satisfied by the time you step into the
  * café; volume is then driven purely by `interior`. Renders nothing.
  */
-const MAX_VOL = 0.4
+const MAX_VOL = 0.22
 const FADE_K = 1.6 // per-second volume lerp — a gentle fade in/out at the door
 
 export function CafeBgm() {

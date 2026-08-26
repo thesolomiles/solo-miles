@@ -15,6 +15,7 @@ import { AmbientSound } from './AmbientSound'
 import { TownModel } from './TownModel'
 import { CafeModel } from './CafeModel'
 import { CafeWorkers } from './actors/CafeWorker'
+import { Patrons } from './actors/Patron'
 import { CafeBgm } from './CafeBgm'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
@@ -260,6 +261,7 @@ export function Scene() {
         <>
           <CafeModel />
           <CafeWorkers />
+          <Patrons />
           {/* Café collision editor (?edit) — same draggable boxes as the town,
               driven by the café registry. */}
           {edit && <ColliderEditorFor store={useCafeColliderEdit} />}
