@@ -100,7 +100,7 @@
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
       <article id="2026-08-26">
-        <h3><a class="perma" href="#2026-08-26">2026-08-26 · Tuesday</a></h3>
+        <h3><a class="perma" href="#2026-08-26">2026-08-26 · Wednesday</a></h3>
         <ul>
           <li><strong>First café patron.</strong> A new seated character (<code>patron-1</code>) now sits at one of the two-top tables against the café's left wall, facing the room. Built from a single "sit &amp; talk" Mixamo FBX via a new <code>tools/build-patron.py</code> (same in-place retarget pipeline as the baristas), rendered by a stationary <code>Patron</code> actor that just loops the seated clip.</li>
           <li>Placement is data in <code>CAFE.patrons</code> (chair spot + facing), so more customers are a one-line add. The sit clip is a low sit; left <code>yFix=0</code> because that lands the torso at table height (raising it would float the torso above the table) — the chair-height mismatch hides behind the body.</li>
