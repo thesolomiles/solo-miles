@@ -10,8 +10,12 @@ import { zones, setZones } from '../systems/zones'
  * Every mutation pushes the zones into the live registry via setZones — which
  * also saves a localStorage draft — so a box goes live the instant you drag it,
  * and survives a reload until you save the data file.
+ *
+ * Shape shared by both zone editors — the town's (this store) and the café's
+ * (state/cafeZoneEdit). The in-scene editor and toolbar are written against
+ * ZoneEditState so one editor drives whichever world is active.
  */
-interface ZoneEditState {
+export interface ZoneEditState {
   /** Editor visible? Off by default — brought out on demand, like the collision
    *  panel. When closed the in-scene handles hide and the panel collapses. */
   open: boolean
@@ -105,3 +109,7 @@ export const useZoneEdit = create<ZoneEditState>((set, get) => ({
 
   clear: () => commit(set, [], null),
 }))
+
+/** The zustand hook type shared by both editors (town + café), so the editor
+ *  components can take either store as a prop. */
+export type ZoneEditStore = typeof useZoneEdit

@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
 import type { InteractZone } from '../config/town'
-import { useZoneEdit } from '../state/zoneEdit'
+import { useZoneEdit, type ZoneEditStore } from '../state/zoneEdit'
 
 /**
  * In-scene interaction-zone editor (enabled with `?zones`). The twin of
@@ -10,8 +10,12 @@ import { useZoneEdit } from '../state/zoneEdit'
  * translucent BLUE slab (vs collision's red) you click to select; the selected
  * one shows four corner handles (resize) plus a face drag (move). Dragging
  * raycasts the pointer onto the ground plane (y=0) and rewrites the box, live,
- * into the zone registry via the store. Its name floats above it while editing.
- * The HTML toolbar (ui/ZoneEditorPanel) adds add / delete / clear / rename / save.
+ * into the zone registry via the store. The HTML toolbar (ui/ZoneEditorPanel)
+ * adds add / delete / clear / rename / save.
+ *
+ * The drag logic is store-agnostic: `ZoneEditorFor` takes any zone-edit store
+ * (the town's `useZoneEdit` or the café's `useCafeZoneEdit`) so the same editor
+ * drives whichever world is active.
  */
 
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
@@ -55,10 +59,15 @@ interface Drag {
   offZ?: number
 }
 
-function EditableZone({ zone, index }: { zone: InteractZone; index: number }) {
-  const selected = useZoneEdit((s) => s.selected === index)
-  const select = useZoneEdit((s) => s.select)
-  const update = useZoneEdit((s) => s.update)
+interface BoxProps {
+  zone: InteractZone
+  index: number
+  selected: boolean
+  select: (i: number | null) => void
+  update: (i: number, zone: InteractZone) => void
+}
+
+function EditableZone({ zone, index, selected, select, update }: BoxProps) {
   const drag = useRef<Drag | null>(null)
 
   const cx = (zone.minX + zone.maxX) / 2
@@ -141,10 +150,14 @@ function EditableZone({ zone, index }: { zone: InteractZone; index: number }) {
   )
 }
 
-export function ZoneEditor() {
-  const open = useZoneEdit((s) => s.open)
-  const editZones = useZoneEdit((s) => s.zones)
-  const clearSel = useZoneEdit((s) => s.select)
+/** The draggable blue boxes for a given zone-edit store. Renders nothing until
+ *  that store's editor is toggled open. */
+export function ZoneEditorFor({ store }: { store: ZoneEditStore }) {
+  const open = store((s) => s.open)
+  const editZones = store((s) => s.zones)
+  const selected = store((s) => s.selected)
+  const select = store((s) => s.select)
+  const update = store((s) => s.update)
 
   // Hidden until the panel is toggled open — a clean view otherwise.
   if (!open) return null
@@ -155,14 +168,26 @@ export function ZoneEditor() {
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0.02, 0]}
-        onPointerDown={() => clearSel(null)}
+        onPointerDown={() => select(null)}
       >
         <planeGeometry args={[400, 400]} />
         <meshBasicMaterial visible={false} />
       </mesh>
       {editZones.map((z, i) => (
-        <EditableZone key={z.id} zone={z} index={i} />
+        <EditableZone
+          key={z.id}
+          zone={z}
+          index={i}
+          selected={selected === i}
+          select={select}
+          update={update}
+        />
       ))}
     </group>
   )
+}
+
+/** The town's interaction-zone editor (the default `?zones` world). */
+export function ZoneEditor() {
+  return <ZoneEditorFor store={useZoneEdit} />
 }

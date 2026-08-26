@@ -2,6 +2,7 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { CAMERA } from '../config/constants'
+import { CAFE } from '../config/cafe'
 import { useGame } from '../state/store'
 
 const _desired = new THREE.Vector3()
@@ -19,6 +20,23 @@ function clampCentre(v: number, half: number): number {
   const limit = GROUND_HALF - half
   if (limit <= 0) return 0
   return Math.max(-limit, Math.min(limit, v))
+}
+
+/** Vertical world-units in the ortho frustum. Town stays at a fixed zoom; the
+ *  café zooms out on tall/narrow viewports until the whole room fits. */
+function viewHeight(interior: 'cafe' | null, aspect: number, sinPitch: number): number {
+  if (interior !== 'cafe') return CAMERA.worldViewHeight
+  const hFitX = (2 * CAFE.frameHalfX) / Math.max(aspect, 0.05)
+  const hFitZ = 2 * CAFE.frameHalfZ * sinPitch
+  return Math.max(CAMERA.worldViewHeight, hFitX, hFitZ)
+}
+
+function applyFrustum(cam: THREE.OrthographicCamera, h: number, aspect: number) {
+  cam.top = h / 2
+  cam.bottom = -h / 2
+  cam.left = (-h * aspect) / 2
+  cam.right = (h * aspect) / 2
+  cam.updateProjectionMatrix()
 }
 
 /**
@@ -90,40 +108,40 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     cam.far = CAMERA.far
     cam.position.copy(posRef.current).add(CAMERA.offset)
     cam.quaternion.copy(fixedQuat)
+    const aspect = size.width / Math.max(size.height, 1)
+    applyFrustum(cam, CAMERA.worldViewHeight, aspect)
     set({ camera: cam })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Recompute the ortho frustum on viewport change. worldViewHeight is constant
-  // so the town reads at a consistent scale across window sizes.
-  useEffect(() => {
-    const aspect = size.width / size.height
-    const h = CAMERA.worldViewHeight
-    cam.top = h / 2
-    cam.bottom = -h / 2
-    cam.left = (-h * aspect) / 2
-    cam.right = (h * aspect) / 2
-    cam.updateProjectionMatrix()
-  }, [cam, size.width, size.height])
+  // Town zoom is constant; café zoom depends on aspect + interior, so the
+  // frustum is applied in useFrame (same tick as a town↔café swap).
+  const frustum = useRef({ h: 0, aspect: 0 })
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
     cam.quaternion.copy(fixedQuat) // constant — locked, never re-aimed
 
     const p = posRef.current
+    const interiorNow = useGame.getState().interior
+    const inInterior = interiorNow !== null
+    const aspect = size.width / Math.max(size.height, 1)
+    const h = viewHeight(interiorNow, aspect, rig.sinPitch)
+    if (h !== frustum.current.h || aspect !== frustum.current.aspect) {
+      frustum.current = { h, aspect }
+      applyFrustum(cam, h, aspect)
+    }
+
     // Visible half-extents on the ground plane. Screen-X maps straight to world-X
     // (no yaw); screen-Y projects along the tilt, so its ground span is stretched
     // by 1/sinPitch.
-    const aspect = size.width / size.height
-    const halfX = (CAMERA.worldViewHeight * aspect) / 2
-    const halfZ = CAMERA.worldViewHeight / 2 / rig.sinPitch
+    const halfX = (h * aspect) / 2
+    const halfZ = h / 2 / rig.sinPitch
 
     // Interiors (the café) are small single rooms — smaller than the view — so
     // instead of following the player (which shoves the room to one side and
     // reveals the void beside it), lock the camera on a fixed room centre. The
     // player moves around inside a stable, fully-framed shot.
-    const interiorNow = useGame.getState().interior
-    const inInterior = interiorNow !== null
     // A town↔café swap (flag flips at full black) must SNAP the camera into the
     // new room's framed shot, so the fade-in reveals it already in place.
     const swapped = interiorNow !== prevInterior.current

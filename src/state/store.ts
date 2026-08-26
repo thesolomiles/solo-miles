@@ -103,7 +103,7 @@ export const useGame = create<GameState>((set, get) => ({
         get().requestInterior('cafe')
         return
       }
-      if (interior === 'cafe' && nearZone.id === CAFE.exitZone.id) {
+      if (interior === 'cafe' && nearZone.id === CAFE.exitZoneId) {
         get().requestInterior(null)
         return
       }

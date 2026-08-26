@@ -7,7 +7,8 @@ import { InteractablesProvider, ProximitySystem, ZoneProximity } from '../system
 import { ColliderDebug } from './ColliderDebug'
 import { ColliderEditor, ColliderEditorFor } from './ColliderEditor'
 import { useCafeColliderEdit } from '../state/cafeColliderEdit'
-import { ZoneEditor } from './ZoneEditor'
+import { ZoneEditor, ZoneEditorFor } from './ZoneEditor'
+import { useCafeZoneEdit } from '../state/cafeZoneEdit'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
 // import { Bgm } from './Bgm' // BGM disabled for now — see Scene render below
@@ -278,6 +279,7 @@ export function Scene() {
           {/* Café collision editor (?edit) — same draggable boxes as the town,
               driven by the café registry. */}
           {edit && <ColliderEditorFor store={useCafeColliderEdit} />}
+          {zonesEdit && <ZoneEditorFor store={useCafeZoneEdit} />}
         </>
       ) : (
         <>

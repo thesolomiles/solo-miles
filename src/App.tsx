@@ -10,6 +10,7 @@ import { ZoneEditorPanel } from './ui/ZoneEditorPanel'
 import { useGame } from './state/store'
 import { useLighting } from './state/lighting'
 import { useCafeColliderEdit } from './state/cafeColliderEdit'
+import { useCafeZoneEdit } from './state/cafeZoneEdit'
 import { IS_MOBILE } from './systems/device'
 import { MOBILE_CANVAS_FILTER } from './three/PostFX'
 
@@ -103,7 +104,18 @@ export default function App() {
         ) : (
           <ColliderEditorPanel />
         ))}
-      {ZONES && <ZoneEditorPanel />}
+      {ZONES &&
+        (inCafe ? (
+          <ZoneEditorPanel
+            store={useCafeZoneEdit}
+            saveUrl="/__save-cafe-zones"
+            savedKey="solomiles.cafeZoneSavedAt"
+            draftKey="solomiles.cafeInteractZones"
+            title="Café zones"
+          />
+        ) : (
+          <ZoneEditorPanel />
+        ))}
     </div>
   )
 }

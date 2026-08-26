@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import type { Interactable } from '../config/town'
 import { useGame } from '../state/store'
 import { zones } from './zones'
-import { CAFE } from '../config/cafe'
+import { cafeZones } from './cafeZones'
 
 /**
  * A tiny registry of everything interactable in the world. Buildings and the
@@ -95,9 +95,8 @@ export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector
       return
     }
     const p = playerPos.current
-    // In the café interior the only "door" is its exit zone; in the town it's the
-    // hand-authored zone set (systems/zones.ts).
-    const list = st.interior === 'cafe' ? [CAFE.exitZone] : zones
+    // Café: live café zone registry. Town: hand-authored town set.
+    const list = st.interior === 'cafe' ? cafeZones : zones
     let hit: (typeof list)[number] | null = null
     for (const z of list) {
       if (p.x >= z.minX && p.x <= z.maxX && p.z >= z.minZ && p.z <= z.maxZ) {
