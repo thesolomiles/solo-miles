@@ -35,6 +35,13 @@ export const CAFE = {
    *  the carpeted exit is the way out). */
   bounds: { minX: -6.6, maxX: 6.6, minZ: -6.6, maxZ: 6.7 },
 
+  /** Half-extents the interior camera must keep on-screen (ground plane,
+   *  three-space). Past the modelled walls (~±7) plus a dark gutter so the
+   *  walls don't kiss the bezel. On a tall phone the café view zooms out until
+   *  `frameHalfX` fits; desktop is already wide enough and keeps the town zoom. */
+  frameHalfX: 9.0,
+  frameHalfZ: 8.6,
+
   /** Solid obstacles inside the room (three-space AABBs). The service counter +
    *  pastry fridge line, and the two arcade machines against the left wall.
    *  Tables are left walkable for now. */
@@ -86,14 +93,15 @@ export const CAFE = {
    *  can't follow them back here. */
   workZone: { minX: -4.6, maxX: 3.4, minZ: -5.9, maxZ: -4.6 },
 
-  /** The exit "door": standing on the entrance carpet shows an Exit prompt;
-   *  pressing E returns to the town. */
-  exitZone: {
-    id: 'cafe-exit',
-    verb: 'Exit to town',
-    minX: 2.4,
-    maxX: 5.6,
-    minZ: 4.2,
-    maxZ: 7.0,
-  } as InteractZone,
+  /** Interaction boxes inside the room (three-space AABBs). The `cafe-exit` id
+   *  is wired to leave (state/store.ts). Extra boxes are authored live with
+   *  `?zones` inside the café — same editor as the town, saved here. */
+  zones: [
+    // Hand-drawn in ?zones inside the café (Leonard), saved from the editor.
+    { id: "cafe-exit", verb: "Exit to town", minX: 2.4, maxX: 5.6, minZ: 4.2, maxZ: 7 },
+    { id: "zhu6zu4", verb: "Play game", minX: -7.3, maxX: -5.2, minZ: 2.6, maxZ: 6.1 },
+  ] as InteractZone[],
+
+  /** Zone id that returns to town (must match a box in `zones` above). */
+  exitZoneId: 'cafe-exit',
 } as const
