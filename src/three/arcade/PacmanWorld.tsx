@@ -23,11 +23,12 @@ import type { CharAnim } from '../Figure'
 
 const MODEL = '/models/character.glb'
 const FADE = 0.12
-// Ground speed (world u/s) the ninja-run clip depicts at timeScale 1, and the
-// slowest we'll let it play — below this it reads as slow motion, so we accept a
-// little foot-slide instead.
-const STRIDE_NINJA = 5.5
-const MIN_TIMESCALE = 0.8
+const RUN_GAIT = 'run'
+// Ground speed (world u/s) the run clip depicts at timeScale 1 (matches the
+// town's RiggedFigure STRIDE.run), and the slowest we'll let it play before it
+// reads as slow motion.
+const STRIDE_RUN = 4.0
+const MIN_TIMESCALE = 0.6
 const _ghostQuat = new THREE.Quaternion()
 const _ghostUp = new THREE.Vector3(0, 1, 0)
 
@@ -74,8 +75,8 @@ function PacmanFigure({ anim }: { anim: RefObject<CharAnim> }) {
       }
     }
     const clip = actions[gait]
-    if (clip && gait === 'ninja-run') {
-      clip.timeScale = Math.max(MIN_TIMESCALE, anim.current.speed / STRIDE_NINJA)
+    if (clip && gait === RUN_GAIT) {
+      clip.timeScale = Math.max(MIN_TIMESCALE, anim.current.speed / STRIDE_RUN)
     }
   })
 
@@ -159,13 +160,13 @@ function Pellets({ state }: { state: PacmanState }) {
       {dots.map((d) => {
         const { x, z } = tileWorld(d.c, d.r)
         return d.power ? (
-          <mesh key={`${d.c},${d.r}`} position={[x, 0.32, z]}>
-            <octahedronGeometry args={[0.2, 0]} />
+          <mesh key={`${d.c},${d.r}`} position={[x, 0.34, z]}>
+            <octahedronGeometry args={[0.26, 0]} />
             <meshLambertMaterial color="#ffe066" emissive="#ffcc33" emissiveIntensity={0.8} />
           </mesh>
         ) : (
-          <mesh key={`${d.c},${d.r}`} position={[x, 0.22, z]}>
-            <boxGeometry args={[0.16, 0.16, 0.16]} />
+          <mesh key={`${d.c},${d.r}`} position={[x, 0.24, z]}>
+            <boxGeometry args={[0.21, 0.21, 0.21]} />
             <meshLambertMaterial color="#ffd54a" emissive="#e6b800" emissiveIntensity={0.55} />
           </mesh>
         )
@@ -245,7 +246,7 @@ export function PacmanWorld() {
       stepPacman(s, dt, intent)
       const moved = s.status === 'play' && Math.hypot(s.player.x - px, s.player.y - py) > 0.0001
       anim.current.moving = moved
-      anim.current.gait = moved ? 'ninja-run' : 'idle'
+      anim.current.gait = moved ? RUN_GAIT : 'idle'
       anim.current.speed = moved ? PACMAN.playerSpeed * PACMAN.tile : 0
       if (moved) {
         const target = yawFromDir(s.player.dir)
@@ -276,8 +277,10 @@ export function PacmanWorld() {
     }
   })
 
-  const floorW = PACMAN.cols * PACMAN.tile + 1.2
-  const floorD = PACMAN.rows * PACMAN.tile + 1.2
+  // Oversized: at the town zoom the view is wider than the board, so the floor
+  // must reach past the frame or the dark void beyond the board would show.
+  const floorW = PACMAN.cols * PACMAN.tile + 40
+  const floorD = PACMAN.rows * PACMAN.tile + 40
 
   return (
     <group>

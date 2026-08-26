@@ -23,6 +23,10 @@ export interface Ghost extends Actor {
   home: { x: number; y: number }
   scatter: { x: number; y: number }
   releaseAt: number
+  /** Packed id of the tile the ghost last chose a direction on, so it decides
+   *  once per tile (edge-triggered) rather than every frame it sits at a centre
+   *  — the latter re-snapped it in place, and jittered frightened ghosts. */
+  lastDecision?: number
 }
 
 export interface PacmanState {
@@ -110,16 +114,26 @@ function atCenter(a: Actor, eps = 0.12) {
   return Math.abs(a.x - Math.round(a.x)) < eps && Math.abs(a.y - Math.round(a.y)) < eps
 }
 
-function snap(a: Actor) {
-  a.x = wrapCol(Math.round(a.x))
-  a.y = Math.round(a.y)
-}
-
 function move(a: Actor, speed: number, dt: number, cells: Cell[][], ghost: boolean) {
   if (atCenter(a)) {
-    snap(a)
-    if (canGo(cells, a.x, a.y, a.next, ghost)) a.dir = a.next
-    if (!canGo(cells, a.x, a.y, a.dir, ghost)) return false
+    const rx = wrapCol(Math.round(a.x))
+    const ry = Math.round(a.y)
+    const horiz = a.dir === 1 || a.dir === 3
+    // Lock the perpendicular axis to the lane (kills drift) but DON'T snap the
+    // travel axis back to the centre — that backward jump, several times a
+    // second, is the visible stutter. We only re-centre the travel axis when we
+    // actually turn or stop (below), where a clean corner needs it.
+    if (horiz) a.y = ry
+    else a.x = rx
+    if (a.next !== a.dir && canGo(cells, rx, ry, a.next, ghost)) {
+      a.x = rx // entering a new lane — align the corner
+      a.y = ry
+      a.dir = a.next
+    } else if (!canGo(cells, rx, ry, a.dir, ghost)) {
+      a.x = rx // wall ahead — stop exactly at the centre
+      a.y = ry
+      return false
+    }
   }
   a.x += DC[a.dir] * speed * dt
   a.y += DR[a.dir] * speed * dt
@@ -257,6 +271,7 @@ function resetPositions(s: PacmanState) {
     g.mode = g.releaseAt <= 0 ? 'scatter' : 'house'
     g.dir = 0
     g.next = 0
+    g.lastDecision = undefined
   }
   s.frightened = 0
   s.combo = 0
@@ -315,6 +330,8 @@ export function stepPacman(s: PacmanState, dt: number, intent: Dir | null) {
         if (g.mode !== 'eaten' && g.mode !== 'house') {
           g.mode = 'frightened'
           g.dir = opposite(g.dir)
+          g.next = g.dir // keep heading reversed; re-decide at the next centre
+          g.lastDecision = undefined
         }
       }
     }
@@ -334,9 +351,13 @@ export function stepPacman(s: PacmanState, dt: number, intent: Dir | null) {
 
     const tgt = ghostTarget(g, s)
     if (atCenter(g)) {
-      snap(g)
-      g.dir = pickGhostDir(g, s.cells, tgt.x, tgt.y)
-      g.next = g.dir
+      // Decide once per tile, then let move() take the turn cleanly at the
+      // centre (no back-snap). g.next is the desired heading; move() commits it.
+      const cell = Math.round(g.y) * C + wrapCol(Math.round(g.x))
+      if (g.lastDecision !== cell) {
+        g.lastDecision = cell
+        g.next = pickGhostDir(g, s.cells, tgt.x, tgt.y)
+      }
     }
     const spd =
       g.mode === 'eaten'

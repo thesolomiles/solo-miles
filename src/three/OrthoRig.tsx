@@ -24,11 +24,6 @@ function clampCentre(v: number, half: number, bound = GROUND_HALF): number {
   return Math.max(-limit, Math.min(limit, v))
 }
 
-/** Most world-units the maze view will ever span. Fitting a 19-wide board into a
- *  portrait window would zoom way past this and shrink the character to a speck,
- *  so past this the camera stops zooming out and follows him instead. */
-const MAZE_MAX_VIEW = 13
-
 /** Vertical world-units in the ortho frustum. Town stays at a fixed zoom; the
  *  café / Pac-Man maze zoom out on tall viewports until the whole room fits. */
 function viewHeight(
@@ -37,14 +32,11 @@ function viewHeight(
   aspect: number,
   sinPitch: number,
 ): number {
-  if (minigame === 'pacman') {
-    // The maze is smaller than the town view, so unlike the café this one may
-    // zoom IN past the town's fixed height — that's what makes the character
-    // read big on screen. Fit the board, but never zoom out past MAZE_MAX_VIEW.
-    const hFitX = (2 * PACMAN.frameHalfX) / Math.max(aspect, 0.05)
-    const hFitZ = 2 * PACMAN.frameHalfZ * sinPitch
-    return Math.min(Math.max(hFitX, hFitZ), MAZE_MAX_VIEW)
-  }
+  // The maze keeps the town's fixed zoom so the character is the same size in
+  // the game as it is outside. The board can be wider than the viewport in
+  // portrait — that's fine, the camera follows the player and pans, clamping to
+  // the board edge (frameHalfX/Z) below.
+  if (minigame === 'pacman') return CAMERA.worldViewHeight
   if (interior !== 'cafe') return CAMERA.worldViewHeight
   const hFitX = (2 * CAFE.frameHalfX) / Math.max(aspect, 0.05)
   const hFitZ = 2 * CAFE.frameHalfZ * sinPitch

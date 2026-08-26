@@ -67,20 +67,27 @@ export const PACMAN_MAZE = [
 export const PACMAN = {
   cols: 19,
   rows: 17,
-  tile: 0.9,
-  /** He only ever runs (ninja-run) or stands — no walk gait in the maze. */
-  playerSpeed: 5.0, // tiles / second
-  ghostSpeed: 4.4,
-  frightenedSpeed: 3.0,
-  eatenSpeed: 8,
+  // Bigger tiles = a bigger board in the frame (it pans when wider than the
+  // viewport). The tiles/s speeds below are scaled so the *ground* pace (u/s) is
+  // unchanged from the 0.9-tile tuning: ground = tiles/s × tile.
+  tile: 1.2,
+  /** He only ever runs (the town run clip) or stands — no walk gait in the maze. */
+  playerSpeed: 3.38, // tiles/s → 4.05 u/s ground (same pace as the 0.9-tile build)
+  ghostSpeed: 3.0, //   → 3.6 u/s ground
+  frightenedSpeed: 2.25, // → 2.7 u/s ground
+  eatenSpeed: 6.0, //   → 7.2 u/s ground
   frightenedSecs: 6,
   lives: 3,
-  /** Half-extents the ortho camera must keep on-screen (ground plane). */
-  frameHalfX: 9.2,
-  frameHalfZ: 8.3,
+  /** Half-extents the ortho camera clamps to, so the pan stops at the board edge
+   *  when the maze is wider than the viewport. Board is cols/rows × tile; these
+   *  are half that plus a little margin. */
+  frameHalfX: 12.0,
+  frameHalfZ: 10.8,
   /** Low walls: a tall block in this raking view hides the corridor behind it. */
   wallH: 0.5,
-  figureScale: 0.52,
+  // Match the town figure (RiggedFigure SCALE) so the character is the same size
+  // in the maze as it is outside — the maze camera uses the town zoom to match.
+  figureScale: 0.9,
 } as const
 
 export const GHOST_COLORS = {
