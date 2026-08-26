@@ -8,6 +8,7 @@ import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
 import { ZoneEditorPanel } from './ui/ZoneEditorPanel'
 import { useGame } from './state/store'
+import { useLighting } from './state/lighting'
 import { useCafeColliderEdit } from './state/cafeColliderEdit'
 import { IS_MOBILE } from './systems/device'
 import { MOBILE_CANVAS_FILTER } from './three/PostFX'
@@ -27,6 +28,10 @@ export default function App() {
   // Which world's collision editor the ?edit toolbar drives — the café while
   // inside it, the town otherwise.
   const inCafe = useGame((s) => s.interior === 'cafe')
+  // Atmospheric haze veil strength (also drives the 3D distance fog in Scene).
+  // Suppressed inside an interior — the café has its own dark, enclosed mood.
+  const hazeKnob = useLighting((s) => s.haze)
+  const haze = inCafe ? 0 : hazeKnob
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
     () => [
       { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
@@ -61,6 +66,28 @@ export default function App() {
           <Scene />
         </Canvas>
       </KeyboardControls>
+
+      {/* Atmospheric haze veil: a subtle warm screen-space layer, denser toward
+          the top (the distance in our fixed 3/4 view) and clearing into the
+          foreground — the even, slightly-desaturating aerial haze of golden hour.
+          The tight camera shows too little depth for 3D fog alone to read, so this
+          carries the look; it sits above the scene but below the HUD, and never
+          eats input. Opacity scales with the `haze` knob (?debug). */}
+      {haze > 0 && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            background: `linear-gradient(to bottom, rgba(234,224,206,${(
+              0.5 * haze
+            ).toFixed(3)}) 0%, rgba(234,224,206,${(0.26 * haze).toFixed(
+              3,
+            )}) 40%, rgba(234,224,206,0) 74%)`,
+          }}
+        />
+      )}
 
       <Hud />
       {DEBUG && <LightingPanel />}

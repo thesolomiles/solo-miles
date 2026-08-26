@@ -69,7 +69,9 @@ function SkyBackground({ interior }: { interior: string | null }) {
 
 // Direction the key sun sits relative to whatever it lights — fixed, so shadows
 // always fall the same way (light stays parallel; only its shadow box moves).
-const SUN_OFFSET = new THREE.Vector3(24, 30, 16)
+// Lowered for golden hour: a lower sun rakes longer, warmer shadows across the
+// ground (was y=30, a higher midday angle).
+const SUN_OFFSET = new THREE.Vector3(26, 20, 15)
 
 /**
  * The warm key sun. Its shadow frustum FOLLOWS the player each frame instead of
@@ -91,7 +93,7 @@ function SunRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     <directionalLight
       ref={light}
       intensity={intensity}
-      color={0xffd9a0}
+      color={0xffb066}
       castShadow
       shadow-mapSize={[2048, 2048]}
       shadow-radius={shadowRadius}
@@ -234,21 +236,32 @@ export function Scene() {
   const hemisphere = useLighting((s) => s.hemisphere)
   const ambient = useLighting((s) => s.ambient)
   const fill = useLighting((s) => s.fill)
+  const haze = useLighting((s) => s.haze)
+
+  // Atmospheric distance haze (golden hour): warm fog that fades the far scenery
+  // into the sky, softening + slightly desaturating the distance while the
+  // foreground stays crisp. The `haze` knob slides the fog band in/out — 0 pushes
+  // it past the map (crisp), 1 pulls it close (thick). The player sits ~24u from
+  // the camera, so `near` starts a touch beyond that and `far` reaches the reader.
+  const fogNear = THREE.MathUtils.lerp(52, 22, haze)
+  const fogFar = THREE.MathUtils.lerp(120, 52, haze)
 
   return (
     <InteractablesProvider>
       <SkyBackground interior={interior} />
-      {!interior && <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />}
+      {!interior && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
 
-      {/* Town rig: cool sky/ground ambient, a warm key sun casting soft shadows,
-          and a dim cool fill from the opposite side. Gated OFF inside an interior
-          — the café lights itself (CafeLights) so the town sun never washes it. */}
+      {/* Town rig (golden hour): a warm sky/ground ambient, a warm-amber key sun
+          casting long soft shadows, and a dim COOL fill from the opposite side —
+          the cool fill is deliberate: it tints the shadow sides blue against the
+          warm sun for that late-afternoon warm/cool contrast. Gated OFF inside an
+          interior — the café lights itself (CafeLights) so the sun never washes it. */}
       {!interior && (
         <>
-          <hemisphereLight args={[0xdcebf2, 0x6b7350, hemisphere]} />
-          <ambientLight intensity={ambient} color={0xfff2e0} />
+          <hemisphereLight args={[0xf3e2c6, 0x6f5f42, hemisphere]} />
+          <ambientLight intensity={ambient} color={0xffe9cf} />
           <SunRig posRef={posRef} />
-          <directionalLight position={[-18, 14, -12]} intensity={fill} color={0xbcd4e6} />
+          <directionalLight position={[-18, 14, -12]} intensity={fill} color={0xaecbe6} />
         </>
       )}
       {interior === 'cafe' && <CafeLights />}

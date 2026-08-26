@@ -96,8 +96,14 @@ export const WORLD = {
   forestRings: 3,
   forestInner: 39, // boundary + 2
   trailGap: [Math.PI * 1.42, Math.PI * 1.72] as [number, number], // where the trail breaks through
-  fog: { color: 0xc3dbe2, near: 55, far: 130 },
-  sky: { top: '#a6cfe1', mid: '#cfe3df', bottom: '#f4e7cf' },
+  // Golden hour: a PALE, low-saturation warm haze for the distance (a saturated
+  // warm fog gets pushed to orange-red by the ACES tone-map + saturation grade;
+  // a near-neutral pale colour reads as a soft desaturating veil instead). near/
+  // far are recomputed from the `haze` knob in Scene.tsx; only the colour is used
+  // here. The sky (separate, warmer) fades dusk-blue → gold and also feeds the
+  // water's reflection env-map in TownModel.
+  fog: { color: 0xd7d1c3, near: 55, far: 130 },
+  sky: { top: '#aec6d2', mid: '#e7d7ba', bottom: '#f5d497' },
   ground: 0x8fab68,
 } as const
 

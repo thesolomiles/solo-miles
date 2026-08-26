@@ -24,6 +24,10 @@ export interface LightingState {
   brightness: number
   vignette: number
   ao: number
+  // Atmosphere (Scene.tsx fog) — atmospheric distance haze. 0 = crisp (fog pushed
+  // far out), 1 = thick (fog pulled in). Fades distant scenery into the warm sky,
+  // softening + slightly desaturating the distance for golden-hour depth.
+  haze: number
   // Materials (TownModel.tsx) — independent multipliers on each building's
   // window emissive glow (café and house are baked at very different strengths,
   // so a single shared knob can't balance both).
@@ -33,10 +37,10 @@ export interface LightingState {
 
 /** The shipped look. Edit these to change what production renders. */
 export const LIGHTING_DEFAULTS: LightingState = {
-  sunIntensity: 4,
-  hemisphere: 0.84,
-  ambient: 0.06,
-  fill: 1.5,
+  sunIntensity: 4.4,
+  hemisphere: 0.82,
+  ambient: 0.1,
+  fill: 1.2,
   shadowRadius: 2.4,
   bloomIntensity: 0.9,
   bloomThreshold: 0.53,
@@ -45,6 +49,7 @@ export const LIGHTING_DEFAULTS: LightingState = {
   brightness: -0.01,
   vignette: 0.09,
   ao: 0.75,
+  haze: 0.62,
   cafeGlow: 1.0,
   houseGlow: 1.0,
 }
@@ -74,6 +79,7 @@ export const LIGHTING_CONTROLS: [keyof LightingState, string, number, number, nu
   ['brightness', 'Brightness', -0.3, 0.3, 0.01],
   ['vignette', 'Vignette', 0, 1.5, 0.01],
   ['ao', 'Occlusion', 0, 4, 0.05],
+  ['haze', 'Haze', 0, 1, 0.01],
   ['cafeGlow', 'Café glow', 0, 4, 0.05],
   ['houseGlow', 'House glow', 0, 4, 0.05],
 ]
