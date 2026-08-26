@@ -53,6 +53,71 @@ function makeSkyEnv(gl: THREE.WebGLRenderer): THREE.Texture {
   return env
 }
 
+// The sky env-map and the water material are constants — same for the whole
+// session — but TownModel UNMOUNTS every time you step into the café (and the
+// arcade), so building them per mount allocated a fresh PMREM cubemap on every
+// return to town and never freed the old one. Hold them at module scope so
+// they're built once and simply re-used by each mount.
+let skyEnv: THREE.Texture | null = null
+let waterMaterial: THREE.MeshStandardMaterial | null = null
+let waterShader: THREE.WebGLProgramParametersWithUniforms | null = null
+
+function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
+  if (waterMaterial) return waterMaterial
+  skyEnv ??= makeSkyEnv(gl)
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x3f86a3),
+    // The water reflects the baked sky env (makeSkyEnv). Low roughness keeps the
+    // reflection + sun-glint fairly crisp; a chunk of metalness raises the
+    // surface reflectivity so the sky actually reads on it at our ~48° view
+    // angle (a pure dielectric only reflects strongly near grazing). This is
+    // what fixes "the water doesn't reflect any light".
+    roughness: 0.15,
+    metalness: 0.5,
+    envMap: skyEnv,
+    envMapIntensity: 1.6,
+    flatShading: true,
+    // Near-opaque: the water doesn't receive shadows, so its own lit blue
+    // stays put — but if it were very translucent you'd see the shadowed dirt
+    // bed through it (near-black under the bridge). A hint of translucency
+    // keeps some depth without letting the bed's shadow bleed through.
+    transparent: true,
+    opacity: 0.9,
+    // The water mesh's faces are wound downward (it exported doubleSided), so
+    // rendering both sides is what keeps the top surface visible from above.
+    side: THREE.DoubleSide,
+  })
+  // Keep the exported material's name: the mount pass below finds the river by
+  // it, and on a remount the mesh is already carrying THIS material.
+  mat.name = 'Water'
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = { value: 0 }
+    waterShader = shader
+    // Layered sines: two scrolling along +X (the flow) at different scales, plus
+    // a slower cross-chop along Z so it doesn't look like a moving corrugation.
+    // Amplitudes are small (~0.06 total) — the channel is shallow and the effect
+    // should read as a gentle current, not an ocean swell.
+    shader.vertexShader =
+      'uniform float uTime;\n' +
+      shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+           // A calm, slow current — the "dangerous" chop was mostly SPEED, so the
+           // uTime multipliers are small (a gentle drift, ~1u/s crests) and the
+           // amplitudes low. Two slow swells scroll along +X (the flow) with a
+           // slower Z cross-ripple; a small, slow fine term keeps a little life in
+           // the reflection without the agitated flashing.
+           float wave = sin(transformed.x * 0.45 + uTime * 0.5) * 0.042
+                      + sin(transformed.x * 1.0 - uTime * 0.7) * 0.015
+                      + sin(transformed.z * 1.4 + uTime * 0.35) * 0.016
+                      + sin(transformed.x * 2.2 + transformed.z * 1.6 + uTime * 0.85) * 0.009;
+           transformed.y += wave;`,
+      )
+  }
+  waterMaterial = mat
+  return mat
+}
+
 /**
  * The real town, modelled in Blender (flat low-poly) and exported to glTF —
  * ground tile, river, bridge, path, forest, and the café. This is the Phase-3
@@ -105,63 +170,12 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
   // EffectComposer involved). The `River` mesh is ~1040 verts — dense enough for
   // the ripples to read across the surface.
   const gl = useThree((s) => s.gl)
-  const waterShader = useRef<THREE.WebGLProgramParametersWithUniforms | null>(null)
-  const waterMat = useRef<THREE.MeshStandardMaterial | null>(null)
-  if (!waterMat.current) {
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0x3f86a3),
-      // The water reflects the baked sky env (makeSkyEnv). Low roughness keeps the
-      // reflection + sun-glint fairly crisp; a chunk of metalness raises the
-      // surface reflectivity so the sky actually reads on it at our ~48° view
-      // angle (a pure dielectric only reflects strongly near grazing). This is
-      // what fixes "the water doesn't reflect any light".
-      roughness: 0.15,
-      metalness: 0.5,
-      envMap: makeSkyEnv(gl),
-      envMapIntensity: 1.6,
-      flatShading: true,
-      // Near-opaque: the water doesn't receive shadows, so its own lit blue
-      // stays put — but if it were very translucent you'd see the shadowed dirt
-      // bed through it (near-black under the bridge). A hint of translucency
-      // keeps some depth without letting the bed's shadow bleed through.
-      transparent: true,
-      opacity: 0.9,
-      // The water mesh's faces are wound downward (it exported doubleSided), so
-      // rendering both sides is what keeps the top surface visible from above.
-      side: THREE.DoubleSide,
-    })
-    mat.onBeforeCompile = (shader) => {
-      shader.uniforms.uTime = { value: 0 }
-      waterShader.current = shader
-      // Layered sines: two scrolling along +X (the flow) at different scales, plus
-      // a slower cross-chop along Z so it doesn't look like a moving corrugation.
-      // Amplitudes are small (~0.06 total) — the channel is shallow and the effect
-      // should read as a gentle current, not an ocean swell.
-      shader.vertexShader =
-        'uniform float uTime;\n' +
-        shader.vertexShader.replace(
-          '#include <begin_vertex>',
-          `#include <begin_vertex>
-           // A calm, slow current — the "dangerous" chop was mostly SPEED, so the
-           // uTime multipliers are small (a gentle drift, ~1u/s crests) and the
-           // amplitudes low. Two slow swells scroll along +X (the flow) with a
-           // slower Z cross-ripple; a small, slow fine term keeps a little life in
-           // the reflection without the agitated flashing.
-           float wave = sin(transformed.x * 0.45 + uTime * 0.5) * 0.042
-                      + sin(transformed.x * 1.0 - uTime * 0.7) * 0.015
-                      + sin(transformed.z * 1.4 + uTime * 0.35) * 0.016
-                      + sin(transformed.x * 2.2 + transformed.z * 1.6 + uTime * 0.85) * 0.009;
-           transformed.y += wave;`,
-        )
-    }
-    waterMat.current = mat
-  }
+  const waterMat = getWaterMaterial(gl)
 
   // Drive the ripple clock. The uniform only exists once the material has
   // compiled (first render), so guard on the captured shader.
   useFrame((_, delta) => {
-    const s = waterShader.current
-    if (s) s.uniforms.uTime.value += delta
+    if (waterShader) waterShader.uniforms.uTime.value += delta
   })
 
   useEffect(() => {
@@ -175,7 +189,7 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
       const mat = Array.isArray(m.material) ? m.material[0] : m.material
       // Water: swap in the stylized material and keep it out of the shadow pass.
       if (mat && (mat as THREE.Material).name === 'Water') {
-        m.material = waterMat.current!
+        m.material = waterMat
         m.castShadow = false
         m.receiveShadow = false
         return
@@ -191,7 +205,7 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     // instanced meshes — runs after colliders so those still read the named
     // geometry. Turns ~600 draw calls into a handful; authoring stays per-object.
     instanceScatter(scene)
-  }, [scene])
+  }, [scene, waterMat])
 
   return <primitive object={scene} scale={scale} />
 }

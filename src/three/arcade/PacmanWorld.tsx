@@ -18,6 +18,7 @@ import {
 import { arcadeMove } from '../../systems/input'
 import { arcadeFocus } from '../../systems/arcadeFocus'
 import { useGame } from '../../state/store'
+import { useShadowDispose } from '../useShadowDispose'
 import type { CharAnim } from '../Figure'
 
 const MODEL = '/models/character.glb'
@@ -220,6 +221,8 @@ export function PacmanWorld() {
     jumping: false,
   })
   const lastHud = useRef('')
+  const sun = useRef<THREE.DirectionalLight>(null!)
+  useShadowDispose(sun)
   const [, getKeys] = useKeyboardControls()
 
   useFrame((_, delta) => {
@@ -282,6 +285,7 @@ export function PacmanWorld() {
       {/* The shadow biases matter here: without them the blocks self-shadow and
           every wall top picks up acne streaks, muddying the whole maze. */}
       <directionalLight
+        ref={sun}
         position={[8, 16, 10]}
         intensity={1.4}
         color="#fff1d6"

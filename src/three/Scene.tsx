@@ -24,6 +24,7 @@ import { Cat } from './actors/Cat'
 import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
 import { useLighting } from '../state/lighting'
+import { useShadowDispose } from './useShadowDispose'
 import { usePerf } from '../state/perf'
 import { useGame } from '../state/store'
 import { setActiveWorld } from '../systems/activeWorld'
@@ -85,6 +86,7 @@ function SunRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const light = useRef<THREE.DirectionalLight>(null!)
   const intensity = useLighting((s) => s.sunIntensity)
   const shadowRadius = useLighting((s) => s.shadowRadius)
+  useShadowDispose(light)
   useFrame(() => {
     const p = posRef.current
     light.current.position.set(p.x + SUN_OFFSET.x, SUN_OFFSET.y, p.z + SUN_OFFSET.z)
@@ -216,18 +218,24 @@ export function Scene() {
   const interior = useGame((s) => s.interior)
   const minigame = useGame((s) => s.minigame)
   const enclosed = interior !== null || minigame !== null
+  // Selected individually: a bare useThree() would re-render the whole scene on
+  // any renderer-store change. Both of these are stable for the app's lifetime.
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
 
   // Dev-only handle (matches window.__ambient / __bgm): inspect/teleport the
-  // player and poke game state from the console while iterating.
+  // player, poke game state, and reach the renderer (draw counts, gl.info
+  // memory) from the console while iterating.
   useEffect(() => {
     if (import.meta.env?.DEV && typeof window !== 'undefined') {
       ;(window as unknown as Record<string, unknown>).__solo = {
         game: useGame,
         pos: () => posRef.current,
         tp: (x: number, z: number) => posRef.current.set(x, 0, z),
+        three: { gl, scene },
       }
     }
-  }, [])
+  }, [gl, scene])
   const params =
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
   const debug = !!params?.has('debug')

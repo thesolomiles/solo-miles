@@ -1,7 +1,8 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useTownGLTF } from './gltf'
 import type { CharAnim } from './Figure'
 
@@ -28,26 +29,37 @@ const STRIDE: Record<string, number> = { walk: 1.5, run: 4.0, 'ninja-run': 5.5 }
 export function RiggedFigure({ anim }: { anim: RefObject<CharAnim> }) {
   const root = useRef<THREE.Group>(null!)
   const { scene, animations } = useTownGLTF(MODEL)
+  // Take our own skinned copy rather than mounting the cached glTF scene itself.
+  // The arcade's Pac-Man runner clones this same character, and two components
+  // driving one shared skeleton left the town player rendering its bind pose (a
+  // T-pose) after you came back out of the maze. Every other actor here already
+  // clones; this one was the exception.
+  const model = useMemo(() => skeletonClone(scene), [scene])
   const { actions, mixer } = useAnimations(animations, root)
   const playing = useRef<string>('')
   const lastJump = useRef(0) // last jumpSeq we've acted on
 
   useEffect(() => {
-    scene.traverse((o) => {
+    model.traverse((o) => {
       const m = o as THREE.Mesh
       if (m.isMesh) {
         m.castShadow = true
         m.receiveShadow = true
       }
     })
-  }, [scene])
+  }, [model])
 
   // Cross-fade to the clip the controller's state asks for.
   const to = (name: string) => {
-    if (playing.current === name) return
     const next = actions[name]
     if (!next) return
-    actions[playing.current]?.fadeOut(FADE)
+    // Tracking the clip name isn't enough on its own. drei rebuilds its action
+    // cache (and calls stopAllAction) whenever the clip list re-resolves, which
+    // happens on the remount coming back out of the arcade — leaving us marked
+    // as playing a clip that no longer runs, i.e. the character frozen in its
+    // bind pose. So re-issue play() whenever our clip isn't actually running.
+    if (playing.current === name && next.isRunning()) return
+    if (playing.current !== name) actions[playing.current]?.fadeOut(FADE)
     next.reset().fadeIn(FADE).play()
     playing.current = name
   }
@@ -95,7 +107,7 @@ export function RiggedFigure({ anim }: { anim: RefObject<CharAnim> }) {
 
   return (
     <group ref={root} scale={SCALE}>
-      <primitive object={scene} />
+      <primitive object={model} />
     </group>
   )
 }
