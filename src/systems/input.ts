@@ -9,6 +9,12 @@
 export const touchMove = { x: 0, z: 0 }
 
 /**
+ * 4-way arcade intent (Pac-Man D-pad / swipe). Same screen axes as `touchMove`:
+ * x right+, z down+. Magnitude is 0 or 1 — the maze ignores analog.
+ */
+export const arcadeMove = { x: 0, z: 0 }
+
+/**
  * True when the focus is in a text field (the dev editor panels' name/verb
  * inputs, etc.). Movement/interact keys must yield to it — otherwise the HUD's
  * global keydown listener preventDefault()s "E"/Space/Enter (so you can't type

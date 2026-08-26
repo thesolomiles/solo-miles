@@ -29,10 +29,9 @@ export default function App() {
   // Which world's collision editor the ?edit toolbar drives — the café while
   // inside it, the town otherwise.
   const inCafe = useGame((s) => s.interior === 'cafe')
-  // Atmospheric haze veil strength (also drives the 3D distance fog in Scene).
-  // Suppressed inside an interior — the café has its own dark, enclosed mood.
+  const minigame = useGame((s) => s.minigame)
   const hazeKnob = useLighting((s) => s.haze)
-  const haze = inCafe ? 0 : hazeKnob
+  const haze = inCafe || minigame ? 0 : hazeKnob
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
     () => [
       { name: 'forward', keys: ['ArrowUp', 'KeyW'] },

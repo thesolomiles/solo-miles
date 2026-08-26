@@ -104,4 +104,7 @@ export const CAFE = {
 
   /** Zone id that returns to town (must match a box in `zones` above). */
   exitZoneId: 'cafe-exit',
+
+  /** Arcade machines — opens the game selector (see config/arcade.ts). */
+  playZoneId: 'zhu6zu4',
 } as const

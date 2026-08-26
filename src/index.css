@@ -646,6 +646,275 @@ canvas {
   text-align: center;
 }
 
+@font-face {
+  font-family: Belanosima;
+  src: url('/fonts/Belanosima-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: Belanosima;
+  src: url('/fonts/Belanosima-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: Belanosima;
+  src: url('/fonts/Belanosima-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Café arcade — wood frame + gold studs, after the world-selector mock */
+.gselect {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: rgba(12, 10, 8, 0.55);
+  backdrop-filter: blur(6px);
+  animation: fade-in 0.22s ease;
+  padding: 18px;
+}
+.gselect__frame {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
+  padding: 28px 26px 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 214, 120, 0.08), transparent 40%),
+    repeating-linear-gradient(
+      90deg,
+      #3a2416 0px,
+      #4a2e1c 8px,
+      #2c1a10 16px,
+      #3f2818 24px
+    );
+  border: 10px solid #24160e;
+  box-shadow:
+    inset 0 0 0 3px #5a3a22,
+    inset 0 0 40px rgba(0, 0, 0, 0.45),
+    0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.gselect__stud {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: radial-gradient(circle at 35% 30%, #ffe58a, #e6b422 55%, #8a6a12);
+  box-shadow: 0 0 10px rgba(255, 214, 80, 0.9);
+  z-index: 2;
+}
+.gselect__stud--tl { top: -14px; left: -14px; }
+.gselect__stud--tr { top: -14px; right: -14px; }
+.gselect__stud--bl { bottom: -14px; left: -14px; }
+.gselect__stud--br { bottom: -14px; right: -14px; }
+.gselect__stud--ml { top: 50%; left: -14px; margin-top: -9px; }
+.gselect__stud--mr { top: 50%; right: -14px; margin-top: -9px; }
+
+.gselect__head { text-align: center; margin-bottom: 12px; }
+.gselect__title {
+  margin: 0;
+  font-family: Belanosima, 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f3e6c8;
+  text-shadow: 0 2px 0 #1a1008;
+}
+.gselect__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  overflow: auto;
+  padding: 4px 2px 10px;
+  min-height: 0;
+}
+.gselect__card {
+  cursor: pointer;
+  color: #f3e6c8;
+  outline: none;
+}
+.gselect__card.is-locked { cursor: not-allowed; }
+.gselect__thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background-size: cover;
+  background-position: center;
+  border: 3px solid #1a120c;
+  box-shadow: inset 0 0 0 1px rgba(255, 220, 140, 0.15);
+}
+.gselect__card.is-selected .gselect__thumb {
+  border-color: #f5d04a;
+  box-shadow: 0 0 0 2px #f5d04a, 0 0 16px rgba(245, 208, 74, 0.7);
+}
+.gselect__badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-family: Belanosima, sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  color: #fff;
+}
+.gselect__badge--on { background: #2e9a4a; }
+.gselect__badge--lock { background: #c43b3b; }
+.gselect__lock {
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  width: 10px;
+  height: 8px;
+  border: 2px solid #c43b3b;
+  border-radius: 2px;
+}
+.gselect__lock::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: -6px;
+  width: 6px;
+  height: 6px;
+  border: 2px solid #c43b3b;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+}
+.gselect__select {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  font-family: Belanosima, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: 12px;
+  color: #1a120c;
+  background: #f5d04a;
+  border: 0;
+  padding: 6px 14px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(245, 208, 74, 0.8);
+}
+.gselect__name {
+  margin: 8px 0 0;
+  font-family: Belanosima, sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.gselect__foot {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+.gselect__exit {
+  font-family: Belanosima, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: #f3e6c8;
+  background: #3a2416;
+  border: 2px solid #f5d04a;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+.pacman-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: Belanosima, 'Space Grotesk', sans-serif;
+  color: #f3e6c8;
+}
+.pacman-hud__swipe {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+.pacman-hud__bar {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  pointer-events: auto;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #1a1008;
+}
+.pacman-hud__esc {
+  margin-left: auto;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #1a120c;
+  background: #f5d04a;
+  border: 0;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.pacman-hud__pad {
+  position: absolute;
+  left: 20px;
+  bottom: 24px;
+  width: 132px;
+  height: 132px;
+  z-index: 2;
+  pointer-events: auto;
+}
+.pacman-hud__pad-btn {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  background: rgba(245, 208, 74, 0.85);
+  box-shadow: 0 0 0 2px #1a120c;
+}
+.pacman-hud__pad-btn.is-up { left: 45px; top: 0; }
+.pacman-hud__pad-btn.is-down { left: 45px; bottom: 0; }
+.pacman-hud__pad-btn.is-left { left: 0; top: 45px; }
+.pacman-hud__pad-btn.is-right { right: 0; top: 45px; }
+.pacman-hud__modal {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: rgba(8, 6, 4, 0.45);
+}
+.pacman-hud__panel {
+  background: #2c1a10;
+  border: 4px solid #f5d04a;
+  padding: 28px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 240px;
+}
+.pacman-hud__panel h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

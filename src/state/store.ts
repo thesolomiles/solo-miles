@@ -2,6 +2,20 @@ import { create } from 'zustand'
 import type { DialogueChoice, Interactable, InteractZone, SectionId } from '../config/town'
 import { CAFE } from '../config/cafe'
 
+export type MinigameId = 'pacman'
+export type ArcadeHudStatus = 'play' | 'won' | 'lost' | 'dying'
+
+export interface ArcadeHud {
+  score: number
+  lives: number
+  status: ArcadeHudStatus
+  paused: boolean
+}
+
+export type Transition =
+  | { kind: 'interior'; to: 'cafe' | null }
+  | { kind: 'minigame'; to: MinigameId | null }
+
 /**
  * Discrete game/UI state shared between the r3f scene and the React HUD.
  *
@@ -26,14 +40,21 @@ interface GameState {
   section: SectionId | null
   /** True while Leonard's ride-picker card modal is open. */
   ridesOpen: boolean
+  /** Café arcade game-selector modal. */
+  gamesOpen: boolean
   /** Which interior "world" the player is inside, or null for the town. Set by
       pressing E on the town's café door; cleared by the café's exit zone. Drives
       the town↔café model + collision swap (config/cafe.ts, three/Scene.tsx). */
   interior: 'cafe' | null
-  /** An in-progress town↔interior transition (the fade-to-black over the swap),
-      or null when idle. `to` is the interior we're moving into. The fade overlay
-      (Hud) drives it: request → fade out → commit at black → fade in → end. */
-  transition: { to: 'cafe' | null } | null
+  /** Full-screen minigame (Pac-Man) mounted over the café. Café interior stays
+      set so exiting the maze returns to the same room. */
+  minigame: MinigameId | null
+  /** Score / lives / pause for the arcade HUD. Null when no minigame. */
+  arcade: ArcadeHud | null
+  /** An in-progress fade-to-black (town↔café or café↔minigame), or null when
+      idle. The fade overlay (Hud) drives it: request → fade out → commit at
+      black → fade in → end. */
+  transition: Transition | null
   /** Latched when a dialogue asks to send the player back toward town; the
       Player controller consumes it, glides there, and clears it. */
   sendBack: boolean
@@ -51,11 +72,17 @@ interface GameState {
   openSection: (s: SectionId) => void
   closeSection: () => void
   closeRides: () => void
+  openGames: () => void
+  closeGames: () => void
+  setArcade: (hud: ArcadeHud) => void
+  setArcadePaused: (paused: boolean) => void
   /** Begin a town↔interior transition (fade out). No-op if one is already
       running. The overlay commits + ends it. */
   requestInterior: (to: 'cafe' | null) => void
-  /** Flip `interior` to the pending target — called by the overlay at full
-      black, so the model/collision swap + player teleport happen unseen. */
+  /** Begin a café↔minigame fade. Closes the selector so SELECT doesn't sit
+      on top of the black. */
+  requestMinigame: (to: MinigameId | null) => void
+  /** Apply the pending world swap — called by the overlay at full black. */
   commitInterior: () => void
   /** Clear the transition once the fade-in finishes. */
   endTransition: () => void
@@ -69,14 +96,16 @@ export const useGame = create<GameState>((set, get) => ({
   line: 0,
   section: null,
   ridesOpen: false,
+  gamesOpen: false,
   interior: null,
+  minigame: null,
+  arcade: null,
   transition: null,
   sendBack: false,
 
   start: () => set({ started: true }),
 
   setNear: (i) => {
-    // avoid needless updates when the same target stays in range
     if (get().near?.id === i?.id) return
     set({ near: i })
   },
@@ -87,17 +116,14 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   interact: () => {
-    const { dialogue, near, nearZone, section, ridesOpen, transition } = get()
-    if (section || ridesOpen || transition) return // an overlay / fade owns input
+    const { dialogue, near, nearZone, section, ridesOpen, gamesOpen, transition, minigame } =
+      get()
+    if (section || ridesOpen || gamesOpen || transition || minigame) return
     if (dialogue) {
       get().advance()
     } else if (near) {
       set({ dialogue: near, line: 0, near: null })
     } else if (nearZone) {
-      // The café door (town side) enters the café interior; the café's exit zone
-      // returns to town. Both flip `interior`, which InteriorController watches to
-      // swap the model + collision and teleport the player (config/cafe.ts,
-      // three/Scene.tsx).
       const { interior } = get()
       if (!interior && nearZone.id === CAFE.enterZoneId) {
         get().requestInterior('cafe')
@@ -107,8 +133,10 @@ export const useGame = create<GameState>((set, get) => ({
         get().requestInterior(null)
         return
       }
-      // Any other named zone still just announces itself so a specific box can be
-      // wired to real behaviour later. Listen for `solomiles:zone`.
+      if (interior === 'cafe' && nearZone.id === CAFE.playZoneId) {
+        get().openGames()
+        return
+      }
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('solomiles:zone', { detail: nearZone }))
         if (import.meta.env?.DEV) console.info('[zone] entered:', nearZone.id)
@@ -119,12 +147,9 @@ export const useGame = create<GameState>((set, get) => ({
   advance: () => {
     const { dialogue, line } = get()
     if (!dialogue) return
-    // A choice dialogue resolves via choose(), not by pressing E off the last
-    // line — otherwise E would dismiss it before the player picks.
     if (line >= dialogue.lines.length - 1 && dialogue.choices?.length) return
     const next = line + 1
     if (next >= dialogue.lines.length) {
-      // end of dialogue: sectioned interactables open their content, NPCs close.
       if (dialogue.section) {
         set({ dialogue: null, line: 0, section: dialogue.section })
       } else {
@@ -146,14 +171,39 @@ export const useGame = create<GameState>((set, get) => ({
   openSection: (s) => set({ section: s, dialogue: null, line: 0 }),
   closeSection: () => set({ section: null }),
   closeRides: () => set({ ridesOpen: false }),
+  openGames: () => set({ gamesOpen: true, near: null, nearZone: null }),
+  closeGames: () => set({ gamesOpen: false }),
+  setArcade: (hud) => set({ arcade: hud }),
+  setArcadePaused: (paused) => {
+    const a = get().arcade
+    if (a) set({ arcade: { ...a, paused } })
+  },
 
   requestInterior: (to) => {
-    if (get().transition) return // one at a time
-    set({ transition: { to }, near: null, nearZone: null })
+    if (get().transition) return
+    set({ transition: { kind: 'interior', to }, near: null, nearZone: null })
+  },
+  requestMinigame: (to) => {
+    if (get().transition) return
+    set({
+      transition: { kind: 'minigame', to },
+      gamesOpen: false,
+      near: null,
+      nearZone: null,
+    })
   },
   commitInterior: () => {
     const t = get().transition
-    if (t) set({ interior: t.to })
+    if (!t) return
+    if (t.kind === 'interior') set({ interior: t.to })
+    else if (t.to) {
+      set({
+        minigame: t.to,
+        arcade: { score: 0, lives: 3, status: 'play', paused: false },
+      })
+    } else {
+      set({ minigame: null, arcade: null })
+    }
   },
   endTransition: () => set({ transition: null }),
 }))

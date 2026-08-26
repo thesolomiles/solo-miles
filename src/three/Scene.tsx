@@ -28,6 +28,7 @@ import { usePerf } from '../state/perf'
 import { useGame } from '../state/store'
 import { setActiveWorld } from '../systems/activeWorld'
 import { CAFE } from '../config/cafe'
+import { PacmanWorld } from './arcade/PacmanWorld'
 
 // Interiors sit in a dark surround (a single room floating in space would
 // otherwise show the bright town sky around it). A warm near-black frames the
@@ -213,6 +214,8 @@ export function Scene() {
   // and the proximity system read it. Hot per-frame data stays out of React.
   const posRef = useRef(PLAYER.start.clone())
   const interior = useGame((s) => s.interior)
+  const minigame = useGame((s) => s.minigame)
+  const enclosed = interior !== null || minigame !== null
 
   // Dev-only handle (matches window.__ambient / __bgm): inspect/teleport the
   // player and poke game state from the console while iterating.
@@ -249,15 +252,15 @@ export function Scene() {
 
   return (
     <InteractablesProvider>
-      <SkyBackground interior={interior} />
-      {!interior && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
+      <SkyBackground interior={enclosed ? 'cafe' : null} />
+      {!enclosed && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
 
       {/* Town rig (golden hour): a warm sky/ground ambient, a warm-amber key sun
           casting long soft shadows, and a dim COOL fill from the opposite side —
           the cool fill is deliberate: it tints the shadow sides blue against the
           warm sun for that late-afternoon warm/cool contrast. Gated OFF inside an
           interior — the café lights itself (CafeLights) so the sun never washes it. */}
-      {!interior && (
+      {!enclosed && (
         <>
           <hemisphereLight args={[0xf3e2c6, 0x6f5f42, hemisphere]} />
           <ambientLight intensity={ambient} color={0xffe9cf} />
@@ -265,13 +268,11 @@ export function Scene() {
           <directionalLight position={[-18, 14, -12]} intensity={fill} color={0xaecbe6} />
         </>
       )}
-      {interior === 'cafe' && <CafeLights />}
+      {interior === 'cafe' && !minigame && <CafeLights />}
 
-      {/* Town vs café interior. Pressing E on the town's café door flips
-          `interior` (store), which swaps the model + collision world here and in
-          InteriorController below. The Player, camera, sound and post stay
-          mounted across the transition. */}
-      {interior === 'cafe' ? (
+      {minigame === 'pacman' ? (
+        <PacmanWorld />
+      ) : interior === 'cafe' ? (
         <>
           <CafeModel />
           <CafeWorkers />
@@ -300,7 +301,7 @@ export function Scene() {
       {(debug || edit) && <PerfProbe />}
 
       <InteriorController posRef={posRef} />
-      <Player posRef={posRef} />
+      {!minigame && <Player posRef={posRef} />}
 
       <OrthoRig posRef={posRef} />
       <ProximitySystem playerPos={posRef} />

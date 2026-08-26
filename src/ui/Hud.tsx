@@ -3,6 +3,8 @@ import { useGame } from '../state/store'
 import { SECTIONS, type Interactable, type InteractZone } from '../config/town'
 import { TouchControls } from './TouchControls'
 import { RidesModal } from './RidesModal'
+import { GamesModal } from './GamesModal'
+import { PacmanHud } from './PacmanHud'
 import { isTypingTarget } from '../systems/input'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
@@ -189,6 +191,8 @@ export function Hud() {
   const line = useGame((s) => s.line)
   const section = useGame((s) => s.section)
   const ridesOpen = useGame((s) => s.ridesOpen)
+  const gamesOpen = useGame((s) => s.gamesOpen)
+  const minigame = useGame((s) => s.minigame)
   const nearZone = useGame((s) => s.nearZone)
 
   // The single interact key (mirrors the prototype's edge handling).
@@ -213,7 +217,11 @@ export function Hud() {
         useGame.getState().interact()
       } else if (e.code === 'Escape') {
         const st = useGame.getState()
-        if (st.ridesOpen) st.closeRides()
+        if (st.minigame) {
+          if (st.arcade?.status === 'won' || st.arcade?.status === 'lost') st.requestMinigame(null)
+          else st.setArcadePaused(!st.arcade?.paused)
+        } else if (st.gamesOpen) st.closeGames()
+        else if (st.ridesOpen) st.closeRides()
         else if (st.section) st.closeSection()
         else if (st.dialogue) st.closeDialogue()
       }
@@ -226,14 +234,20 @@ export function Hud() {
     <div className="hud">
       {!started && <Intro />}
       {started && <Hint />}
-      {started && isTouch && !dialogue && !section && !ridesOpen && <TouchControls />}
-      {started && near && !dialogue && !section && !ridesOpen && <Prompt near={near} />}
-      {started && !near && nearZone && !dialogue && !section && !ridesOpen && (
+      {started && isTouch && !dialogue && !section && !ridesOpen && !gamesOpen && !minigame && (
+        <TouchControls />
+      )}
+      {started && near && !dialogue && !section && !ridesOpen && !gamesOpen && !minigame && (
+        <Prompt near={near} />
+      )}
+      {started && !near && nearZone && !dialogue && !section && !ridesOpen && !gamesOpen && !minigame && (
         <ZonePrompt zone={nearZone} />
       )}
       {dialogue && <Dialogue item={dialogue} line={line} />}
       {section && <SectionOverlay id={section} />}
       {ridesOpen && <RidesModal />}
+      {gamesOpen && <GamesModal />}
+      {minigame === 'pacman' && <PacmanHud />}
       <Transition />
     </div>
   )

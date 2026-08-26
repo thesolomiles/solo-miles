@@ -72,7 +72,14 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // player around as you type a zone's name.
     const typing = typeof document !== 'undefined' && isTypingTarget(document.activeElement)
     const canMove =
-      st.started && !st.dialogue && !st.section && !st.ridesOpen && !st.transition && !typing
+      st.started &&
+      !st.dialogue &&
+      !st.section &&
+      !st.ridesOpen &&
+      !st.gamesOpen &&
+      !st.minigame &&
+      !st.transition &&
+      !typing
 
     const { forward, back, left, right, jump } = getKeys()
     let mx = 0

@@ -51,7 +51,7 @@ export function CafeBgm() {
     const a = audio.current
     if (!a) return
     const st = useGame.getState()
-    const target = st.started && st.interior === 'cafe' ? MAX_VOL : 0
+    const target = st.started && st.interior === 'cafe' && !st.minigame ? MAX_VOL : 0
     const k = Math.min(1, delta * FADE_K)
     a.volume = THREE.MathUtils.clamp(a.volume + (target - a.volume) * k, 0, 1)
   })

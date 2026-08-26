@@ -90,7 +90,7 @@ export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector
 
   useFrame(() => {
     const st = useGame.getState()
-    if (!st.started || st.dialogue || st.section || st.ridesOpen || st.transition) {
+    if (!st.started || st.dialogue || st.section || st.ridesOpen || st.gamesOpen || st.minigame || st.transition) {
       if (st.nearZone) setNearZone(null)
       return
     }
