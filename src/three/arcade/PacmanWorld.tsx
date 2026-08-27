@@ -175,11 +175,27 @@ function Pellets({ state, mats }: { state: PacmanState; mats: MazeMaterials }) {
   )
 }
 
+/** Deterministic 0..1 from a wall cell, so the maze looks the same every visit. */
+function wallRand(c: number, r: number, salt: number) {
+  let s = Math.imul(c + 1, 73856093) ^ Math.imul(r + 1, 19349663) ^ Math.imul(salt, 83492791)
+  s = Math.imul(s ^ (s >>> 16), 0x7feb352d)
+  s = Math.imul(s ^ (s >>> 15), 0x846ca68b)
+  return ((s ^ (s >>> 16)) >>> 0) / 4294967296
+}
+
+function wallN(c: number, r: number, salt: number) {
+  return wallRand(c, r, salt) * 2 - 1
+}
+
 /**
  * The maze blocks. The south border row is skipped: it's the nearest edge to
  * this raking camera, so drawing it puts a wall across the bottom of the frame
  * and hides the corridor behind it. The player still can't walk out — the row is
  * a wall in the sim either way.
+ *
+ * Each block is nudged a little (yaw, tilt, height, footprint) so a long wall
+ * isn't a single machined plane. Collision still uses the grid — this is look
+ * only, and the offsets stay well inside a tile.
  */
 function MazeWalls({ state, mats }: { state: PacmanState; mats: MazeMaterials }) {
   const walls = useMemo(
@@ -188,21 +204,25 @@ function MazeWalls({ state, mats }: { state: PacmanState; mats: MazeMaterials })
   )
   const t = PACMAN.tile
   const h = PACMAN.wallH
+  const geom = useMemo(() => new THREE.BoxGeometry(t * 0.98, h, t * 0.98), [t, h])
+  useEffect(() => () => geom.dispose(), [geom])
   return (
     <group>
       {walls.map(({ c, r }) => {
         const { x, z } = tileWorld(c, r)
+        const sh = 1 + wallN(c, r, 1) * 0.16
         return (
           <mesh
             key={`${c},${r}`}
-            position={[x, h / 2, z]}
+            geometry={geom}
+            position={[x + wallN(c, r, 2) * 0.045, (h * sh) / 2, z + wallN(c, r, 3) * 0.045]}
+            rotation={[wallN(c, r, 4) * 0.018, wallN(c, r, 5) * 0.045, wallN(c, r, 6) * 0.018]}
+            scale={[1 + wallN(c, r, 7) * 0.05, sh, 1 + wallN(c, r, 8) * 0.05]}
             castShadow
             receiveShadow
             material={mats.wall}
             dispose={null}
-          >
-            <boxGeometry args={[t * 0.98, h, t * 0.98]} />
-          </mesh>
+          />
         )
       })}
     </group>
