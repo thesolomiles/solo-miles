@@ -19,6 +19,7 @@ import { arcadeMove } from '../../systems/input'
 import { arcadeFocus } from '../../systems/arcadeFocus'
 import { useGame } from '../../state/store'
 import { useShadowDispose } from '../useShadowDispose'
+import { createPacmanSfx } from './pacmanSfx'
 import type { CharAnim } from '../Figure'
 
 const MODEL = '/models/character.glb'
@@ -222,15 +223,31 @@ export function PacmanWorld() {
     jumping: false,
   })
   const lastHud = useRef('')
+  const pausedSfx = useRef(false)
+  const sfx = useRef<ReturnType<typeof createPacmanSfx> | null>(null)
   const sun = useRef<THREE.DirectionalLight>(null!)
   useShadowDispose(sun)
   const [, getKeys] = useKeyboardControls()
+
+  useEffect(() => {
+    const bank = createPacmanSfx()
+    sfx.current = bank
+    return () => {
+      bank.dispose()
+      sfx.current = null
+    }
+  }, [])
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
     const st = useGame.getState()
     const paused = !!st.arcade?.paused || !!st.transition
     const s = state.current
+
+    if (paused !== pausedSfx.current) {
+      pausedSfx.current = paused
+      sfx.current?.setPaused(paused)
+    }
 
     if (!paused && s.status !== 'won' && s.status !== 'lost') {
       const { forward, back, left, right } = getKeys()
@@ -243,7 +260,8 @@ export function PacmanWorld() {
       const intent = s.status === 'play' ? intentToDir(ix, iz) : null
       const px = s.player.x
       const py = s.player.y
-      stepPacman(s, dt, intent)
+      const events = stepPacman(s, dt, intent)
+      if (events.length) sfx.current?.play(events)
       const moved = s.status === 'play' && Math.hypot(s.player.x - px, s.player.y - py) > 0.0001
       anim.current.moving = moved
       anim.current.gait = moved ? RUN_GAIT : 'idle'

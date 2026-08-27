@@ -285,8 +285,11 @@ export function intentToDir(x: number, z: number): Dir | null {
   return z > 0 ? 2 : 0
 }
 
-export function stepPacman(s: PacmanState, dt: number, intent: Dir | null) {
-  if (s.status === 'won' || s.status === 'lost') return
+export type PacmanSfx = 'eat' | 'special' | 'win' | 'lose'
+
+export function stepPacman(s: PacmanState, dt: number, intent: Dir | null): PacmanSfx[] {
+  const sfx: PacmanSfx[] = []
+  if (s.status === 'won' || s.status === 'lost') return sfx
   if (s.status === 'dying') {
     s.dieTimer -= dt
     if (s.dieTimer <= 0) {
@@ -297,7 +300,7 @@ export function stepPacman(s: PacmanState, dt: number, intent: Dir | null) {
         resetPositions(s)
       }
     }
-    return
+    return sfx
   }
 
   s.elapsed += dt
@@ -320,12 +323,14 @@ export function stepPacman(s: PacmanState, dt: number, intent: Dir | null) {
       s.cells[cy][cx] = 'empty'
       s.pelletsLeft--
       s.score += 10
+      sfx.push('eat')
     } else if (cell === 'power') {
       s.cells[cy][cx] = 'empty'
       s.pelletsLeft--
       s.score += 50
       s.frightened = PACMAN.frightenedSecs
       s.combo = 0
+      sfx.push('special')
       for (const g of s.ghosts) {
         if (g.mode !== 'eaten' && g.mode !== 'house') {
           g.mode = 'frightened'
@@ -335,7 +340,10 @@ export function stepPacman(s: PacmanState, dt: number, intent: Dir | null) {
         }
       }
     }
-    if (s.pelletsLeft <= 0) s.status = 'won'
+    if (s.pelletsLeft <= 0) {
+      s.status = 'won'
+      sfx.push('win')
+    }
   }
 
   for (const g of s.ghosts) {
@@ -373,12 +381,15 @@ export function stepPacman(s: PacmanState, dt: number, intent: Dir | null) {
         g.mode = 'eaten'
         s.combo++
         s.score += 200 * 2 ** (s.combo - 1)
+        sfx.push('special')
       } else if (g.mode !== 'eaten' && g.mode !== 'house') {
         s.status = 'dying'
         s.dieTimer = 1.1
+        sfx.push('lose')
       }
     }
   }
+  return sfx
 }
 
 export function tileToWorld(col: number, row: number) {
