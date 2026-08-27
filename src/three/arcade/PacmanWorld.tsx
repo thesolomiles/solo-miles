@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useAnimations, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -20,6 +20,7 @@ import { arcadeFocus } from '../../systems/arcadeFocus'
 import { useGame } from '../../state/store'
 import { useShadowDispose } from '../useShadowDispose'
 import { createPacmanSfx } from './pacmanSfx'
+import { getMazeMaterials, MAZE_FLOOR_PAD, type MazeMaterials } from './mazeMaterials'
 import type { CharAnim } from '../Figure'
 
 const MODEL = '/models/character.glb'
@@ -131,7 +132,7 @@ function GhostMesh({ ghost, state }: { ghost: Ghost; state: PacmanState }) {
   )
 }
 
-function Pellets({ state }: { state: PacmanState }) {
+function Pellets({ state, mats }: { state: PacmanState; mats: MazeMaterials }) {
   const group = useRef<THREE.Group>(null!)
   const dots = useMemo(() => {
     const list: { c: number; r: number; power: boolean }[] = []
@@ -161,14 +162,12 @@ function Pellets({ state }: { state: PacmanState }) {
       {dots.map((d) => {
         const { x, z } = tileWorld(d.c, d.r)
         return d.power ? (
-          <mesh key={`${d.c},${d.r}`} position={[x, 0.34, z]}>
+          <mesh key={`${d.c},${d.r}`} position={[x, 0.34, z]} material={mats.power} dispose={null}>
             <octahedronGeometry args={[0.26, 0]} />
-            <meshLambertMaterial color="#ffe066" emissive="#ffcc33" emissiveIntensity={0.8} />
           </mesh>
         ) : (
-          <mesh key={`${d.c},${d.r}`} position={[x, 0.24, z]}>
+          <mesh key={`${d.c},${d.r}`} position={[x, 0.24, z]} material={mats.pellet} dispose={null}>
             <boxGeometry args={[0.21, 0.21, 0.21]} />
-            <meshLambertMaterial color="#ffd54a" emissive="#e6b800" emissiveIntensity={0.55} />
           </mesh>
         )
       })}
@@ -182,7 +181,7 @@ function Pellets({ state }: { state: PacmanState }) {
  * and hides the corridor behind it. The player still can't walk out — the row is
  * a wall in the sim either way.
  */
-function MazeWalls({ state }: { state: PacmanState }) {
+function MazeWalls({ state, mats }: { state: PacmanState; mats: MazeMaterials }) {
   const walls = useMemo(
     () => wallCells(state.cells).filter(({ r }) => r < PACMAN.rows - 1),
     [state],
@@ -194,9 +193,15 @@ function MazeWalls({ state }: { state: PacmanState }) {
       {walls.map(({ c, r }) => {
         const { x, z } = tileWorld(c, r)
         return (
-          <mesh key={`${c},${r}`} position={[x, h / 2, z]} castShadow receiveShadow>
+          <mesh
+            key={`${c},${r}`}
+            position={[x, h / 2, z]}
+            castShadow
+            receiveShadow
+            material={mats.wall}
+            dispose={null}
+          >
             <boxGeometry args={[t * 0.98, h, t * 0.98]} />
-            <meshLambertMaterial color="#7b8391" />
           </mesh>
         )
       })}
@@ -210,6 +215,8 @@ function MazeWalls({ state }: { state: PacmanState }) {
  * direction is held.
  */
 export function PacmanWorld() {
+  const gl = useThree((s) => s.gl)
+  const mats = useMemo(() => getMazeMaterials(gl), [gl])
   const state = useRef<PacmanState>(createPacman())
   const player = useRef<THREE.Group>(null!)
   const yaw = useRef(yawFromDir(3))
@@ -297,18 +304,21 @@ export function PacmanWorld() {
 
   // Oversized: at the town zoom the view is wider than the board, so the floor
   // must reach past the frame or the dark void beyond the board would show.
-  const floorW = PACMAN.cols * PACMAN.tile + 40
-  const floorD = PACMAN.rows * PACMAN.tile + 40
+  const floorW = PACMAN.cols * PACMAN.tile + MAZE_FLOOR_PAD
+  const floorD = PACMAN.rows * PACMAN.tile + MAZE_FLOOR_PAD
 
   return (
     <group>
-      <ambientLight intensity={0.75} color="#e8e4dc" />
+      <ambientLight intensity={0.62} color="#e8e4dc" />
+      {/* Cool fill opposite the key sun — PBR walls go muddy on the shadow side
+          without a bounce, and the bevel/clearcoat has nothing to catch. */}
+      <directionalLight position={[-10, 8, -8]} intensity={0.4} color="#aecbe6" />
       {/* The shadow biases matter here: without them the blocks self-shadow and
           every wall top picks up acne streaks, muddying the whole maze. */}
       <directionalLight
         ref={sun}
         position={[8, 16, 10]}
-        intensity={1.4}
+        intensity={1.65}
         color="#fff1d6"
         castShadow
         shadow-mapSize={[1024, 1024]}
@@ -321,12 +331,17 @@ export function PacmanWorld() {
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
       />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, 0]}
+        receiveShadow
+        material={mats.floor}
+        dispose={null}
+      >
         <planeGeometry args={[floorW, floorD]} />
-        <meshLambertMaterial color="#39404b" />
       </mesh>
-      <MazeWalls state={state.current} />
-      <Pellets state={state.current} />
+      <MazeWalls state={state.current} mats={mats} />
+      <Pellets state={state.current} mats={mats} />
       {state.current.ghosts.map((g) => (
         <GhostMesh key={g.id} ghost={g} state={state.current} />
       ))}

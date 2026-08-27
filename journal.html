@@ -104,6 +104,7 @@
         <h3><a class="perma" href="#2026-08-27">2026-08-27 · Thursday</a></h3>
         <ul>
           <li><strong>Pac-Man SFX.</strong> Wired the four clips in <code>assets/Game sound/pacman</code>: eat on each pellet, special on a power pellet or eaten ghost, lose on a life, win when the board is clear. Pause mutes them mid-sting; leaving the maze stops them. Café BGM already fades out for the minigame.</li>
+          <li><strong>Pac-Man maze materials.</strong> Floor/walls/pellets were flat Lambert cardboard. They're PBR now (standard floor + physical walls with a canvas bevel-normal and clearcoat, emissive pellets) sharing one material per kind — same grid, just looks like polished arcade blocks. Metalness needs an env map to read, so a tiny baked studio cubemap (same trick as the river) sits on those materials only. Wall shadows were already on; they finally show because the floor isn't crushed to black.</li>
         </ul>
       </article>
       <article id="2026-08-26">
