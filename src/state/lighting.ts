@@ -51,7 +51,7 @@ export const LIGHTING_DEFAULTS: LightingState = {
   ao: 0.75,
   haze: 0.62,
   cafeGlow: 1.0,
-  houseGlow: 1.0,
+  houseGlow: 0.3,
 }
 
 interface LightingStore extends LightingState {
