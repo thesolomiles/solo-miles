@@ -31,14 +31,21 @@ const GROUND_HALF = 27.5
  * gameplay camera, so the hand-off is invisible and the "never rotate" gameplay
  * contract is untouched from that point on.
  *
- * ONE continuous move, never frozen (freezing to zoom read as "stopping" on the
- * character): an eye-level perspective pan north through the forest onto the
- * character, and — overlapping the final approach — the PROJECTION morphs
- * perspective→ortho so it "reaches him and zooms out" in one flow. The path ends
- * on the ortho camera's exact view axis, so the last of the glide (and the hop to
- * the perch) is along the view direction — invisible to an ortho camera, which is
- * what keeps the whole thing swing-free. north = −Z; spawn/character sit at
- * ~(0,0,7), pines fill the south.
+ * ONE continuous move, never frozen: an eye-level perspective pan north through
+ * the forest onto the character, then a straight DOLLY back along the ortho
+ * camera's view axis that zooms out (the character shrinks to gameplay size), and
+ * finally a short PROJECTION flatten perspective→ortho that lands exactly on the
+ * gameplay camera.
+ *
+ * Why the dolly instead of just morphing the projection: morphing straight from a
+ * close-up (framing ~6 units) to ortho (framing 18) is a big framing jump, and
+ * mid-morph the frame widens past where the ground covers — revealing the sky
+ * gradient as a band at the bottom (aspect-dependent; bit wide windows on prod).
+ * Doing the widening as a real perspective dolly keeps a valid frustum that always
+ * looks down at the ground (no reveal); by the time the flatten runs, perspective
+ * already frames the same ~18 units as ortho, so it's a near-identity flatten with
+ * no band. The whole path stays on the view axis, so it's swing-free and the final
+ * hop to the perch is invisible to an ortho camera. north = −Z; spawn ~(0,0,7).
  */
 const FLY = {
   pathIn: [
@@ -46,12 +53,13 @@ const FLY = {
     new THREE.Vector3(0, 2.2, 18), // gliding north, still among the trees
     new THREE.Vector3(0, 3.5, 15), // out of the forest, approaching the character
   ],
-  meetDist: 18, // path ends this far ahead of the ortho perch, ON its view axis
+  meetDist: 18, // fly-in reaches the character here (close-up), ON the ortho view axis
+  dollyDist: 12, // then dolly back this far along the axis — the zoom-out (char shrinks to gameplay size)
   aimStart: new THREE.Vector3(0, 1.35, 5), // gaze: north + slightly down toward town
   fov: 55,
   dur: 4.4, // s — the whole continuous move
-  tiltEnd: 0.6, // orientation finishes tilting by here (so the zoom carries no rotation)
-  zoomFrom: 0.62, // projection starts morphing to ortho here, overlapping the final approach
+  tiltEnd: 0.5, // orientation finishes tilting by here (so the dolly/flatten carry no rotation)
+  flattenFrom: 0.8, // projection flatten perspective→ortho begins here (framing already ~matched)
 }
 const smooth = (t: number) => t * t * (3 - 2 * t) // smoothstep — gentle in/out
 const easeOut = (t: number) => 1 - (1 - t) * (1 - t) // quick start → eases into ortho
@@ -142,10 +150,16 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   // hop meetPos→perch is purely along the view direction — invisible to an ortho
   // camera, which is what lets the zoom-out end with no swing and no swap.
   const { introCurve, startQuat } = useMemo(() => {
+    // `forward` points from the ortho perch toward the scene (down-north). The
+    // meet point (close-up on the character) and the dolly-back point are both on
+    // this axis, so the dolly is a pure zoom (no swing) and the final hop to the
+    // perch is invisible to an ortho camera.
     const forward = new THREE.Vector3(0, CAMERA.lookAtHeight, 0).sub(CAMERA.offset).normalize()
-    const meet = PLAYER.start.clone().add(CAMERA.offset).addScaledVector(forward, FLY.meetDist)
+    const perch = PLAYER.start.clone().add(CAMERA.offset)
+    const meet = perch.clone().addScaledVector(forward, FLY.meetDist)
+    const dollyBack = perch.clone().addScaledVector(forward, FLY.meetDist - FLY.dollyDist)
     return {
-      introCurve: new THREE.CatmullRomCurve3([...FLY.pathIn, meet], false, 'centripetal'),
+      introCurve: new THREE.CatmullRomCurve3([...FLY.pathIn, meet, dollyBack], false, 'centripetal'),
       startQuat: new THREE.Quaternion().setFromRotationMatrix(
         new THREE.Matrix4().lookAt(FLY.pathIn[0], FLY.aimStart, _up),
       ),
@@ -284,34 +298,38 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     introT.current += dt
     const prog = Math.min(1, introT.current / FLY.dur)
 
-    // Position: one continuous glide onto the character — never frozen. Ends on
-    // the ortho view axis (meetPos), so the tail of the glide is along the view
-    // direction and invisible once the projection is orthographic.
+    // Position: one continuous move — fly-in onto the character, then a straight
+    // dolly back along the view axis (the zoom-out). Never frozen. All on the
+    // ortho axis, so it's a pure zoom (no swing) and the final hop to the perch is
+    // invisible to an ortho camera.
     introCurve.getPoint(smooth(prog), _pos)
     cam.position.copy(_pos)
     // Orientation: gently tilt from the look-north gaze into the ortho 3/4 angle,
-    // FINISHING before the zoom takes over — so the zoom-out carries no rotation.
+    // FINISHING before the dolly/flatten — so the zoom-out carries no rotation.
     cam.quaternion.copy(startQuat).slerp(fixedQuat, smooth(Math.min(1, prog / FLY.tiltEnd)))
 
-    // Projection: perspective through the approach, then a quick morph to ortho
-    // over the tail — overlapping the final glide so it reaches the character and
-    // zooms out in one flow, with no held/frozen moment. Scratch cameras give the
-    // two endpoints; at p = 1 the result is exactly the gameplay ortho projection.
+    // Projection: a VALID perspective (fov 55) for the whole fly-in + dolly — the
+    // dolly does the zoom-out with a frustum that always looks down at the ground,
+    // so nothing reveals the sky. Only over the tail do we flatten perspective→
+    // ortho; by then the dolly has the perspective framing ~matched to ortho, so
+    // it's a near-identity flatten (no band) that still lands exactly on ortho.
     _perspProj.fov = FLY.fov
     _perspProj.aspect = aspect
     _perspProj.near = CAMERA.near
     _perspProj.far = CAMERA.far
     _perspProj.updateProjectionMatrix()
-    _orthoProj.near = CAMERA.near // match cam so the end equals the gameplay ortho proj exactly
-    _orthoProj.far = CAMERA.far
-    applyFrustum(_orthoProj, CAMERA.worldViewHeight, aspect)
-    const projS = easeOut(THREE.MathUtils.clamp((prog - FLY.zoomFrom) / (1 - FLY.zoomFrom), 0, 1))
     cam.projectionMatrix.copy(_perspProj.projectionMatrix)
-    lerpProjInPlace(cam.projectionMatrix, _orthoProj.projectionMatrix, projS)
+    const flatten = THREE.MathUtils.clamp((prog - FLY.flattenFrom) / (1 - FLY.flattenFrom), 0, 1)
+    if (flatten > 0) {
+      _orthoProj.near = CAMERA.near // match cam so the end equals the gameplay ortho proj exactly
+      _orthoProj.far = CAMERA.far
+      applyFrustum(_orthoProj, CAMERA.worldViewHeight, aspect)
+      lerpProjInPlace(cam.projectionMatrix, _orthoProj.projectionMatrix, easeOut(flatten))
+    }
     cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert()
 
-    // Done: hand to gameplay. It snaps the position meetPos→perch, but that hop is
-    // along the view axis (meetPos is on it), so an ortho camera sees no change.
+    // Done: hand to gameplay. It moves the camera dollyBack→perch, but that hop is
+    // along the view axis, so an ortho camera sees no change.
     if (prog >= 1) useGame.getState().start()
   })
 
