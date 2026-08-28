@@ -15,9 +15,11 @@ import riverUrl from '../../assets/audio/river.m4a'
  *   since the river is a full-width horizontal strip — on the banks/bridge it's
  *   at full volume, and it falls off over RIVER_FALLOFF units to either side.
  *
- * Clips are not constructed until "Enter the town" (a user gesture, so autoplay
- * policy is satisfied; retries on the next tap if blocked). Lives inside the
- * Canvas so it reads the player's live position ref each frame; renders nothing.
+ * Autoplay: the intro no longer has an "Enter" click — `start()` fires from the
+ * camera after the zoom. Browsers keep a new AudioContext suspended until a real
+ * user gesture, so we create/resume the context inside pointer/key/touch handlers
+ * and keep listening until the loops are actually running. Volumes still stay at
+ * 0 until `started` (and outdoors).
  *
  * Loops go through Web Audio, not HTMLAudioElement.loop. The beds are AAC, which
  * carries encoder delay + trailing packet padding — `<audio loop>` restarts on
@@ -35,6 +37,8 @@ const FADE_K = 2.5 // per-second volume lerp — smooths proximity + a gentle st
 const XFADE_SEC = 0.08
 const TRIM_MAX_SEC = 0.04
 const SILENCE = 0.004
+
+const GESTURES = ['pointerdown', 'keydown', 'touchstart'] as const
 
 /** 0…1 nearness to the river band: 1 on/over the water, 0 beyond the falloff. */
 function riverNearness(z: number): number {
@@ -75,6 +79,7 @@ function seamlessLoop(buf: AudioBuffer, ctx: AudioContext): AudioBuffer {
 
 async function startLoop(url: string, ctx: AudioContext): Promise<Voice> {
   const res = await fetch(url)
+  if (!res.ok) throw new Error(`ambient fetch ${res.status}: ${url}`)
   const raw = await res.arrayBuffer()
   const decoded = await ctx.decodeAudioData(raw.slice(0))
   const loop = seamlessLoop(decoded, ctx)
@@ -109,54 +114,79 @@ export function AmbientSound({ playerPos }: { playerPos: RefObject<THREE.Vector3
     let birdVoice: Voice | null = null
     let riverVoice: Voice | null = null
     let ctx: AudioContext | null = null
-    let armed = false
+    let loading = false
+    let ready = false
 
-    const arm = () => {
-      if (armed) return
-      armed = true
+    const AC =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
 
-      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      ctx = new AC()
-      const c = ctx
-      const unlock = () => c.resume().catch(() => {})
-      unlock()
-
-      Promise.all([startLoop(birdUrl, c), startLoop(riverUrl, c)])
-        .then(([b, r]) => {
-          if (cancelled) {
-            b.stop()
-            r.stop()
-            return
-          }
-          birdVoice = b
-          riverVoice = r
-          bird.current = b
-          river.current = r
-          if (import.meta.env?.DEV) {
-            // Expose the AudioParams (not the GainNodes) so console reads match
-            // the old HTMLAudio `.volume` habit: `__ambient.river.value`.
-            ;(window as unknown as { __ambient?: unknown }).__ambient = {
-              bird: b.gain.gain,
-              river: r.gain.gain,
-              ctx: c,
-            }
-          }
-        })
-        .catch(() => {
-          window.addEventListener('pointerdown', unlock, { once: true })
-        })
-
-      window.addEventListener('pointerdown', unlock, { once: true })
+    const detachGestures = () => {
+      for (const ev of GESTURES) window.removeEventListener(ev, onGesture)
     }
 
-    const unsub = useGame.subscribe((s, prev) => {
-      if (s.started && !prev.started) arm()
-    })
-    if (useGame.getState().started) arm() // already running (HMR remount)
+    const ensureRunning = async (): Promise<AudioContext | null> => {
+      // Create + resume inside the gesture call stack — iOS Safari is strict about
+      // this. Creating the context during the auto-zoom (no gesture) left it
+      // suspended forever for keyboard-only players.
+      if (!ctx) ctx = new AC()
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume()
+        } catch {
+          /* still blocked */
+        }
+      }
+      return ctx.state === 'running' ? ctx : null
+    }
+
+    const startVoices = async (c: AudioContext) => {
+      if (cancelled || ready || loading) return
+      loading = true
+      try {
+        const [b, r] = await Promise.all([startLoop(birdUrl, c), startLoop(riverUrl, c)])
+        if (cancelled) {
+          b.stop()
+          r.stop()
+          return
+        }
+        birdVoice = b
+        riverVoice = r
+        bird.current = b
+        river.current = r
+        ready = true
+        detachGestures()
+        if (import.meta.env?.DEV) {
+          ;(window as unknown as { __ambient?: unknown }).__ambient = {
+            bird: b.gain.gain,
+            river: r.gain.gain,
+            ctx: c,
+          }
+        }
+      } catch {
+        // Allow the next gesture to retry (decode/fetch can fail on a suspended
+        // context or a flaky first load).
+        loading = false
+      }
+    }
+
+    const onGesture = () => {
+      void (async () => {
+        const c = await ensureRunning()
+        if (!c || cancelled) return
+        await startVoices(c)
+      })()
+    }
+
+    for (const ev of GESTURES) window.addEventListener(ev, onGesture)
+
+    // If something else already unlocked audio (or HMR remount after a gesture),
+    // try once without waiting.
+    if (useGame.getState().started) onGesture()
 
     return () => {
       cancelled = true
-      unsub()
+      detachGestures()
       birdVoice?.stop()
       riverVoice?.stop()
       void ctx?.close()
