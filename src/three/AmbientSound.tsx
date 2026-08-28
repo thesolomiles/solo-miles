@@ -2,8 +2,8 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGame } from '../state/store'
-import birdUrl from '../../assets/audio/bird.aac'
-import riverUrl from '../../assets/audio/river.aac'
+import birdUrl from '../../assets/audio/bird.m4a'
+import riverUrl from '../../assets/audio/river.m4a'
 
 /**
  * Ambient environment sound (replaces the shelved BGM).
@@ -15,9 +15,9 @@ import riverUrl from '../../assets/audio/river.aac'
  *   since the river is a full-width horizontal strip — on the banks/bridge it's
  *   at full volume, and it falls off over RIVER_FALLOFF units to either side.
  *
- * Both start on the "Enter the town" click (a user gesture, so autoplay policy is
- * satisfied; retries on the next tap if blocked). Lives inside the Canvas so it
- * reads the player's live position ref each frame; renders nothing.
+ * Clips are not constructed until "Enter the town" (a user gesture, so autoplay
+ * policy is satisfied; retries on the next tap if blocked). Lives inside the
+ * Canvas so it reads the player's live position ref each frame; renders nothing.
  */
 const RIVER_Z_NORTH = -14.2
 const RIVER_Z_SOUTH = -4.6
@@ -33,42 +33,50 @@ function riverNearness(z: number): number {
   return THREE.MathUtils.clamp(1 - dist / RIVER_FALLOFF, 0, 1)
 }
 
+function makeLoop(url: string) {
+  const a = new Audio(url)
+  a.loop = true
+  a.preload = 'auto'
+  a.volume = 0
+  return a
+}
+
 export function AmbientSound({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
   const bird = useRef<HTMLAudioElement | null>(null)
   const river = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
-    const b = new Audio(birdUrl)
-    const r = new Audio(riverUrl)
-    for (const a of [b, r]) {
-      a.loop = true
-      a.preload = 'auto'
-      a.volume = 0
-    }
-    bird.current = b
-    river.current = r
-    if (import.meta.env?.DEV) (window as unknown as { __ambient?: unknown }).__ambient = { bird: b, river: r }
+    let b: HTMLAudioElement | null = null
+    let r: HTMLAudioElement | null = null
 
-    const tryPlay = () => {
+    const arm = () => {
+      if (b) return
+      b = makeLoop(birdUrl)
+      r = makeLoop(riverUrl)
+      bird.current = b
+      river.current = r
+      if (import.meta.env?.DEV) (window as unknown as { __ambient?: unknown }).__ambient = { bird: b, river: r }
+
       const play = () => {
-        b.play().catch(() => {})
-        r.play().catch(() => {})
+        b?.play().catch(() => {})
+        r?.play().catch(() => {})
       }
-      // If autoplay is blocked, retry on the next tap.
       Promise.allSettled([b.play(), r.play()]).then((res) => {
         if (res.some((x) => x.status === 'rejected')) {
           window.addEventListener('pointerdown', play, { once: true })
         }
       })
     }
+
     const unsub = useGame.subscribe((s, prev) => {
-      if (s.started && !prev.started) tryPlay()
+      if (s.started && !prev.started) arm()
     })
-    if (useGame.getState().started) tryPlay() // already running (HMR remount)
+    if (useGame.getState().started) arm() // already running (HMR remount)
 
     return () => {
       unsub()
       for (const a of [b, r]) {
+        if (!a) continue
         a.pause()
         a.src = ''
       }
