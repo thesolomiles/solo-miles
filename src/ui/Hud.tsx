@@ -11,42 +11,6 @@ const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: 
 
 const hex = (n: number) => '#' + n.toString(16).padStart(6, '0')
 
-/** Intro card — dismissed by "Enter the town", which also enables movement. */
-function Intro() {
-  const start = useGame((s) => s.start)
-  return (
-    <div className="intro">
-      <div className="intro__card">
-        <p className="intro__eyebrow">Solomiles · the town</p>
-        <h1 className="intro__title">A little town in the countryside.</h1>
-        <p className="intro__lede">
-          A locked orthographic three-quarter camera. It scrolls to follow you but never rotates —
-          clean, diorama-flat, every building simply facing you.
-        </p>
-        <div className="intro__map">
-          <b>Mi casa</b><span>home base</span>
-          <b>Mom's</b><span>the family corner</span>
-          <b>Café</b><span>pull up a chair</span>
-          <b>Bike shop</b><span>rides &amp; gear</span>
-          <b>The trail</b><span>out into the trips</span>
-        </div>
-        <div className="intro__keys">
-          {isTouch ? (
-            <span>Drag the stick to move · tap a prompt to interact</span>
-          ) : (
-            <>
-              <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
-              <span><kbd>Space</kbd> jump</span>
-              <span><kbd>E</kbd> interact</span>
-            </>
-          )}
-        </div>
-        <button className="btn" onClick={start}>Enter the town →</button>
-      </div>
-    </div>
-  )
-}
-
 function Hint() {
   const [show, setShow] = useState(true)
   useEffect(() => {
@@ -232,7 +196,8 @@ export function Hud() {
 
   return (
     <div className="hud">
-      {!started && <Intro />}
+      {/* No intro modal — the opening cinematic (OrthoRig) sweeps in from the
+          southern trees onto the character, then calls start() itself. */}
       {started && <Hint />}
       {started && isTouch && !dialogue && !section && !ridesOpen && !gamesOpen && !minigame && (
         <TouchControls />

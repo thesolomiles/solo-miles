@@ -1,7 +1,7 @@
 import { useThree, useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
-import { CAMERA } from '../config/constants'
+import { CAMERA, PLAYER } from '../config/constants'
 import { CAFE } from '../config/cafe'
 import { PACMAN } from '../config/arcade'
 import { arcadeFocus } from '../systems/arcadeFocus'
@@ -9,12 +9,61 @@ import { useGame } from '../state/store'
 
 const _desired = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
+const _pos = new THREE.Vector3()
+// Scratch cameras used ONLY to compute the two projection matrices the intro
+// morphs between — never made the active camera (that would swap the camera
+// object under the EffectComposer and flash black). The real ortho `cam` stays
+// the single active camera; the intro just overrides its projection.
+const _perspProj = new THREE.PerspectiveCamera()
+const _orthoProj = new THREE.OrthographicCamera()
 
 // Half-extent of the town.glb Ground square. The camera is clamped so its
 // visible footprint never reaches past this, i.e. the raw map edge / void beyond
 // it never enters frame. A hair under the true ±28 so the bevelled edge itself
 // also stays just out of view.
 const GROUND_HALF = 27.5
+
+/**
+ * Opening cinematic (replaces the old intro modal). This is the ONE place the
+ * locked 3/4 orthographic view is deliberately broken: before the game
+ * `start()`s a manually-driven PERSPECTIVE camera flies ONE continuous pan along
+ * a spline, then morphs — pose AND projection — into the exact orthographic
+ * gameplay camera, so the hand-off is invisible and the "never rotate" gameplay
+ * contract is untouched from that point on.
+ *
+ * ONE continuous move, never frozen (freezing to zoom read as "stopping" on the
+ * character): an eye-level perspective pan north through the forest onto the
+ * character, and — overlapping the final approach — the PROJECTION morphs
+ * perspective→ortho so it "reaches him and zooms out" in one flow. The path ends
+ * on the ortho camera's exact view axis, so the last of the glide (and the hop to
+ * the perch) is along the view direction — invisible to an ortho camera, which is
+ * what keeps the whole thing swing-free. north = −Z; spawn/character sit at
+ * ~(0,0,7), pines fill the south.
+ */
+const FLY = {
+  pathIn: [
+    new THREE.Vector3(0, 1.6, 24), // eye level, deep in the southern pines
+    new THREE.Vector3(0, 2.2, 18), // gliding north, still among the trees
+    new THREE.Vector3(0, 3.5, 15), // out of the forest, approaching the character
+  ],
+  meetDist: 18, // path ends this far ahead of the ortho perch, ON its view axis
+  aimStart: new THREE.Vector3(0, 1.35, 5), // gaze: north + slightly down toward town
+  fov: 55,
+  dur: 4.4, // s — the whole continuous move
+  tiltEnd: 0.6, // orientation finishes tilting by here (so the zoom carries no rotation)
+  zoomFrom: 0.62, // projection starts morphing to ortho here, overlapping the final approach
+}
+const smooth = (t: number) => t * t * (3 - 2 * t) // smoothstep — gentle in/out
+const easeOut = (t: number) => 1 - (1 - t) * (1 - t) // quick start → eases into ortho
+
+/** Element-wise lerp one projection matrix toward another, in place. Not
+ *  projectively "correct", but a smooth morph that is exact at both ends — the
+ *  standard cheap way to blend a perspective and an orthographic projection. */
+function lerpProjInPlace(target: THREE.Matrix4, other: THREE.Matrix4, s: number) {
+  const a = target.elements
+  const b = other.elements
+  for (let i = 0; i < 16; i++) a[i] = a[i] * (1 - s) + b[i] * s
+}
 
 /** Clamp a view-centre coord so the visible half-extent stays inside ±bound.
  *  If the view is wider than the map on this axis, centre it (nothing to clamp to). */
@@ -75,11 +124,32 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   // glide — the transition should be a plain fade, never a visible "move in".
   const prevInterior = useRef(useGame.getState().interior)
   const prevMinigame = useRef(useGame.getState().minigame)
+  // Opening cinematic (see FLY): elapsed time in the pan.
+  const introT = useRef(0)
 
+  // The single active camera — an OrthographicCamera we own (`manual` so r3f
+  // never resets our frustum on resize). During the intro we override its pose +
+  // projectionMatrix to render the perspective fly-through; there is no second
+  // camera and no swap, so the EffectComposer never re-inits (no black flash).
   const cam = useMemo(() => {
     const c = new THREE.OrthographicCamera()
     ;(c as unknown as { manual: boolean }).manual = true
     return c
+  }, [])
+
+  // Fly-in path + start orientation, and the on-axis meet point. `meetPos` sits
+  // directly in front of the ortho perch along its exact view axis, so the final
+  // hop meetPos→perch is purely along the view direction — invisible to an ortho
+  // camera, which is what lets the zoom-out end with no swing and no swap.
+  const { introCurve, startQuat } = useMemo(() => {
+    const forward = new THREE.Vector3(0, CAMERA.lookAtHeight, 0).sub(CAMERA.offset).normalize()
+    const meet = PLAYER.start.clone().add(CAMERA.offset).addScaledVector(forward, FLY.meetDist)
+    return {
+      introCurve: new THREE.CatmullRomCurve3([...FLY.pathIn, meet], false, 'centripetal'),
+      startQuat: new THREE.Quaternion().setFromRotationMatrix(
+        new THREE.Matrix4().lookAt(FLY.pathIn[0], FLY.aimStart, _up),
+      ),
+    }
   }, [])
 
   // The one, constant orientation. Matrix4.lookAt(eye, target, up) with the
@@ -117,12 +187,27 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   }, [])
 
   useEffect(() => {
+    const aspect = size.width / Math.max(size.height, 1)
     cam.near = CAMERA.near
     cam.far = CAMERA.far
-    cam.position.copy(posRef.current).add(CAMERA.offset)
-    cam.quaternion.copy(fixedQuat)
-    const aspect = size.width / Math.max(size.height, 1)
     applyFrustum(cam, CAMERA.worldViewHeight, aspect)
+    if (useGame.getState().started) {
+      // HMR remount mid-game: straight to the ortho gameplay framing.
+      cam.position.copy(posRef.current).add(CAMERA.offset)
+      cam.quaternion.copy(fixedQuat)
+    } else {
+      // Fresh load: seat the camera at the first fly-in waypoint (perspective)
+      // so frame 0 is already the intro, never a flash of the ortho perch.
+      cam.position.copy(FLY.pathIn[0])
+      cam.quaternion.copy(startQuat)
+      _perspProj.fov = FLY.fov
+      _perspProj.aspect = aspect
+      _perspProj.near = CAMERA.near
+      _perspProj.far = CAMERA.far
+      _perspProj.updateProjectionMatrix()
+      cam.projectionMatrix.copy(_perspProj.projectionMatrix)
+      cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert()
+    }
     set({ camera: cam })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -136,9 +221,12 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     cam.quaternion.copy(fixedQuat) // constant — locked, never re-aimed
 
     const p = posRef.current
-    const { interior: interiorNow, minigame: minigameNow } = useGame.getState()
+    const { interior: interiorNow, minigame: minigameNow, started } = useGame.getState()
     const framed = interiorNow !== null || minigameNow !== null
     const aspect = size.width / Math.max(size.height, 1)
+
+    // --- Ortho gameplay camera. Positioned every frame — including while the
+    // intro plays — so it is the exact target the cinematic morphs into. ---
     const h = viewHeight(interiorNow, minigameNow, aspect, rig.sinPitch)
     if (h !== frustum.current.h || aspect !== frustum.current.aspect) {
       frustum.current = { h, aspect }
@@ -180,11 +268,51 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // camera.x == ground-centre.x; camera.z is the ground centre minus the fixed
     // camera→ground z-offset.
     _desired.set(cgx, p.y + CAMERA.offset.y, cgz - rig.groundFromCamZ)
-    // Normal follow is a smooth glide, but a world SWAP (entering/leaving the
-    // café) — or any teleport that jumps the player far — should SNAP, so the
-    // fade reveals a still, framed shot instead of the camera panning in.
-    if (swapped || cam.position.distanceTo(_desired) > 12) cam.position.copy(_desired)
+    // While the intro plays the player is static, so SNAP the ortho cam to its
+    // default framing — a stable target for the settle to morph into. A world
+    // SWAP (café) or a big teleport also snaps; otherwise glide.
+    if (!started || swapped || cam.position.distanceTo(_desired) > 12) cam.position.copy(_desired)
     else cam.position.lerp(_desired, 1 - Math.pow(CAMERA.followDamping, dt))
+
+    // --- Opening cinematic. The ortho block above already put `cam` at the
+    // gameplay pose + projection; here we OVERRIDE it on the SAME camera (no swap,
+    // so the composer never re-inits and never flashes black). Two moves: a
+    // perspective fly-in, then a zoom-out in place. See FLY. ---
+    const intro = !started && !framed
+    if (!intro) return
+
+    introT.current += dt
+    const prog = Math.min(1, introT.current / FLY.dur)
+
+    // Position: one continuous glide onto the character — never frozen. Ends on
+    // the ortho view axis (meetPos), so the tail of the glide is along the view
+    // direction and invisible once the projection is orthographic.
+    introCurve.getPoint(smooth(prog), _pos)
+    cam.position.copy(_pos)
+    // Orientation: gently tilt from the look-north gaze into the ortho 3/4 angle,
+    // FINISHING before the zoom takes over — so the zoom-out carries no rotation.
+    cam.quaternion.copy(startQuat).slerp(fixedQuat, smooth(Math.min(1, prog / FLY.tiltEnd)))
+
+    // Projection: perspective through the approach, then a quick morph to ortho
+    // over the tail — overlapping the final glide so it reaches the character and
+    // zooms out in one flow, with no held/frozen moment. Scratch cameras give the
+    // two endpoints; at p = 1 the result is exactly the gameplay ortho projection.
+    _perspProj.fov = FLY.fov
+    _perspProj.aspect = aspect
+    _perspProj.near = CAMERA.near
+    _perspProj.far = CAMERA.far
+    _perspProj.updateProjectionMatrix()
+    _orthoProj.near = CAMERA.near // match cam so the end equals the gameplay ortho proj exactly
+    _orthoProj.far = CAMERA.far
+    applyFrustum(_orthoProj, CAMERA.worldViewHeight, aspect)
+    const projS = easeOut(THREE.MathUtils.clamp((prog - FLY.zoomFrom) / (1 - FLY.zoomFrom), 0, 1))
+    cam.projectionMatrix.copy(_perspProj.projectionMatrix)
+    lerpProjInPlace(cam.projectionMatrix, _orthoProj.projectionMatrix, projS)
+    cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert()
+
+    // Done: hand to gameplay. It snaps the position meetPos→perch, but that hop is
+    // along the view axis (meetPos is on it), so an ortho camera sees no change.
+    if (prog >= 1) useGame.getState().start()
   })
 
   return null

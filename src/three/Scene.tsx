@@ -157,12 +157,16 @@ function PerfProbe() {
  */
 function InteriorController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const interior = useGame((s) => s.interior)
-  const first = useRef(true)
+  // Only teleport on an ACTUAL town↔café transition — never on mount. We compare
+  // the previous `interior` value (seeded with the current one) rather than a
+  // "first mount" boolean, because React StrictMode double-invokes the effect on
+  // mount: a boolean guard gets flipped by the first invocation and the second
+  // then fires a spurious teleport to townReturn (12.2, 2.2). Comparing values is
+  // idempotent, so the double-invoke is a no-op.
+  const prevInterior = useRef(interior)
   useEffect(() => {
-    if (first.current) {
-      first.current = false
-      return
-    }
+    if (prevInterior.current === interior) return
+    prevInterior.current = interior
     if (interior === 'cafe') {
       setActiveWorld('cafe')
       posRef.current.set(CAFE.spawn.x, 0, CAFE.spawn.z)
