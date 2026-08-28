@@ -12,14 +12,12 @@ const URL = '/models/town.glb'
 
 /**
  * A tiny sky environment for the water to reflect. The scene has no env map, so a
- * MeshStandardMaterial water surface has nothing to mirror — it only shows the
- * sun's direct specular, which on gentle near-flat waves geometrically never
- * bounces into our fixed 3/4 camera (the highlight would need ~40° facet tilts).
- * So we bake a cheap equirectangular sky — the same top/mid/bottom gradient as
- * SkyBackground, plus a soft warm blob roughly where the key sun sits — and PMREM
- * it. Now the water reflects the bright sky (and that sun blob), and because the
- * flat-shaded facets ripple, the reflection shimmers and the sun-glint sweeps
- * across as waves pass. One small cubemap sampled per fragment — no render pass.
+ * water surface has nothing to mirror — it only shows the sun's direct specular,
+ * which on gentle near-flat waves geometrically never bounces into our fixed 3/4
+ * camera. We bake a small equirectangular sky (same gradient as SkyBackground)
+ * plus a soft warm sun blob, and PMREM it. One small cubemap sampled per
+ * fragment — no reflection render pass. Kept LDR on purpose: an HDR sun + bloom
+ * turns the whole river into a white sheet under our grade.
  */
 function makeSkyEnv(gl: THREE.WebGLRenderer): THREE.Texture {
   const w = 256
@@ -29,17 +27,18 @@ function makeSkyEnv(gl: THREE.WebGLRenderer): THREE.Texture {
   c.height = h
   const g = c.getContext('2d')!
   const grd = g.createLinearGradient(0, 0, 0, h)
-  grd.addColorStop(0, WORLD.sky.top) // zenith (top of the reflected sky)
+  grd.addColorStop(0, WORLD.sky.top)
   grd.addColorStop(0.5, WORLD.sky.mid)
-  grd.addColorStop(1, WORLD.sky.bottom) // horizon/ground
+  grd.addColorStop(1, WORLD.sky.bottom)
   g.fillStyle = grd
   g.fillRect(0, 0, w, h)
-  // Soft sun blob in the upper sky — its reflection is the glint on the water.
-  // Placed at the key sun's rough azimuth/elevation (SUN_OFFSET ≈ 24,30,16).
-  const sun = g.createRadialGradient(w * 0.16, h * 0.22, 0, w * 0.16, h * 0.22, h * 0.32)
-  sun.addColorStop(0, 'rgba(255,246,224,1)')
-  sun.addColorStop(0.4, 'rgba(255,236,196,0.5)')
-  sun.addColorStop(1, 'rgba(255,236,196,0)')
+  // Sun blob a touch lower/brighter than the sky so facets can catch a glint
+  // as they tilt — still LDR so bloom doesn't white-out the channel.
+  const sun = g.createRadialGradient(w * 0.16, h * 0.28, 0, w * 0.16, h * 0.28, h * 0.36)
+  sun.addColorStop(0, 'rgba(255,250,235,1)')
+  sun.addColorStop(0.25, 'rgba(255,240,210,0.85)')
+  sun.addColorStop(0.55, 'rgba(255,230,190,0.35)')
+  sun.addColorStop(1, 'rgba(255,230,190,0)')
   g.fillStyle = sun
   g.fillRect(0, 0, w, h)
 
@@ -61,28 +60,39 @@ function makeSkyEnv(gl: THREE.WebGLRenderer): THREE.Texture {
 let skyEnv: THREE.Texture | null = null
 let waterMaterial: THREE.MeshStandardMaterial | null = null
 let waterShader: THREE.WebGLProgramParametersWithUniforms | null = null
+// Bump when material params change so HMR can't keep a stale (e.g. Physical /
+// HDR) instance alive in the module-scope cache.
+const WATER_MAT_REV = 3
+let waterMaterialRev = 0
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    waterMaterial?.dispose()
+    skyEnv?.dispose()
+    waterMaterial = null
+    skyEnv = null
+    waterShader = null
+    waterMaterialRev = 0
+  })
+}
 
 function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
-  if (waterMaterial) return waterMaterial
+  if (waterMaterial && waterMaterialRev === WATER_MAT_REV) return waterMaterial
+  waterMaterial?.dispose()
   skyEnv ??= makeSkyEnv(gl)
   const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x3f86a3),
-    // The water reflects the baked sky env (makeSkyEnv). Low roughness keeps the
-    // reflection + sun-glint fairly crisp; a chunk of metalness raises the
-    // surface reflectivity so the sky actually reads on it at our ~48° view
-    // angle (a pure dielectric only reflects strongly near grazing). This is
-    // what fixes "the water doesn't reflect any light".
-    roughness: 0.15,
-    metalness: 0.5,
+    // Deep enough that sky reflections read as luminous blue, not bloom-white
+    // when the golden-hour env hits metalness. Near-opaque: full transparency
+    // used to show the shadowed riverbed and kill the shine; a whisper of alpha
+    // keeps a hint of depth without the matte look.
+    color: new THREE.Color(0x2f6f8c),
+    roughness: 0.22,
+    metalness: 0.4,
     envMap: skyEnv,
-    envMapIntensity: 1.6,
+    envMapIntensity: 1.15,
     flatShading: true,
-    // Near-opaque: the water doesn't receive shadows, so its own lit blue
-    // stays put — but if it were very translucent you'd see the shadowed dirt
-    // bed through it (near-black under the bridge). A hint of translucency
-    // keeps some depth without letting the bed's shadow bleed through.
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.97,
     // The water mesh's faces are wound downward (it exported doubleSided), so
     // rendering both sides is what keeps the top surface visible from above.
     side: THREE.DoubleSide,
@@ -95,26 +105,25 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
     waterShader = shader
     // Layered sines: two scrolling along +X (the flow) at different scales, plus
     // a slower cross-chop along Z so it doesn't look like a moving corrugation.
-    // Amplitudes are small (~0.06 total) — the channel is shallow and the effect
-    // should read as a gentle current, not an ocean swell.
+    // A notch livelier than the first pass — still a calm channel, not an ocean.
     shader.vertexShader =
       'uniform float uTime;\n' +
       shader.vertexShader.replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
-           // A calm, slow current — the "dangerous" chop was mostly SPEED, so the
-           // uTime multipliers are small (a gentle drift, ~1u/s crests) and the
-           // amplitudes low. Two slow swells scroll along +X (the flow) with a
-           // slower Z cross-ripple; a small, slow fine term keeps a little life in
-           // the reflection without the agitated flashing.
-           float wave = sin(transformed.x * 0.45 + uTime * 0.5) * 0.042
-                      + sin(transformed.x * 1.0 - uTime * 0.7) * 0.015
-                      + sin(transformed.z * 1.4 + uTime * 0.35) * 0.016
-                      + sin(transformed.x * 2.2 + transformed.z * 1.6 + uTime * 0.85) * 0.009;
+           float wave = sin(transformed.x * 0.5 + uTime * 0.62) * 0.055
+                      + sin(transformed.x * 1.15 - uTime * 0.88) * 0.022
+                      + sin(transformed.z * 1.55 + uTime * 0.42) * 0.024
+                      + sin(transformed.x * 2.6 + transformed.z * 1.9 + uTime * 1.05) * 0.014
+                      + sin(transformed.x * 3.9 + transformed.z * 2.3 + uTime * 1.35) * 0.008;
            transformed.y += wave;`,
       )
   }
   waterMaterial = mat
+  waterMaterialRev = WATER_MAT_REV
+  if (import.meta.env?.DEV) {
+    ;(window as unknown as { __waterMat?: THREE.MeshStandardMaterial }).__waterMat = mat
+  }
   return mat
 }
 
