@@ -23,7 +23,7 @@ const GROUND_HALF = 27.5
 // zoom reaches 100% we start() the game; it's already the gameplay framing, so
 // the hand-off is seamless.
 const INTRO = {
-  startZoom: 1.25, // begin at 125% (zoomed in on the character)
+  startZoom: 1.5, // begin at 150% (zoomed in on the character)
   dur: 1.4, // s to ease out to 100%
 }
 const easeOut = (t: number) => 1 - (1 - t) * (1 - t) // quick start → gentle settle
