@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { captureDerivedColliders } from '../systems/colliders'
 import { densifyForest } from '../systems/forest'
 import { instanceScatter } from '../systems/instancing'
+import { capturePineAsset } from './ride/pineAsset'
 import { useTownGLTF } from './gltf'
 import { useLighting } from '../state/lighting'
 import { WORLD } from '../config/town'
@@ -210,6 +211,9 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     // building/tree boxes from the real geometry and stash them so the ?edit
     // collider editor can offer them as a seed — but don't apply them at runtime.
     captureDerivedColliders(scene)
+    // Grab the pine geometry + material for the ride scene BEFORE instancing
+    // detaches the named `Pine_*` meshes (three/ride/pineAsset.ts).
+    capturePineAsset(scene)
     // Finally, batch the scattered props (trees/rocks/grass/bushes/stumps) into
     // instanced meshes — runs after colliders so those still read the named
     // geometry. Turns ~600 draw calls into a handful; authoring stays per-object.

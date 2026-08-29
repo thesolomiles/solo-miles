@@ -352,216 +352,107 @@ canvas {
   margin-bottom: 18px;
 }
 
-/* --- Rides modal (Leonard's ride-picker cards) --- */
-.rides {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: auto;
-  background: radial-gradient(120% 90% at 50% 20%, rgba(159, 199, 221, 0.28), rgba(43, 38, 32, 0.6));
-  backdrop-filter: blur(3px);
-  animation: fade-in 0.22s ease;
-  padding: 20px;
+/* --- World selector (Leonard's ride → country/route picker) ---
+   Reuses the café arcade's wood-frame shell (.gselect*, defined below) and adds
+   stacked per-country sections of route thumbnails. */
+.wsel__frame {
+  width: min(820px, 100%);
 }
-.rides__panel {
-  position: relative;
-  width: min(880px, 100%);
-  max-height: calc(100% - 32px);
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(180deg, #fffaf0, var(--paper));
-  border: 1px solid rgba(43, 38, 32, 0.14);
-  border-radius: 22px;
-  padding: 22px 22px 18px;
-  box-shadow: 0 28px 70px rgba(43, 38, 32, 0.36);
-  animation: rise 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+.wsel__scroll {
+  overflow: auto;
+  min-height: 0;
+  padding: 2px 2px 6px;
 }
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.wsel__scroll::-webkit-scrollbar {
+  width: 8px;
 }
-.rides__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.rides__eyebrow {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  font-size: 11px;
-  color: var(--clay-deep);
-  margin: 0 0 4px;
-}
-.rides__title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 24px;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-.rides__close {
-  flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1px solid rgba(43, 38, 32, 0.14);
-  background: var(--paper-80);
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--ink-70);
-}
-.rides__close:hover {
-  color: var(--ink);
-  border-color: rgba(43, 38, 32, 0.3);
-}
-
-/* horizontal card shelf (game-like), scrolls when it overflows */
-.rides__shelf {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 4px 2px 14px;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-}
-.rides__shelf::-webkit-scrollbar {
-  height: 8px;
-}
-.rides__shelf::-webkit-scrollbar-thumb {
-  background: rgba(43, 38, 32, 0.2);
+.wsel__scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 220, 140, 0.28);
   border-radius: 999px;
 }
-
-.ride {
-  flex: 0 0 210px;
-  scroll-snap-align: start;
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  padding: 0;
-  background: #fff;
-  border: 1px solid rgba(43, 38, 32, 0.12);
-  border-radius: 16px;
-  overflow: hidden;
-  cursor: pointer;
-  font-family: inherit;
-  color: inherit;
-  box-shadow: 0 8px 20px rgba(43, 38, 32, 0.12);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+.wsel__country {
+  margin-bottom: 18px;
 }
-.ride:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(43, 38, 32, 0.22);
-  border-color: rgba(217, 138, 90, 0.6);
+.wsel__country:last-child {
+  margin-bottom: 4px;
 }
-.ride:active {
-  transform: translateY(-1px);
-}
-
-.ride__thumb {
-  position: relative;
-  height: 118px;
+.wsel__country-name {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-.ride__glyph {
-  font-size: 46px;
-  filter: drop-shadow(0 3px 5px rgba(43, 38, 32, 0.35));
-}
-.ride__stars {
-  position: absolute;
-  left: 10px;
-  bottom: 8px;
-  display: flex;
-  gap: 1px;
-  padding: 3px 6px;
-  border-radius: 999px;
-  background: rgba(43, 38, 32, 0.42);
-  backdrop-filter: blur(2px);
-  font-size: 11px;
-  line-height: 1;
-}
-.ride__star {
-  color: rgba(255, 255, 255, 0.35);
-}
-.ride__star--on {
-  color: #ffcf4d;
-  text-shadow: 0 0 5px rgba(255, 191, 60, 0.7);
-}
-
-.ride__body {
-  padding: 11px 13px 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.ride__place {
-  font-family: 'Space Grotesk', sans-serif;
+  gap: 9px;
+  margin: 0 0 10px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 220, 140, 0.18);
+  font-family: Belanosima, 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 15px;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-.ride__region {
-  font-size: 11.5px;
-  color: #8a7f6f;
-  font-weight: 500;
-  margin: 0 0 10px;
-}
-.ride__stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.ride__stat {
-  background: rgba(43, 38, 32, 0.05);
-  border: 1px solid rgba(43, 38, 32, 0.08);
-  border-radius: 10px;
-  padding: 7px 9px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.ride__stat-val {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--clay-deep);
-  line-height: 1;
-}
-.ride__stat-val i {
-  font-style: normal;
-  font-weight: 600;
-  font-size: 10px;
-  color: #8a7f6f;
-  margin-left: 1px;
-}
-.ride__stat-lbl {
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #8a7f6f;
-  font-weight: 600;
+  color: #f3e6c8;
+  text-shadow: 0 2px 0 #1a1008;
 }
-
-.rides__foot {
-  margin: 4px 0 0;
+.wsel__flag {
+  font-size: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+.wsel__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.wsel__card {
+  flex: 0 0 156px;
+  color: #f3e6c8;
+}
+.wsel__thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #1a120c;
+  box-shadow: inset 0 0 0 1px rgba(255, 220, 140, 0.15);
+}
+.wsel__glyph {
+  font-size: 40px;
+  filter: drop-shadow(0 3px 5px rgba(43, 38, 32, 0.4));
+}
+.wsel__pips {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  display: flex;
+  gap: 3px;
+}
+.wsel__pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.wsel__pip--on {
+  background: #f5d04a;
+  box-shadow: 0 0 5px rgba(245, 208, 74, 0.8);
+}
+.wsel__km {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-family: Belanosima, sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  color: #1a120c;
+  background: rgba(243, 230, 200, 0.9);
+}
+.wsel__name {
+  margin: 8px 0 0;
+  font-family: Belanosima, sans-serif;
+  font-weight: 700;
   font-size: 12px;
-  color: var(--ink-70);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   text-align: center;
 }
 
@@ -832,6 +723,204 @@ canvas {
   font-size: 28px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+/* --- Ride speech box (Leonard's route chat — Pokémon style) --- */
+.ridebox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 26px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: ridebox-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes ridebox-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+.ridebox__panel {
+  position: relative;
+  width: min(760px, calc(100% - 32px));
+  min-height: 96px;
+  background: linear-gradient(180deg, #fffaf0, var(--paper));
+  border: 4px solid var(--clay-deep);
+  border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(43, 38, 32, 0.4), inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+  padding: 22px 24px 20px;
+}
+.ridebox__name {
+  position: absolute;
+  top: -16px;
+  left: 22px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  background: var(--clay);
+  border: 2px solid var(--clay-deep);
+  border-radius: 999px;
+  padding: 4px 16px;
+  box-shadow: 0 4px 10px rgba(43, 38, 32, 0.25);
+}
+.ridebox__text {
+  margin: 4px 0 0;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--ink);
+  min-height: 2.9em;
+  /* keep the box from reflowing as characters type in */
+  white-space: pre-wrap;
+}
+.ridebox__next {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  font-size: 15px;
+  color: var(--clay-deep);
+  opacity: 0;
+}
+.ridebox__next.is-ready {
+  opacity: 1;
+  animation: ridebox-bob 0.9s ease-in-out infinite;
+}
+@keyframes ridebox-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+.ridebox__hint {
+  font-size: 12px;
+  color: var(--paper);
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  opacity: 0.85;
+}
+
+/* Ride telemetry HUD — a cycle-computer overlay, top-left of the ride scene. */
+.ridehud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 6;
+  pointer-events: none;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #eaf2f0;
+  background: rgba(14, 20, 24, 0.6);
+  backdrop-filter: blur(7px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px 13px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  min-width: 196px;
+}
+.ridehud__route {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8fb8c8;
+  margin-bottom: 7px;
+}
+.ridehud__speed {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 11px;
+}
+.ridehud__speed-val {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+.ridehud__speed-unit {
+  font-size: 13px;
+  font-weight: 600;
+  color: #8fb8c8;
+}
+.ridehud__tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.ridehud__tile {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 6px 9px 7px;
+}
+.ridehud__tile-label {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7fa6b6;
+  margin-bottom: 2px;
+}
+.ridehud__tile-val {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ridehud__tile-unit {
+  font-size: 10px;
+  font-weight: 600;
+  color: #8fb8c8;
+  margin-left: 3px;
+}
+@media (max-width: 560px) {
+  .ridehud { min-width: 150px; padding: 9px 11px 10px; }
+  .ridehud__speed-val { font-size: 36px; }
+}
+
+/* "Read the log" button — top-right of the ride scene when the route has a post. */
+.ride-blog {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: linear-gradient(180deg, #fffaf0, var(--paper));
+  border: 2px solid var(--clay-deep);
+  border-radius: 999px;
+  padding: 8px 15px 8px 12px;
+  box-shadow: 0 8px 20px rgba(43, 38, 32, 0.28);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.ride-blog:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(43, 38, 32, 0.34);
+}
+.ride-blog__icon { font-size: 17px; line-height: 1; }
+.ride-blog__label { line-height: 1; }
+
+/* 📖 marker on a world-selector card whose route has a ride log. */
+.wsel__blog {
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  font-size: 15px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+@media (max-width: 560px) {
+  /* On a phone the label crowds the frame — the icon alone is enough. */
+  .ride-blog__label { display: none; }
+  .ride-blog { padding: 9px; }
 }
 
 @keyframes fade-in {

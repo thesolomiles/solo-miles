@@ -1,0 +1,57 @@
+/**
+ * The ride scene — an orthographic auto-runner. When you pick a route from the
+ * world selector, the town fades out and this mounts: the player and Leonard run
+ * in place (facing north, up the road, backs to the camera) while the world
+ * scrolls toward the camera, and Leonard chats about the route in a speech box.
+ *
+ * Everyone stays put; the ground dashes and the roadside props march toward the
+ * camera and recycle — the classic endless-runner trick, kept cheap and flat to
+ * match the town's low-poly look.
+ */
+export const RIDE = {
+  /** World units/second the scenery moves toward the camera (+Z, down-screen). */
+  scrollSpeed: 9.0,
+  /** Anim ground-speed fed to the run clip so the legs cadence like a real run. */
+  runSpeed: 6.6,
+  /** Ortho ground-centre the shared OrthoRig locks onto during a ride. Negative =
+   *  screen centre sits north of the runners, so they ride in the lower third and
+   *  the road recedes ahead of them. */
+  cameraCentreZ: -8,
+  figureScale: 0.9, // match RiggedFigure SCALE (same size as in town)
+  /** Runners' x offsets — player on the left, Leonard on his right. */
+  playerX: -1.5,
+  leonardX: 1.5,
+  /** Half-width of the tarmac; grass runs out past it to the frame edge. */
+  roadHalfWidth: 3.6,
+  /** The road is a shallow raised slab (kerb) sitting proud of the grass. */
+  roadHeight: 0.09,
+  /** Dirt verge strip along each road edge. */
+  vergeWidth: 0.55,
+  /** Roadside pines reuse the main-map pine mesh, normalised to this height. */
+  pineTargetH: 4.2,
+  /** Recycle band along Z: props spawn at `far` (up-screen) and wrap once they
+   *  pass `near` (below the camera). */
+  spawnZ: -48,
+  recycleZ: 22,
+  /** Baseline cruising speed for the telemetry HUD (km/h); the live readout
+   *  varies around this with the synthetic gradient. */
+  baseSpeedKmh: 29,
+} as const
+
+/** Leonard's closing line, appended to every route's chat; advancing past it ends
+ *  the ride and returns to town. */
+export const RIDE_OUTRO_LINE = 'That was a great ride — let’s head back.'
+
+/** Palette for the flat-shaded ride scenery (shared low-poly language). */
+export const RIDE_COLORS = {
+  grass: 0x8fab68,
+  grassBlade: 0x7f9d52,
+  shrub: 0x5f7d3f,
+  road: 0x3b3a3e,
+  dash: 0xf1e7cf,
+  verge: 0x8a7250,
+  pine: 0x4e6138,
+  pineLo: 0x5f7d3f,
+  rock: 0x9a9186,
+  sun: 0xffb066,
+} as const

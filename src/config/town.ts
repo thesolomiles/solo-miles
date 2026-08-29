@@ -16,9 +16,9 @@ export type SectionId = 'about' | 'cycling' | 'travel' | 'contact' | 'story'
  * What choosing a dialogue option does.
  * - `dismiss`   — just close the dialogue.
  * - `sendBack`  — close, then send the player back to the bridge, facing town.
- * - `openRides` — close, then open Leonard's ride-picker card modal.
+ * - `openWorld` — close, then open Leonard's world selector (country → route).
  */
-export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openRides'
+export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openWorld'
 
 /** A branch offered at the end of a dialogue (Leonard's "go for a ride?"). */
 export interface DialogueChoice {
@@ -255,7 +255,6 @@ export const ACTORS = {
     // before the forest closes in. Kept inside WORLD.boundary (±27) so the
     // player can actually walk up to him (he used to sit at z −30.5, off-map).
     post: new THREE.Vector3(0, 0, -26),
-    jersey: 0x2f8f83,
     interact: {
       id: 'rider',
       name: 'Leonard',
@@ -264,13 +263,13 @@ export const ACTORS = {
       color: 0x2f8f83,
       radius: 3.6,
       lines: [
-        'Hey there! I love cycling — been to more places than I can count.',
-        'Wanna tag along for a ride?',
+        'Heya! I was just about to head out for a ride.',
+        'Wanna join me?',
       ],
-      // "Yes" opens the ride-picker cards; "No" glides you back toward town,
+      // "Yes" opens the world selector; "No" glides you back toward the bridge,
       // facing south.
       choices: [
-        { label: 'Yes', outcome: 'openRides' },
+        { label: 'Yes', outcome: 'openWorld' },
         { label: 'No', outcome: 'sendBack' },
       ],
     } satisfies Interactable,

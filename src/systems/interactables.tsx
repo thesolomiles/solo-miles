@@ -82,7 +82,7 @@ export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vect
  * Each frame, test whether the player is standing inside any hand-authored
  * interaction zone (systems/zones.ts) and publish it to the store (which
  * dedupes). Box containment — the twin of ProximitySystem's radius test, but for
- * the named "door" boxes. Suppressed while a dialogue/section/rides overlay is
+ * the named "door" boxes. Suppressed while a dialogue/section/world overlay is
  * open, or before the intro is dismissed. First matching box wins.
  */
 export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
@@ -90,7 +90,7 @@ export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector
 
   useFrame(() => {
     const st = useGame.getState()
-    if (!st.started || st.dialogue || st.section || st.ridesOpen || st.gamesOpen || st.minigame || st.transition) {
+    if (!st.started || st.dialogue || st.section || st.worldOpen || st.gamesOpen || st.minigame || st.ride || st.transition) {
       if (st.nearZone) setNearZone(null)
       return
     }

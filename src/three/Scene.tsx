@@ -20,7 +20,7 @@ import { Patrons } from './actors/Patron'
 import { CafeBgm } from './CafeBgm'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
-// import { Rider } from './actors/Rider' // hidden for now — see Scene render below
+import { Rider } from './actors/Rider'
 import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
 import { useLighting } from '../state/lighting'
@@ -30,6 +30,7 @@ import { useGame } from '../state/store'
 import { setActiveWorld } from '../systems/activeWorld'
 import { CAFE } from '../config/cafe'
 import { PacmanWorld } from './arcade/PacmanWorld'
+import { RideWorld } from './ride/RideWorld'
 
 // Interiors sit in a dark surround (a single room floating in space would
 // otherwise show the bright town sky around it). A warm near-black frames the
@@ -178,6 +179,26 @@ function InteriorController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   return null
 }
 
+/**
+ * On leaving a ride (ride → null), drop the player back on the road just south of
+ * Leonard, facing town — so the town fades in with them standing where the ride
+ * began. Entering a ride needs no move (the town Player is unmounted).
+ */
+function RideController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
+  const ride = useGame((s) => s.ride)
+  const prevRide = useRef(ride)
+  useEffect(() => {
+    const wasRiding = prevRide.current !== null
+    if (prevRide.current === ride) return
+    prevRide.current = ride
+    if (ride === null && wasRiding) {
+      setActiveWorld('town')
+      posRef.current.set(0, 0, -22)
+    }
+  }, [ride, posRef])
+  return null
+}
+
 // Café window positions in three-space, nudged just inside each pane (Blender
 // Y-up export: +Y/north → −Z). A warm point light at each makes the windows
 // actually cast light into the room, not merely glow.
@@ -221,6 +242,7 @@ export function Scene() {
   const posRef = useRef(PLAYER.start.clone())
   const interior = useGame((s) => s.interior)
   const minigame = useGame((s) => s.minigame)
+  const ride = useGame((s) => s.ride)
   const enclosed = interior !== null || minigame !== null
   // Selected individually: a bare useThree() would re-render the whole scene on
   // any renderer-store change. Both of these are stable for the app's lifetime.
@@ -265,14 +287,15 @@ export function Scene() {
   return (
     <InteractablesProvider>
       <SkyBackground interior={enclosed ? 'cafe' : null} />
-      {!enclosed && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
+      {/* Town fog only: the ride mounts its own fog (RideWorld); interiors have none. */}
+      {!enclosed && !ride && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
 
       {/* Town rig (golden hour): a warm sky/ground ambient, a warm-amber key sun
           casting long soft shadows, and a dim COOL fill from the opposite side —
           the cool fill is deliberate: it tints the shadow sides blue against the
           warm sun for that late-afternoon warm/cool contrast. Gated OFF inside an
           interior — the café lights itself (CafeLights) so the sun never washes it. */}
-      {!enclosed && (
+      {!enclosed && !ride && (
         <>
           <hemisphereLight args={[0xf3e2c6, 0x6f5f42, hemisphere]} />
           <ambientLight intensity={ambient} color={0xffe9cf} />
@@ -284,6 +307,8 @@ export function Scene() {
 
       {minigame === 'pacman' ? (
         <PacmanWorld />
+      ) : ride ? (
+        <RideWorld />
       ) : interior === 'cafe' ? (
         <>
           <CafeModel />
@@ -304,16 +329,17 @@ export function Scene() {
           {debug && !edit && <ColliderDebug boundary={WORLD.boundary} />}
           <Interactions />
           <Cat />
-          {/* Cyclist Leonard hidden for now (ride-picker flow is built; re-enable
-              when the ride UI/content is ready). */}
-          {/* <Rider playerPos={posRef} /> */}
+          {/* Cyclist Leonard — mid-road near the forest, facing south. Talk to
+              him (E) to open the world selector. */}
+          <Rider playerPos={posRef} />
           <Workers />
         </>
       )}
       {(debug || edit) && <PerfProbe />}
 
       <InteriorController posRef={posRef} />
-      {!minigame && <Player posRef={posRef} />}
+      <RideController posRef={posRef} />
+      {!minigame && !ride && <Player posRef={posRef} />}
 
       <OrthoRig posRef={posRef} />
       <ProximitySystem playerPos={posRef} />

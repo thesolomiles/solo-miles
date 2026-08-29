@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useGame } from '../state/store'
 import { SECTIONS, type Interactable, type InteractZone } from '../config/town'
 import { TouchControls } from './TouchControls'
-import { RidesModal } from './RidesModal'
+import { WorldSelector } from './WorldModal'
 import { GamesModal } from './GamesModal'
+import { RideDialogue } from './RideDialogue'
+import { RideHud } from './RideHud'
 import { PacmanHud } from './PacmanHud'
 import { isTypingTarget } from '../systems/input'
 
@@ -154,9 +156,10 @@ export function Hud() {
   const dialogue = useGame((s) => s.dialogue)
   const line = useGame((s) => s.line)
   const section = useGame((s) => s.section)
-  const ridesOpen = useGame((s) => s.ridesOpen)
+  const worldOpen = useGame((s) => s.worldOpen)
   const gamesOpen = useGame((s) => s.gamesOpen)
   const minigame = useGame((s) => s.minigame)
+  const ride = useGame((s) => s.ride)
   const nearZone = useGame((s) => s.nearZone)
 
   // The single interact key (mirrors the prototype's edge handling).
@@ -166,6 +169,9 @@ export function Hud() {
       // keystrokes — otherwise we'd preventDefault "E"/Space/Enter out of them.
       if (isTypingTarget(e.target)) return
       const st = useGame.getState()
+      // During a ride the speech box (RideDialogue) owns the keys (advance / Esc);
+      // don't also run movement/interact handling here.
+      if (st.ride) return
       // Number keys resolve a choice dialogue (Leonard's Yes/No).
       const choices = st.dialogue?.choices
       if (choices && st.line >= st.dialogue!.lines.length - 1) {
@@ -185,7 +191,7 @@ export function Hud() {
           if (st.arcade?.status === 'won' || st.arcade?.status === 'lost') st.requestMinigame(null)
           else st.setArcadePaused(!st.arcade?.paused)
         } else if (st.gamesOpen) st.closeGames()
-        else if (st.ridesOpen) st.closeRides()
+        else if (st.worldOpen) st.closeWorld()
         else if (st.section) st.closeSection()
         else if (st.dialogue) st.closeDialogue()
       }
@@ -199,19 +205,21 @@ export function Hud() {
       {/* No intro modal — the opening cinematic (OrthoRig) sweeps in from the
           southern trees onto the character, then calls start() itself. */}
       {started && <Hint />}
-      {started && isTouch && !dialogue && !section && !ridesOpen && !gamesOpen && !minigame && (
+      {started && isTouch && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
         <TouchControls />
       )}
-      {started && near && !dialogue && !section && !ridesOpen && !gamesOpen && !minigame && (
+      {started && near && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
         <Prompt near={near} />
       )}
-      {started && !near && nearZone && !dialogue && !section && !ridesOpen && !gamesOpen && !minigame && (
+      {started && !near && nearZone && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
         <ZonePrompt zone={nearZone} />
       )}
       {dialogue && <Dialogue item={dialogue} line={line} />}
       {section && <SectionOverlay id={section} />}
-      {ridesOpen && <RidesModal />}
+      {worldOpen && <WorldSelector />}
       {gamesOpen && <GamesModal />}
+      {ride && <RideDialogue />}
+      {ride && <RideHud />}
       {minigame === 'pacman' && <PacmanHud />}
       <Transition />
     </div>

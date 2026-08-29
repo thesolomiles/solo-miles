@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 import type { DialogueChoice, Interactable, InteractZone, SectionId } from '../config/town'
 import { CAFE } from '../config/cafe'
+import { ROUTES, routeScript } from '../config/worlds'
+
+/** Total lines Leonard says on a route: his chat + the appended closing line
+ *  (RIDE_OUTRO_LINE, rendered by the HUD). */
+function rideLineCount(routeId: string): number {
+  const route = ROUTES[routeId]
+  if (!route) return 0
+  return routeScript(route).length + 1
+}
 
 export type MinigameId = 'pacman'
 export type ArcadeHudStatus = 'play' | 'won' | 'lost' | 'dying'
@@ -15,6 +24,7 @@ export interface ArcadeHud {
 export type Transition =
   | { kind: 'interior'; to: 'cafe' | null }
   | { kind: 'minigame'; to: MinigameId | null }
+  | { kind: 'ride'; to: string | null }
 
 /**
  * Discrete game/UI state shared between the r3f scene and the React HUD.
@@ -38,10 +48,17 @@ interface GameState {
   line: number
   /** Open content section overlay (About, Cycling, …), or null for the town. */
   section: SectionId | null
-  /** True while Leonard's ride-picker card modal is open. */
-  ridesOpen: boolean
+  /** True while Leonard's world selector (country → route picker) is open. */
+  worldOpen: boolean
   /** Café arcade game-selector modal. */
   gamesOpen: boolean
+  /** Active ride route id (the auto-runner scene), or null when not riding. Set
+      by picking a route in the world selector; cleared when Leonard's chat ends
+      or the player leaves. Drives the town→ride world swap (three/Scene.tsx). */
+  ride: string | null
+  /** Which line of Leonard's ride chat is showing (index into the route script
+      + the appended closing line). */
+  rideLine: number
   /** Which interior "world" the player is inside, or null for the town. Set by
       pressing E on the town's café door; cleared by the café's exit zone. Drives
       the town↔café model + collision swap (config/cafe.ts, three/Scene.tsx). */
@@ -71,9 +88,14 @@ interface GameState {
   clearSendBack: () => void
   openSection: (s: SectionId) => void
   closeSection: () => void
-  closeRides: () => void
+  closeWorld: () => void
   openGames: () => void
   closeGames: () => void
+  /** Begin a town↔ride fade (pass a route id to start, null to leave). Closes the
+      world selector so the fade isn't sitting under it. */
+  requestRide: (to: string | null) => void
+  /** Advance Leonard's ride chat by one line; leaving the ride once it's done. */
+  advanceRide: () => void
   setArcade: (hud: ArcadeHud) => void
   setArcadePaused: (paused: boolean) => void
   /** Begin a town↔interior transition (fade out). No-op if one is already
@@ -95,8 +117,10 @@ export const useGame = create<GameState>((set, get) => ({
   dialogue: null,
   line: 0,
   section: null,
-  ridesOpen: false,
+  worldOpen: false,
   gamesOpen: false,
+  ride: null,
+  rideLine: 0,
   interior: null,
   minigame: null,
   arcade: null,
@@ -116,9 +140,9 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   interact: () => {
-    const { dialogue, near, nearZone, section, ridesOpen, gamesOpen, transition, minigame } =
+    const { dialogue, near, nearZone, section, worldOpen, gamesOpen, transition, minigame } =
       get()
-    if (section || ridesOpen || gamesOpen || transition || minigame) return
+    if (section || worldOpen || gamesOpen || transition || minigame) return
     if (dialogue) {
       get().advance()
     } else if (near) {
@@ -163,16 +187,32 @@ export const useGame = create<GameState>((set, get) => ({
   choose: (choice) => {
     set({ dialogue: null, line: 0 })
     if (choice.outcome === 'sendBack') set({ sendBack: true })
-    else if (choice.outcome === 'openRides') set({ ridesOpen: true })
+    else if (choice.outcome === 'openWorld') set({ worldOpen: true })
   },
 
   closeDialogue: () => set({ dialogue: null, line: 0 }),
   clearSendBack: () => set({ sendBack: false }),
   openSection: (s) => set({ section: s, dialogue: null, line: 0 }),
   closeSection: () => set({ section: null }),
-  closeRides: () => set({ ridesOpen: false }),
+  closeWorld: () => set({ worldOpen: false }),
   openGames: () => set({ gamesOpen: true, near: null, nearZone: null }),
   closeGames: () => set({ gamesOpen: false }),
+
+  requestRide: (to) => {
+    if (get().transition) return
+    set({
+      transition: { kind: 'ride', to },
+      worldOpen: false,
+      near: null,
+      nearZone: null,
+    })
+  },
+  advanceRide: () => {
+    const { ride, rideLine, transition } = get()
+    if (!ride || transition) return
+    if (rideLine + 1 >= rideLineCount(ride)) get().requestRide(null) // chat done → leave
+    else set({ rideLine: rideLine + 1 })
+  },
   setArcade: (hud) => set({ arcade: hud }),
   setArcadePaused: (paused) => {
     const a = get().arcade
@@ -196,6 +236,7 @@ export const useGame = create<GameState>((set, get) => ({
     const t = get().transition
     if (!t) return
     if (t.kind === 'interior') set({ interior: t.to })
+    else if (t.kind === 'ride') set({ ride: t.to, rideLine: 0 })
     else if (t.to) {
       set({
         minigame: t.to,

@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { CAMERA } from '../config/constants'
 import { CAFE } from '../config/cafe'
 import { PACMAN } from '../config/arcade'
+import { RIDE } from '../config/ride'
 import { arcadeFocus } from '../systems/arcadeFocus'
 import { useGame } from '../state/store'
 
@@ -41,14 +42,15 @@ function clampCentre(v: number, half: number, bound = GROUND_HALF): number {
 function viewHeight(
   interior: 'cafe' | null,
   minigame: 'pacman' | null,
+  ride: boolean,
   aspect: number,
   sinPitch: number,
 ): number {
-  // The maze keeps the town's fixed zoom so the character is the same size in
-  // the game as it is outside. The board can be wider than the viewport in
-  // portrait — that's fine, the camera follows the player and pans, clamping to
-  // the board edge (frameHalfX/Z) below.
-  if (minigame === 'pacman') return CAMERA.worldViewHeight
+  // The maze / ride keep the town's fixed zoom so the character is the same size
+  // as it is outside. The board can be wider than the viewport in portrait —
+  // that's fine, the camera follows the player and pans, clamping to the board
+  // edge (frameHalfX/Z) below.
+  if (minigame === 'pacman' || ride) return CAMERA.worldViewHeight
   if (interior !== 'cafe') return CAMERA.worldViewHeight
   const hFitX = (2 * CAFE.frameHalfX) / Math.max(aspect, 0.05)
   const hFitZ = 2 * CAFE.frameHalfZ * sinPitch
@@ -90,6 +92,7 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   // glide — the transition should be a plain fade, never a visible "move in".
   const prevInterior = useRef(useGame.getState().interior)
   const prevMinigame = useRef(useGame.getState().minigame)
+  const prevRide = useRef(useGame.getState().ride)
   // Opening intro: elapsed time in the zoom-out (see INTRO). Only runs pre-start.
   const introT = useRef(0)
 
@@ -155,8 +158,10 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     cam.quaternion.copy(fixedQuat) // constant — locked, never re-aimed
 
     const p = posRef.current
-    const { interior: interiorNow, minigame: minigameNow, started } = useGame.getState()
-    const framed = interiorNow !== null || minigameNow !== null
+    const { interior: interiorNow, minigame: minigameNow, ride: rideNow, started } =
+      useGame.getState()
+    const riding = rideNow !== null
+    const framed = interiorNow !== null || minigameNow !== null || riding
     const aspect = size.width / Math.max(size.height, 1)
 
     // Opening intro: ease the zoom from 125% → 100% (pure ortho, no camera move),
@@ -169,7 +174,7 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       if (t >= 1) useGame.getState().start()
     }
 
-    const h = viewHeight(interiorNow, minigameNow, aspect, rig.sinPitch) / zoom
+    const h = viewHeight(interiorNow, minigameNow, riding, aspect, rig.sinPitch) / zoom
     if (h !== frustum.current.h || aspect !== frustum.current.aspect) {
       frustum.current = { h, aspect }
       applyFrustum(cam, h, aspect)
@@ -188,9 +193,12 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // A town↔café swap (flag flips at full black) must SNAP the camera into the
     // new room's framed shot, so the fade-in reveals it already in place.
     const swapped =
-      interiorNow !== prevInterior.current || minigameNow !== prevMinigame.current
+      interiorNow !== prevInterior.current ||
+      minigameNow !== prevMinigame.current ||
+      rideNow !== prevRide.current
     prevInterior.current = interiorNow
     prevMinigame.current = minigameNow
+    prevRide.current = rideNow
 
     // The maze follows its own player (the town Player is unmounted in a
     // minigame, so it publishes through arcadeFocus) and clamps to the board
@@ -202,9 +210,11 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
         : clampCentre(p.x, halfX)
     const cgz = minigameNow
       ? clampCentre(arcadeFocus.z + rig.groundOffZ, halfZ, PACMAN.frameHalfZ)
-      : interiorNow
-        ? -1.0
-        : clampCentre(p.z + rig.groundOffZ, halfZ)
+      : riding
+        ? RIDE.cameraCentreZ // fixed shot: runners in the lower third, road ahead
+        : interiorNow
+          ? -1.0
+          : clampCentre(p.z + rig.groundOffZ, halfZ)
 
     // Convert the clamped ground centre back into a camera position. With no yaw,
     // camera.x == ground-centre.x; camera.z is the ground centre minus the fixed
