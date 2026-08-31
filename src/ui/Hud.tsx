@@ -6,6 +6,7 @@ import { WorldSelector } from './WorldModal'
 import { GamesModal } from './GamesModal'
 import { RideDialogue } from './RideDialogue'
 import { RideHud } from './RideHud'
+import { RideRouteOverview } from './RideRouteOverview'
 import { PacmanHud } from './PacmanHud'
 import { isTypingTarget } from '../systems/input'
 
@@ -220,6 +221,7 @@ export function Hud() {
       {gamesOpen && <GamesModal />}
       {ride && <RideDialogue />}
       {ride && <RideHud />}
+      {ride && <RideRouteOverview />}
       {minigame === 'pacman' && <PacmanHud />}
       <Transition />
     </div>

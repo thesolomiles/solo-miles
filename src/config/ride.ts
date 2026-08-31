@@ -21,12 +21,15 @@ export const RIDE = {
   /** Runners' x offsets — player on the left, Leonard on his right. */
   playerX: -1.5,
   leonardX: 1.5,
+  /** Runners' shared z — pulled up-screen (north) so they sit in the upper-middle
+   *  of the frame (riding toward the camera, world receding behind them), well
+   *  clear of the speech box. */
+  runnerZ: -11,
   /** Half-width of the tarmac; grass runs out past it to the frame edge. */
   roadHalfWidth: 3.6,
-  /** The road is a shallow raised slab (kerb) sitting proud of the grass. */
-  roadHeight: 0.09,
-  /** Dirt verge strip along each road edge. */
-  vergeWidth: 0.55,
+  /** The road is a raised causeway — a tall slab sitting well proud of the grass,
+   *  so its embankment sides catch shade and it throws a shadow onto the grass. */
+  roadHeight: 0.45,
   /** Roadside pines reuse the main-map pine mesh, normalised to this height. */
   pineTargetH: 4.2,
   /** Recycle band along Z: props spawn at `far` (up-screen) and wrap once they
@@ -47,8 +50,12 @@ export const RIDE_COLORS = {
   grass: 0x8fab68,
   grassBlade: 0x7f9d52,
   shrub: 0x5f7d3f,
-  road: 0x3b3a3e,
+  road: 0x45444a,
+  roadDark: 0x33323a, // mottled darker asphalt (texture speckle)
+  roadLight: 0x55545c, // mottled lighter asphalt (texture speckle)
+  edgeLine: 0xe9dcbd, // solid painted lines down each road edge
   dash: 0xf1e7cf,
+  embankment: 0x7c5c3b, // dirt sides of the raised causeway
   verge: 0x8a7250,
   pine: 0x4e6138,
   pineLo: 0x5f7d3f,

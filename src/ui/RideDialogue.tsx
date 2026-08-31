@@ -3,6 +3,7 @@ import { useGame } from '../state/store'
 import { ROUTES, routeScript } from '../config/worlds'
 import { RIDE_OUTRO_LINE } from '../config/ride'
 import { isTypingTarget } from '../systems/input'
+import { LeonardAvatar } from './LeonardAvatar'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 const TYPE_MS = 22 // per-character reveal speed
@@ -86,10 +87,15 @@ export function RideDialogue() {
         </button>
       )}
       <div className="ridebox" onClick={advance}>
-        <div className="ridebox__panel">
-          <div className="ridebox__name">Leonard</div>
-          <p className="ridebox__text">{shown}</p>
-          <span className={'ridebox__next' + (done ? ' is-ready' : '')}>▼</span>
+        <div className="ridebox__row">
+          <div className="ridebox__avatar" aria-hidden>
+            <LeonardAvatar />
+          </div>
+          <div className="ridebox__panel">
+            <div className="ridebox__name">Leonard</div>
+            <p className="ridebox__text">{shown}</p>
+            <span className={'ridebox__next' + (done ? ' is-ready' : '')}>▼</span>
+          </div>
         </div>
         <div className="ridebox__hint">{isTouch ? 'Tap to continue' : 'E / Space to continue · Esc to leave'}</div>
       </div>

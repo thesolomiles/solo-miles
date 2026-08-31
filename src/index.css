@@ -744,9 +744,22 @@ canvas {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: none; }
 }
+.ridebox__row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+  width: min(820px, calc(100% - 32px));
+}
+.ridebox__avatar {
+  flex: 0 0 auto;
+  filter: drop-shadow(0 10px 20px rgba(43, 38, 32, 0.4));
+  margin-bottom: 4px;
+}
+.ridebox__avatar svg { display: block; width: 76px; height: 76px; }
 .ridebox__panel {
   position: relative;
-  width: min(760px, calc(100% - 32px));
+  flex: 1 1 auto;
   min-height: 96px;
   background: linear-gradient(180deg, #fffaf0, var(--paper));
   border: 4px solid var(--clay-deep);
@@ -802,87 +815,126 @@ canvas {
   opacity: 0.85;
 }
 
-/* Ride telemetry HUD — a cycle-computer overlay, top-left of the ride scene. */
+/* Ride telemetry HUD — a big, boxless cycle-computer readout, top-left. */
 .ridehud {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 22px;
+  left: 26px;
   z-index: 6;
   pointer-events: none;
   font-family: 'Space Grotesk', sans-serif;
-  color: #eaf2f0;
-  background: rgba(14, 20, 24, 0.6);
-  backdrop-filter: blur(7px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 12px 14px 13px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  min-width: 196px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .ridehud__route {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #8fb8c8;
-  margin-bottom: 7px;
+  color: rgba(255, 255, 255, 0.82);
+  margin-bottom: -6px;
 }
-.ridehud__speed {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 11px;
+.ridehud__stat {
+  line-height: 1;
 }
-.ridehud__speed-val {
-  font-size: 46px;
+.ridehud__val {
+  font-size: 40px;
   font-weight: 700;
-  line-height: 0.85;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
-.ridehud__speed-unit {
-  font-size: 13px;
+.ridehud__unit {
+  font-size: 17px;
   font-weight: 600;
-  color: #8fb8c8;
-}
-.ridehud__tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-}
-.ridehud__tile {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  padding: 6px 9px 7px;
-}
-.ridehud__tile-label {
-  font-size: 8.5px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #7fa6b6;
-  margin-bottom: 2px;
-}
-.ridehud__tile-val {
-  font-size: 16px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.ridehud__tile-unit {
-  font-size: 10px;
-  font-weight: 600;
-  color: #8fb8c8;
   margin-left: 3px;
+  color: rgba(255, 255, 255, 0.9);
+}
+.ridehud__label {
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
 }
 @media (max-width: 560px) {
-  .ridehud { min-width: 150px; padding: 9px 11px 10px; }
-  .ridehud__speed-val { font-size: 36px; }
+  .ridehud { top: 16px; left: 16px; gap: 12px; }
+  .ridehud__val { font-size: 30px; }
+  .ridehud__unit { font-size: 14px; }
 }
 
-/* "Read the log" button — top-right of the ride scene when the route has a post. */
+/* Route overview — a little map trace, top-right of the ride scene. */
+.ride-map {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  z-index: 6;
+  pointer-events: none;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #fff;
+  text-align: right;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
+}
+.ride-map__title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  margin-bottom: 2px;
+}
+.ride-map__svg {
+  display: block;
+  margin-left: auto;
+  overflow: visible;
+}
+.ride-map__line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.32);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ride-map__line--done {
+  stroke: #fff;
+  stroke-width: 3;
+}
+.ride-map__start {
+  fill: #ffe4a3;
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 1;
+}
+.ride-map__end {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 2;
+}
+.ride-map__dot {
+  fill: var(--clay, #d98a5a);
+  stroke: #fff;
+  stroke-width: 2;
+}
+.ride-map__meta {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  margin-top: 1px;
+}
+@media (max-width: 560px) {
+  .ride-map { top: 14px; right: 14px; transform: scale(0.82); transform-origin: top right; }
+}
+
+/* "Read the log" button — top-right of the ride scene, below the route map. */
 .ride-blog {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 150px;
+  right: 22px;
   z-index: 7;
   display: flex;
   align-items: center;
