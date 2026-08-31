@@ -446,6 +446,15 @@ canvas {
   color: #1a120c;
   background: rgba(243, 230, 200, 0.9);
 }
+.wsel__map {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 11px 12px 9px;
+  filter: drop-shadow(0 2px 3px rgba(26, 16, 8, 0.45));
+  -webkit-user-drag: none;
+  user-select: none;
+}
 .wsel__name {
   margin: 8px 0 0;
   font-family: Belanosima, sans-serif;
@@ -454,6 +463,21 @@ canvas {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   text-align: center;
+}
+.wsel__region {
+  display: block;
+  margin-top: 2px;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(243, 230, 200, 0.6);
+}
+.wsel__soon {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: rgba(243, 230, 200, 0.42);
 }
 
 @font-face {

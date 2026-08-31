@@ -33,12 +33,17 @@ function RouteCard({ route }: { route: Route }) {
         className="wsel__thumb"
         style={{ background: `linear-gradient(150deg, ${route.thumb.from}, ${route.thumb.to})` }}
       >
-        <span className="wsel__glyph">{route.thumb.glyph}</span>
+        {route.map ? (
+          <img className="wsel__map" src={route.map} alt="" aria-hidden draggable={false} />
+        ) : (
+          <span className="wsel__glyph">{route.thumb.glyph}</span>
+        )}
         <Pips n={route.difficulty} />
-        <span className="wsel__km">{route.distanceKm} km</span>
+        <span className="wsel__km">{route.distanceKm} km · {route.elevationM.toLocaleString()} m</span>
         {route.blogPath && <span className="wsel__blog" title="Has a ride log" aria-hidden>📖</span>}
       </div>
       <h4 className="wsel__name">{route.place}</h4>
+      <span className="wsel__region">{route.region}</span>
     </div>
   )
 }
@@ -70,11 +75,15 @@ export function WorldSelector() {
                 <span className="wsel__flag">{c.flag}</span>
                 {c.name}
               </h3>
-              <div className="wsel__row">
-                {c.routes.map((r) => (
-                  <RouteCard key={r.id} route={r} />
-                ))}
-              </div>
+              {c.routes.length ? (
+                <div className="wsel__row">
+                  {c.routes.map((r) => (
+                    <RouteCard key={r.id} route={r} />
+                  ))}
+                </div>
+              ) : (
+                <p className="wsel__soon">Not ridden yet — coming soon.</p>
+              )}
             </section>
           ))}
         </div>

@@ -1,13 +1,14 @@
 /**
  * The "worlds" Leonard can take you riding through — grouped by country, each a
- * shelf of routes he's ridden before. This backs the world selector that opens
- * when you say "yes" to going for a ride (ui/WorldModal.tsx).
+ * shelf of real climbs he's actually ridden. This backs the world selector that
+ * opens when you say "yes" to going for a ride (ui/WorldModal.tsx).
  *
- * Placeholder data for now: gradient-swatch thumbnails + a glyph, so the flow
- * (talk → yes → world selector) is wired end-to-end. Real route thumbnails,
- * distances and copy get swapped in later — keep the shape stable, the modal
- * renders straight off these fields. Cards are non-interactive for now (a route
- * doesn't load anything yet), mirroring the café's locked arcade games.
+ * The data is drawn from Leonard's Notion "List of climbs": one entry per climb
+ * with its real distance and elevation gain, and a route-map trace (the actual
+ * GPS shape, exported from Strava) that renders as the card thumbnail from
+ * public/routes/<id>.svg. Difficulty is derived from the numbers (see below).
+ * Countries Leonard hasn't ridden yet (Singapore, Malaysia, Indonesia) are kept
+ * as empty shelves so the map of where he's been reads honestly.
  */
 export interface Route {
   id: string
@@ -15,22 +16,24 @@ export interface Route {
   region: string
   distanceKm: number
   elevationM: number
-  /** 1–5, rendered as a pip row on the thumbnail. */
+  /** 1–5, rendered as a pip row on the thumbnail. Derived from distance + climb. */
   difficulty: number
-  /** Placeholder thumbnail: a two-stop gradient + a glyph, until real art lands. */
+  /** Card background: a two-stop gradient (per country) + a glyph fallback shown
+      when there's no route map. */
   thumb: { from: string; to: string; glyph: string }
+  /** The real route-map trace, a web path under public/routes/. Rendered as the
+      card thumbnail — the actual shape of the ride. */
+  map?: string
+  /** Strava activity for the ride (source of the distance/elevation/map). */
+  strava?: string
   /** What Leonard says on the ride, line by line. Optional — when absent, a
       contextual placeholder script is generated from the route's fields (see
       routeScript). Hand-author these as the real ride content lands. */
   script?: string[]
   /** Web path to the ride's blog post — one folder per post under public/blog/,
       each holding an `index.html` + an `images/` folder (see public/blog/README.md),
-      e.g. '/blog/shimanami-kaido/index.html'. (Points at index.html explicitly, not
-      the bare directory, so it resolves as a static file instead of hitting Vite's
-      SPA fallback.) When set, the world-selector card shows a 📖 marker and the ride
-      scene shows a button that opens the post in a new tab. The post's
-      <meta name="sm:*"> tags are the source I read to author this route; its <body>
-      is what I turn into `script`. */
+      e.g. '/blog/shimanami-kaido/index.html'. When set, the world-selector card
+      shows a 📖 marker and the ride scene shows a button that opens the post. */
   blogPath?: string
 }
 
@@ -42,56 +45,57 @@ export interface Country {
   routes: Route[]
 }
 
+// Per-country card gradients — the route trace is the hero, so each country gets
+// one cohesive palette behind it (its shelf colour).
+const G = {
+  korea: { from: '#e7b26a', to: '#b1543c' },
+  japan: { from: '#86a9db', to: '#3d4f7c' },
+  taiwan: { from: '#9cbf79', to: '#3f6b46' },
+  australia: { from: '#f0c169', to: '#c6854a' },
+  hongkong: { from: '#8fc3c9', to: '#3d6b76' },
+} as const
+
 export const WORLDS: Country[] = [
-  {
-    id: 'japan',
-    name: 'Japan',
-    flag: '🇯🇵',
-    routes: [
-      {
-        id: 'shimanami', place: 'Shimanami Kaido', region: 'Seto Inland Sea', distanceKm: 70, elevationM: 640, difficulty: 2, thumb: { from: '#7ec8e3', to: '#2f8f83', glyph: '🌊' },
-        blogPath: '/blog/shimanami-kaido/index.html',
-        script: [
-          'Ahh, the Shimanami Kaido — this one’s special.',
-          'Seventy kilometres island-hopping across the Seto Inland Sea.',
-          'Six big suspension bridges, one after another, all to ourselves.',
-          'Every crossing has a long spiral ramp — no stairs, just a gentle climb up to deck height.',
-          'Gentle gradients the whole way, so just spin and soak in that unreal blue.',
-          'I wrote the whole day up back home — tap the log if you want the full story.',
-        ],
-      },
-      { id: 'fuji', place: 'Fuji Five Lakes', region: 'Yamanashi', distanceKm: 118, elevationM: 2380, difficulty: 5, thumb: { from: '#cfe3df', to: '#6b7fb0', glyph: '🗻' } },
-      { id: 'noto', place: 'Noto Peninsula', region: 'Ishikawa', distanceKm: 96, elevationM: 980, difficulty: 3, thumb: { from: '#a6cfe1', to: '#50708f', glyph: '⛩️' } },
-      {
-        id: 'biei', place: 'Biei Rolling Hills', region: 'Hokkaido', distanceKm: 62, elevationM: 1180, difficulty: 3, thumb: { from: '#cfe3a6', to: '#7a9a52', glyph: '🌾' },
-        blogPath: '/blog/biei-hills/index.html',
-        script: [
-          'Now this one’s a hidden gem — Biei, up in Hokkaido.',
-          'Sixty-odd kilometres of rolling farmland that looks straight out of a painting.',
-          'No set loop — you just wander the lanes between the fields and the lone trees.',
-          'Constant little ups and downs, and every crest hands you another postcard.',
-          'Summer only, mind — but the prettiest sixty kays I’ve ever ridden. Full log’s in the button.',
-        ],
-      },
-    ],
-  },
   {
     id: 'korea',
     name: 'Korea',
     flag: '🇰🇷',
     routes: [
-      {
-        id: 'jeju', place: 'Jeju Coastal Loop', region: 'Jeju-do', distanceKm: 202, elevationM: 1720, difficulty: 4, thumb: { from: '#f4d38a', to: '#d98a5a', glyph: '🌋' },
-        blogPath: '/blog/jeju-coastal-loop/index.html',
-        script: [
-          'Right, Jeju — a full lap of the island on the coast road.',
-          'Two hundred kilometres round a volcano, salt spray the whole way.',
-          'The climbing’s gentle, but the wind? The wind decides your day out here.',
-          'Hallasan sits in the middle the entire ride, ducking in and out of the clouds.',
-          'I split it over two days in the end — the write-up’s in the log if you fancy it.',
-        ],
-      },
-      { id: 'hallasan', place: 'Hallasan Climb', region: 'Jeju-do', distanceKm: 44, elevationM: 1580, difficulty: 4, thumb: { from: '#e7d3b0', to: '#b4553f', glyph: '🌲' } },
+      { id: 'namsan-bukhansan', place: 'Namsan × Bukhansan', region: 'Seoul', distanceKm: 30.6, elevationM: 611, difficulty: 1, map: '/routes/namsan-bukhansan.svg', strava: 'https://www.strava.com/activities/6967634149', thumb: { ...G.korea, glyph: '🏙️' } },
+      { id: 'namhansanseong', place: 'Namhansanseong', region: 'Gyeonggi', distanceKm: 96, elevationM: 952, difficulty: 2, map: '/routes/namhansanseong.svg', strava: 'https://www.strava.com/activities/6983386124', thumb: { ...G.korea, glyph: '🏯' } },
+      { id: 'jirisan', place: 'Jirisan', region: 'Jirisan National Park', distanceKm: 82.5, elevationM: 2133, difficulty: 4, map: '/routes/jirisan.svg', strava: 'https://www.strava.com/activities/10065502447', thumb: { ...G.korea, glyph: '🏔️' } },
+      { id: 'suncheon-bay', place: 'Suncheon Bay Loop', region: 'Suncheon', distanceKm: 153.4, elevationM: 1420, difficulty: 3, map: '/routes/suncheon-bay.svg', strava: 'https://www.strava.com/activities/10071353489', thumb: { ...G.korea, glyph: '🌾' } },
+      { id: 'jeju-round', place: 'Jeju Round Island', region: 'Jeju-do', distanceKm: 225.7, elevationM: 1406, difficulty: 3, map: '/routes/jeju-round.svg', strava: 'https://www.strava.com/activities/10082940987', thumb: { ...G.korea, glyph: '🌊' } },
+      { id: 'jeju-volcano', place: 'Jeju Volcano Loop', region: 'Jeju-do', distanceKm: 103.2, elevationM: 2027, difficulty: 4, map: '/routes/jeju-volcano.svg', strava: 'https://www.strava.com/activities/10076606492', thumb: { ...G.korea, glyph: '🌋' } },
+      { id: 'jeju-western', place: 'Jeju Western Loop', region: 'Jeju-do', distanceKm: 113.6, elevationM: 1626, difficulty: 3, map: '/routes/jeju-western.svg', strava: 'https://www.strava.com/activities/14452327361', thumb: { ...G.korea, glyph: '🌅' } },
+      { id: 'hwaaksan', place: 'Hwaaksan', region: 'Gangwon', distanceKm: 148, elevationM: 1391, difficulty: 3, map: '/routes/hwaaksan.svg', strava: 'https://www.strava.com/activities/10105679554', thumb: { ...G.korea, glyph: '🌲' } },
+      { id: 'that-busan-route', place: 'That Busan Route', region: 'Busan', distanceKm: 104, elevationM: 2546, difficulty: 5, map: '/routes/busan.svg', strava: 'https://www.strava.com/activities/14371983582', thumb: { ...G.korea, glyph: '🌉' } },
+      { id: 'dolsan', place: 'Dolsan Loop', region: 'Yeosu', distanceKm: 65.9, elevationM: 993, difficulty: 2, map: '/routes/dolsan.svg', strava: 'https://www.strava.com/activities/14411204307', thumb: { ...G.korea, glyph: '⛵' } },
+      { id: 'taebaeksan', place: 'Taebaeksan Route', region: 'Gangwon', distanceKm: 127.3, elevationM: 2508, difficulty: 5, map: '/routes/taebaeksan.svg', strava: 'https://www.strava.com/activities/14587561512', thumb: { ...G.korea, glyph: '⛰️' } },
+      { id: 'daegwallyeong', place: 'Daegwallyeong', region: 'Gangwon', distanceKm: 93.9, elevationM: 1528, difficulty: 3, map: '/routes/daegwallyeong.svg', strava: 'https://www.strava.com/activities/14606144690', thumb: { ...G.korea, glyph: '🌿' } },
+    ],
+  },
+  {
+    id: 'japan',
+    name: 'Japan',
+    flag: '🇯🇵',
+    routes: [
+      { id: 'shibu-touge', place: 'Shibu Tōge', region: 'Nagano', distanceKm: 87.2, elevationM: 2182, difficulty: 4, map: '/routes/shibu-touge.svg', strava: 'https://www.strava.com/activities/11435756906', thumb: { ...G.japan, glyph: '⛰️' } },
+      { id: 'haruna-akagi', place: 'Mt Haruna × Mt Akagi', region: 'Gunma', distanceKm: 128.4, elevationM: 2874, difficulty: 5, map: '/routes/haruna-akagi.svg', strava: 'https://www.strava.com/activities/11444592626', thumb: { ...G.japan, glyph: '🌋' } },
+      { id: 'nikko-highland', place: 'Nikkō Highland', region: 'Tochigi', distanceKm: 77.1, elevationM: 2008, difficulty: 4, map: '/routes/nikko-highland.svg', strava: 'https://www.strava.com/activities/11460298411', thumb: { ...G.japan, glyph: '⛩️' } },
+      { id: 'utsukushigahara', place: 'Utsukushigahara × Kirigamine', region: 'Nagano', distanceKm: 96.2, elevationM: 2263, difficulty: 4, map: '/routes/utsukushigahara.svg', strava: 'https://www.strava.com/activities/11468885140', thumb: { ...G.japan, glyph: '🌾' } },
+      { id: 'tsumago-juku', place: 'Tsumago-juku', region: 'Kiso Valley, Nagano', distanceKm: 22.7, elevationM: 606, difficulty: 1, map: '/routes/tsumago-juku.svg', strava: 'https://www.strava.com/activities/11476516041', thumb: { ...G.japan, glyph: '🏘️' } },
+      { id: 'shirabiso-pass', place: 'Shirabiso Pass', region: 'Nagano', distanceKm: 87.4, elevationM: 1895, difficulty: 4, map: '/routes/shirabiso-pass.svg', strava: 'https://www.strava.com/activities/11483891629', thumb: { ...G.japan, glyph: '🏔️' } },
+      { id: 'yanagisawa-pass', place: 'Yanagisawa Pass', region: 'Yamanashi', distanceKm: 82.1, elevationM: 1568, difficulty: 3, map: '/routes/yanagisawa-pass.svg', strava: 'https://www.strava.com/activities/11490356261', thumb: { ...G.japan, glyph: '🗻' } },
+      { id: 'ebino-plateau', place: 'Ebino Plateau', region: 'Kirishima', distanceKm: 78.3, elevationM: 1689, difficulty: 3, map: '/routes/ebino-plateau.svg', strava: 'https://www.strava.com/activities/14296994570', thumb: { ...G.japan, glyph: '♨️' } },
+      { id: 'miyazaki-castle', place: 'Miyazaki Castle Loop', region: 'Miyazaki', distanceKm: 89, elevationM: 1628, difficulty: 3, map: '/routes/miyazaki-castle.svg', strava: 'https://www.strava.com/activities/14016329206', thumb: { ...G.japan, glyph: '🏯' } },
+      { id: 'ibusuki-skyline', place: 'Ibusuki Skyline', region: 'Kagoshima', distanceKm: 129.5, elevationM: 1810, difficulty: 4, map: '/routes/ibusuki-skyline.svg', strava: 'https://www.strava.com/activities/14025912543', thumb: { ...G.japan, glyph: '🌅' } },
+      { id: 'sakurajima', place: 'Sakurajima Loop', region: 'Kagoshima', distanceKm: 39.9, elevationM: 504, difficulty: 1, map: '/routes/sakurajima-loop.svg', strava: 'https://www.strava.com/activities/14034856898', thumb: { ...G.japan, glyph: '🌋' } },
+      { id: 'maruo-falls', place: 'Maruo Falls', region: 'Kirishima', distanceKm: 67.4, elevationM: 1328, difficulty: 3, map: '/routes/maruo-falls.svg', strava: 'https://www.strava.com/activities/14112225203', thumb: { ...G.japan, glyph: '💧' } },
+      { id: 'mt-aso', place: 'Mt Aso Loop', region: 'Kumamoto', distanceKm: 96.5, elevationM: 1782, difficulty: 3, map: '/routes/mt-aso-loop.svg', strava: 'https://www.strava.com/activities/14151735311', thumb: { ...G.japan, glyph: '🌋' } },
+      { id: 'mt-unzen', place: 'Mt Unzen', region: 'Nagasaki', distanceKm: 54.8, elevationM: 1377, difficulty: 3, map: '/routes/mt-unzen.svg', strava: 'https://www.strava.com/activities/14161608687', thumb: { ...G.japan, glyph: '♨️' } },
+      { id: 'kusenbuyama-sefuri', place: 'Kusenbuyama × Mt Sefuri', region: 'Fukuoka / Saga', distanceKm: 78.3, elevationM: 2013, difficulty: 4, map: '/routes/kusenbuyama-sefuri.svg', strava: 'https://www.strava.com/activities/14209826948', thumb: { ...G.japan, glyph: '🌲' } },
+      { id: 'mt-wanitsuka', place: 'Mt Wanitsuka', region: 'Miyazaki', distanceKm: 124.3, elevationM: 1818, difficulty: 4, map: '/routes/mt-wanitsuka.svg', strava: 'https://www.strava.com/activities/14219032226', thumb: { ...G.japan, glyph: '⛰️' } },
     ],
   },
   {
@@ -99,17 +103,10 @@ export const WORLDS: Country[] = [
     name: 'Taiwan',
     flag: '🇹🇼',
     routes: [
-      { id: 'taroko', place: 'Taroko Gorge', region: 'Hualien', distanceKm: 86, elevationM: 2260, difficulty: 5, thumb: { from: '#9bae77', to: '#4e6138', glyph: '⛰️' } },
-      { id: 'sun-moon', place: 'Sun Moon Lake', region: 'Nantou', distanceKm: 30, elevationM: 520, difficulty: 2, thumb: { from: '#8fd0d6', to: '#3a6f8f', glyph: '🚵' } },
-    ],
-  },
-  {
-    id: 'malaysia',
-    name: 'Malaysia',
-    flag: '🇲🇾',
-    routes: [
-      { id: 'cameron', place: 'Cameron Highlands', region: 'Pahang', distanceKm: 92, elevationM: 2100, difficulty: 4, thumb: { from: '#a7c98a', to: '#3f6b46', glyph: '🍃' } },
-      { id: 'langkawi', place: 'Langkawi Loop', region: 'Kedah', distanceKm: 58, elevationM: 610, difficulty: 2, thumb: { from: '#ffd79a', to: '#c98a4a', glyph: '🏝️' } },
+      { id: 'wuling-west', place: 'Wuling from the West', region: 'Taichung', distanceKm: 106.1, elevationM: 2878, difficulty: 5, map: '/routes/wuling-west.svg', strava: 'https://www.strava.com/activities/8254219087', thumb: { ...G.taiwan, glyph: '⛰️' } },
+      { id: 'yangmingshan', place: 'Yangmingshan Loop', region: 'Taipei', distanceKm: 71.1, elevationM: 1073, difficulty: 2, map: '/routes/yangmingshan.svg', strava: 'https://www.strava.com/activities/8265456508', thumb: { ...G.taiwan, glyph: '♨️' } },
+      { id: 'taiwan-kom', place: 'Taiwan KOM', region: 'Hualien', distanceKm: 82.2, elevationM: 3487, difficulty: 5, map: '/routes/taiwan-kom.svg', strava: 'https://www.strava.com/activities/8784051260', thumb: { ...G.taiwan, glyph: '🏔️' } },
+      { id: 'taipei-northern', place: 'Taipei Northern Loop', region: 'Taipei', distanceKm: 148.1, elevationM: 2166, difficulty: 4, map: '/routes/taipei-northern.svg', strava: 'https://www.strava.com/activities/8768345655', thumb: { ...G.taiwan, glyph: '🌃' } },
     ],
   },
   {
@@ -117,17 +114,8 @@ export const WORLDS: Country[] = [
     name: 'Australia',
     flag: '🇦🇺',
     routes: [
-      { id: 'great-ocean', place: 'Great Ocean Road', region: 'Victoria', distanceKm: 243, elevationM: 2900, difficulty: 5, thumb: { from: '#8fc7e8', to: '#356a94', glyph: '🌅' } },
-      { id: 'blue-mtns', place: 'Blue Mountains', region: 'New South Wales', distanceKm: 74, elevationM: 1650, difficulty: 4, thumb: { from: '#9aa6d6', to: '#4b4f7a', glyph: '🏔️' } },
-    ],
-  },
-  {
-    id: 'singapore',
-    name: 'Singapore',
-    flag: '🇸🇬',
-    routes: [
-      { id: 'round-island', place: 'Round Island Route', region: 'Island loop', distanceKm: 150, elevationM: 480, difficulty: 3, thumb: { from: '#ffcf8a', to: '#d9694a', glyph: '🌆' } },
-      { id: 'east-coast', place: 'East Coast Park', region: 'Coastal path', distanceKm: 24, elevationM: 40, difficulty: 1, thumb: { from: '#9fe0cf', to: '#3f8f7a', glyph: '🌴' } },
+      { id: 'ku-ring-gai', place: 'Ku-ring-gai', region: 'Sydney, NSW', distanceKm: 95.7, elevationM: 1313, difficulty: 3, map: '/routes/ku-ring-gai.svg', strava: 'https://www.strava.com/activities/7963727145', thumb: { ...G.australia, glyph: '🌳' } },
+      { id: 'royal-np', place: 'Royal National Park', region: 'Sydney, NSW', distanceKm: 123.1, elevationM: 1446, difficulty: 3, map: '/routes/royal-np.svg', strava: 'https://www.strava.com/activities/7969344091', thumb: { ...G.australia, glyph: '🏖️' } },
     ],
   },
   {
@@ -135,10 +123,14 @@ export const WORLDS: Country[] = [
     name: 'Hong Kong',
     flag: '🇭🇰',
     routes: [
-      { id: 'tai-mo-shan', place: 'Tai Mo Shan', region: 'New Territories', distanceKm: 40, elevationM: 1300, difficulty: 4, thumb: { from: '#c9d6a7', to: '#5a6b3f', glyph: '🌫️' } },
-      { id: 'sai-kung', place: 'Sai Kung Coast', region: 'Sai Kung', distanceKm: 52, elevationM: 900, difficulty: 3, thumb: { from: '#8fd0e8', to: '#356e8f', glyph: '⛵' } },
+      { id: 'tai-mo-shan', place: 'Tai Mo Shan', region: 'New Territories', distanceKm: 48.3, elevationM: 1226, difficulty: 2, map: '/routes/tai-mo-shan.svg', strava: 'https://www.strava.com/activities/12505353236', thumb: { ...G.hongkong, glyph: '🌫️' } },
+      { id: 'lantau-island', place: 'Lantau Island', region: 'Lantau', distanceKm: 44.2, elevationM: 1115, difficulty: 2, map: '/routes/lantau-island.svg', strava: 'https://www.strava.com/activities/12519843808', thumb: { ...G.hongkong, glyph: '⛰️' } },
     ],
   },
+  // Not ridden yet — kept as empty shelves so the map of where Leonard's been is honest.
+  { id: 'singapore', name: 'Singapore', flag: '🇸🇬', routes: [] },
+  { id: 'malaysia', name: 'Malaysia', flag: '🇲🇾', routes: [] },
+  { id: 'indonesia', name: 'Indonesia', flag: '🇮🇩', routes: [] },
 ]
 
 /** Flat index of every route by id — the ride scene looks routes up by id. */

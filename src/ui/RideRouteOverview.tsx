@@ -1,13 +1,75 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRideHud } from '../state/rideHud'
 import { useGame } from '../state/store'
-import { ROUTES } from '../config/worlds'
+import { ROUTES, type Route } from '../config/worlds'
 
 const W = 156
 const H = 92
 const PAD = 14
 
-/** Small deterministic RNG so a route's trace looks the same every ride. */
+interface Trace {
+  pts: [number, number][]
+  d: string
+  at: (p: number) => [number, number]
+}
+
+/** Finish a trace from pixel-space points: an M/L path string plus an `at(p)`
+ *  that returns the point at fraction p (0–1) along the polyline by arc length. */
+function finishTrace(pts: [number, number][]): Trace {
+  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`
+  for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`
+  const seg: number[] = [0]
+  let len = 0
+  for (let i = 1; i < pts.length; i++) {
+    len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])
+    seg.push(len)
+  }
+  const last = pts[pts.length - 1]
+  const at = (p: number): [number, number] => {
+    const target = Math.max(0, Math.min(1, p)) * len
+    for (let i = 1; i < pts.length; i++) {
+      if (seg[i] >= target) {
+        const t = (target - seg[i - 1]) / (seg[i] - seg[i - 1] || 1)
+        return [
+          pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t,
+          pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t,
+        ]
+      }
+    }
+    return last
+  }
+  return { pts, d, at }
+}
+
+/** Fit raw (route-map) points into the frame, preserving aspect ratio + centred. */
+function fitPoints(raw: [number, number][]): Trace {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const [x, y] of raw) {
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+  }
+  const bw = maxX - minX || 1
+  const bh = maxY - minY || 1
+  const scale = Math.min((W - 2 * PAD) / bw, (H - 2 * PAD) / bh)
+  const ox = PAD + ((W - 2 * PAD) - bw * scale) / 2
+  const oy = PAD + ((H - 2 * PAD) - bh * scale) / 2
+  return finishTrace(raw.map(([x, y]) => [ox + (x - minX) * scale, oy + (y - minY) * scale]))
+}
+
+/** Parse the M/L polyline points out of a route-map SVG's single <path d="…">. */
+function parseRouteSvg(svg: string): [number, number][] | null {
+  const m = svg.match(/ d="([^"]+)"/)
+  if (!m) return null
+  const nums = m[1].match(/-?\d+(?:\.\d+)?/g)
+  if (!nums || nums.length < 4) return null
+  const pts: [number, number][] = []
+  for (let i = 0; i + 1 < nums.length; i += 2) pts.push([parseFloat(nums[i]), parseFloat(nums[i + 1])])
+  return pts
+}
+
+/** Small deterministic RNG so the fallback trace looks the same every ride. */
 function seeded(id: string) {
   let s = 0
   for (let i = 0; i < id.length; i++) s = (s * 31 + id.charCodeAt(i)) | 0
@@ -20,9 +82,9 @@ function seeded(id: string) {
   }
 }
 
-/** Build a deterministic wandering trace for a route: a run of points that drift
- *  left→right across the box, jittered vertically, normalised to fit the frame. */
-function buildTrace(id: string): { pts: [number, number][]; d: string; len: number; at: (p: number) => [number, number] } {
+/** Fallback: a deterministic wandering squiggle keyed off the route id, used
+ *  while the real route map loads or if it can't be fetched. */
+function fallbackTrace(id: string): Trace {
   const rand = seeded(id)
   const N = 7
   const raw: [number, number][] = []
@@ -31,57 +93,44 @@ function buildTrace(id: string): { pts: [number, number][]; d: string; len: numb
     y += (rand() - 0.5) * 0.9
     raw.push([i / (N - 1), y])
   }
-  // Normalise Y into [0,1].
-  const ys = raw.map((p) => p[1])
-  const lo = Math.min(...ys)
-  const hi = Math.max(...ys)
-  const span = hi - lo || 1
-  const pts: [number, number][] = raw.map(([x, yy]) => [
-    PAD + x * (W - 2 * PAD),
-    PAD + ((yy - lo) / span) * (H - 2 * PAD),
-  ])
-  // Smooth-ish path via quadratic segments through midpoints.
-  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`
-  for (let i = 1; i < pts.length; i++) {
-    const [px, py] = pts[i - 1]
-    const [cx, cy] = pts[i]
-    const mx = (px + cx) / 2
-    const my = (py + cy) / 2
-    d += ` Q ${px.toFixed(1)} ${py.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`
-  }
-  const last = pts[pts.length - 1]
-  d += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`
-  // Cumulative segment lengths, for placing the progress marker.
-  const seg: number[] = [0]
-  let len = 0
-  for (let i = 1; i < pts.length; i++) {
-    len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])
-    seg.push(len)
-  }
-  const at = (p: number): [number, number] => {
-    const target = Math.max(0, Math.min(1, p)) * len
-    for (let i = 1; i < pts.length; i++) {
-      if (seg[i] >= target) {
-        const t = (target - seg[i - 1]) / (seg[i] - seg[i - 1] || 1)
-        return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t]
-      }
-    }
-    return last
-  }
-  return { pts, d, len, at }
+  return fitPoints(raw)
 }
 
 /**
  * Route overview — a little map trace in the top-right of the ride scene showing
  * the whole route as a line, with a dot creeping along it as your distance ticks
- * up. The trace is a deterministic squiggle keyed off the route id (placeholder
- * until real route geometry lands); progress is distance / route total.
+ * up. It draws the route's **real GPS trace** (public/routes/<id>.svg, the same
+ * shape as the world-selector card), fitted into the frame; progress is
+ * distance / route total. Falls back to a deterministic squiggle while the SVG
+ * loads or if a route has no map.
  */
+function useRouteTrace(route: Route | null): Trace | null {
+  const [real, setReal] = useState<{ id: string; trace: Trace } | null>(null)
+  useEffect(() => {
+    if (!route?.map) return
+    let alive = true
+    fetch(route.map)
+      .then((r) => r.text())
+      .then((svg) => {
+        if (!alive) return
+        const pts = parseRouteSvg(svg)
+        if (pts && pts.length > 1) setReal({ id: route.id, trace: fitPoints(pts) })
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [route?.id, route?.map])
+  const fallback = useMemo(() => (route ? fallbackTrace(route.id) : null), [route?.id])
+  if (!route) return null
+  return real && real.id === route.id ? real.trace : fallback
+}
+
 export function RideRouteOverview() {
   const ride = useGame((s) => s.ride)
   const route = ride ? ROUTES[ride] : null
   const distanceKm = useRideHud((s) => s.distanceKm)
-  const trace = useMemo(() => (route ? buildTrace(route.id) : null), [route?.id])
+  const trace = useRouteTrace(route)
   if (!route || !trace) return null
 
   const p = route.distanceKm > 0 ? distanceKm / route.distanceKm : 0
