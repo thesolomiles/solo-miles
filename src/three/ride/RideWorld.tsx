@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RIDE, RIDE_COLORS } from '../../config/ride'
 import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
-import { MOTION, SPAN, mulberry32 } from './motion'
+import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope } from './motion'
 import { makeTarmacTexture } from '../tarmac'
 import { RiggedFigure } from '../RiggedFigure'
 import { useShadowDispose } from '../useShadowDispose'
@@ -19,43 +19,8 @@ const _p = new THREE.Vector3()
 const _s = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
 
-// --- The winding road ---------------------------------------------------------
-// The road meanders left/right. `roadX(z)` is the road centre's x at world z,
-// anchored to zero at the riders' row so they sit still and centred while the
-// bends flow past. A scrolling `phase` slides the bends up-screen in lockstep with
-// the scenery. Everything anchored to the road (the ribbon, dashes, roadside
-// props) reads its x from `roadX`, so the whole scene bends together as a coherent
-// road through the forest.
-const CURVE = { phase: 0 }
-/**
- * The road-centre x as a function of the along-route coordinate w = z + phase.
- * Deliberately varied over distance: slowly-changing envelopes give long
- * near-straight runs, gentler curved stretches, and the occasional sharp
- * switchback, instead of one uniform wiggle.
- */
-function curveRaw(z: number): number {
-  const w = z + CURVE.phase
-  // how curvy this stretch is (long wavelength → long straight / curvy runs)
-  const regime = 0.5 + 0.5 * Math.sin(w * 0.008 + 0.6)
-  // switchback burst — mostly ~0, spikes toward 1 now and then for a sharp bend
-  const b = Math.max(0, Math.sin(w * 0.017 + 1.2))
-  const burst = b * b * b
-  const gentle = 2.4 * Math.sin(w * 0.042) + 1.0 * Math.sin(w * 0.026 + 1.1)
-  const switchback = 5.4 * Math.sin(w * 0.10 + 0.4)
-  return regime * gentle + burst * switchback
-}
-/** The road-centre x at world z, anchored so it's ZERO at the riders' row: the
- *  riders sit still and centred on the road, and the bends appear ahead/behind
- *  and flow past them. */
-function roadX(z: number): number {
-  return curveRaw(z) - curveRaw(RIDE.runnerZ)
-}
-/** dx/dz of the road centre — numeric so it tracks the complex profile above.
- *  Used to yaw dashes and to keep the ribbon width perpendicular to the road. */
-function curveSlope(z: number): number {
-  const h = 0.6
-  return (curveRaw(z + h) - curveRaw(z - h)) / (2 * h)
-}
+// The winding road (CURVE / roadX / curveSlope) lives in ./motion so the scenery
+// kits can follow the road too.
 
 // --- Motion + gradient --------------------------------------------------------
 // The world scrolls at a live speed (MOTION, shared in ./motion) that eases with a

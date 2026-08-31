@@ -1,35 +1,42 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { MOTION, SPAN, mulberry32 } from '../motion'
+import { MOTION, SPAN, mulberry32, roadX, curveSlope } from '../motion'
 import { RIDE } from '../../../config/ride'
 
 /**
- * Beach kit — a reusable roadside component for the ride scene: a sandy shoulder
- * and, beyond it, a rippling sea running down one side of the road. Unlike the
- * scrolling prop fields it's built from long fixed strips, but it still conveys
- * forward travel: the swell scrolls toward the camera in lockstep with the world
- * (MOTION.speed) and a field of foam streaks scrolls and recycles along the
- * shoreline — so the sea side moves with the land instead of sitting as a
- * detached "fluid" layer.
+ * Beach kit — a sandy shoulder and a rippling sea running down one side of the
+ * road. Like the road ribbon itself, it's dynamic geometry that FOLLOWS the road:
+ * every frame each strip's inner edge hugs the road's edge and the sea extends
+ * outward from there, so the shoreline curves with the bends instead of sitting as
+ * a fixed straight slab with a grass wedge between it and the road. The sea's swell
+ * scrolls with MOTION.speed and a field of foam whitecaps (also road-tracked)
+ * scrolls and recycles down the shore, so the water reads as coast moving past you.
  *
  * `side` is the screen-space x sign the beach sits on (+1 = screen-right, −1 =
  * screen-left); the caller maps the rider-relative side to a screen side.
  */
 
-const Z_CENTER = -12
-const DEPTH = 120
-// The ride's ortho frustum is tight (visible x only ~±6, the road fills most of
-// it), so the sand is a thin shoulder and the sea starts right at the road edge.
-const SAND_INNER = 3.4
-const SAND_WIDTH = 1.2
-const SEA_INNER = 4.4
-const SEA_WIDTH = 48
-const FOAM_WIDTH = 0.8
+const HW = RIDE.roadHalfWidth // road half-width — the beach starts at the road edge
+const SAND_W = 1.4 // width of the sandy shoulder (kept slim so the sea still shows in the tight frustum)
+const SEA_W = 55 // sea reaches well off-frame / to the horizon
+// Offsets are magnitudes from the road centre; `side` picks left/right.
+const SAND_I = HW - 0.2
+const SAND_O = HW + SAND_W
+const SEA_I = HW + SAND_W - 0.4
+const SEA_O = HW + SAND_W + SEA_W
+const SAND_Y = 0.12
+const SEA_Y = 0.08
+const FOAM_Y = 0.17
+
+// Along-road sample band (covers the visible depth and fades into fog).
+const Z_FAR = -56
+const Z_NEAR = 30
+const SAMPLES = 60
+const SEA_ACROSS = 10 // across-subdivisions of the sea, so the ripple shows
 
 const SEA_COLOR = 0x35a8d2
 const SAND_COLOR = 0xdcc790
-const SHORE_FOAM = 0xf3eede
 const CREST_FOAM = 0xdfeef2
 
 interface SeaShader {
@@ -42,35 +49,91 @@ const _q = new THREE.Quaternion()
 const _s = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
 
-/** Calm sea: a flat-shaded plane whose vertices roll on layered sines (the facets
- *  tilt and catch the sun, no reflection pass). `uScroll` slides the swell toward
- *  the camera in step with the world so the water reads as moving, not wobbling. */
+/** A strip of geometry `across`+1 columns wide and `S` samples long (across=1 → a
+ *  2-vertex ribbon). Positions are filled in each frame by `updateStrip`. */
+function buildStrip(S: number, across: number, y: number): THREE.BufferGeometry {
+  const cols = across + 1
+  const pos = new Float32Array(S * cols * 3)
+  const nor = new Float32Array(S * cols * 3)
+  for (let i = 0; i < S; i++)
+    for (let k = 0; k < cols; k++) {
+      const vi = i * cols + k
+      pos[vi * 3 + 1] = y
+      nor[vi * 3 + 1] = 1
+    }
+  const idx: number[] = []
+  for (let i = 0; i < S - 1; i++)
+    for (let k = 0; k < across; k++) {
+      const a = i * cols + k
+      const b = a + 1
+      const c = (i + 1) * cols + k
+      const d = c + 1
+      idx.push(a, c, b, b, c, d)
+    }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3))
+  g.setIndex(idx)
+  return g
+}
+
+/** Re-lay a strip so it follows the road: each vertex sits at a signed offset
+ *  along the road normal (like the road's own ribbon), lerped from inner→outer. */
+function updateStrip(
+  g: THREE.BufferGeometry,
+  zs: number[],
+  side: number,
+  across: number,
+  oInner: number,
+  oOuter: number,
+  y: number,
+) {
+  const cols = across + 1
+  const p = g.attributes.position.array as Float32Array
+  for (let i = 0; i < zs.length; i++) {
+    const zc = zs[i]
+    const cx = roadX(zc)
+    const s = curveSlope(zc)
+    const invL = 1 / Math.hypot(1, s)
+    const sInvL = s * invL
+    for (let k = 0; k < cols; k++) {
+      const o = side * (oInner + (oOuter - oInner) * (k / across))
+      const vi = (i * cols + k) * 3
+      p[vi] = cx + o * invL
+      p[vi + 1] = y
+      p[vi + 2] = zc - o * sInvL
+    }
+  }
+  g.attributes.position.needsUpdate = true
+}
+
+/** Calm sea material: flat-shaded so facets catch the sun, ripples on the GPU,
+ *  swell scrolls with `uScroll`, and `fog:false` keeps it blue in the warm haze. */
 function makeSeaMaterial(): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({
     color: SEA_COLOR,
     roughness: 0.42,
     metalness: 0.06,
     flatShading: true,
-    // Ignore the scene's warm haze so the sea stays blue to the horizon.
     fog: false,
+    side: THREE.DoubleSide,
   })
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = { value: 0 }
     shader.uniforms.uScroll = { value: 0 }
     ;(mat.userData as { shader?: SeaShader }).shader = shader as unknown as SeaShader
-    // Plane is authored in XY (normal +Z), tilted −90° about X so its normal points
-    // up; local x,y → world x,z. Displace along the normal (local z). `uScroll`
-    // shifts the along-shore phase so crests travel with the world.
+    // Geometry is built in world XZ (y up); displace along y. uScroll slides the
+    // along-shore phase so crests travel with the world.
     shader.vertexShader =
       'uniform float uTime;\nuniform float uScroll;\n' +
       shader.vertexShader.replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
-           float yy = transformed.y + uScroll;
-           float sw = sin(transformed.x * 0.35 + uTime * 0.7) * 0.055
-                    + sin(yy * 0.6 - uTime * 0.55) * 0.05
-                    + sin((transformed.x + yy) * 0.9 + uTime * 1.0) * 0.025;
-           transformed.z += sw;`,
+           float zz = transformed.z + uScroll;
+           float sw = sin(transformed.x * 0.35 + uTime * 0.7) * 0.05
+                    + sin(zz * 0.6 - uTime * 0.55) * 0.045
+                    + sin((transformed.x + zz) * 0.9 + uTime * 1.0) * 0.022;
+           transformed.y += sw;`,
       )
   }
   return mat
@@ -91,9 +154,9 @@ function makeFoamTexture(): THREE.CanvasTexture {
   return new THREE.CanvasTexture(c)
 }
 
-/** Foam — soft whitecaps that scroll and recycle along the shore, biased toward
- *  the waterline, giving the sea real in-motion detail (the same trick as the
- *  land's scrolling ground patches). */
+/** Foam whitecaps that scroll and recycle down the shore, tracking the road curve
+ *  (x = roadX(z) + offset) so they ride the water as it bends, biased toward the
+ *  waterline. */
 function SeaFoam({ side }: { side: 1 | -1 }) {
   const COUNT = 70
   const tex = useMemo(makeFoamTexture, [])
@@ -113,12 +176,11 @@ function SeaFoam({ side }: { side: 1 | -1 }) {
   const ref = useRef<THREE.InstancedMesh>(null!)
   const insts = useMemo(() => {
     const r = mulberry32(0x5ea + (side > 0 ? 1 : 0))
-    const out: { x: number; z: number; rot: number; scale: number }[] = []
+    const out: { off: number; z: number; rot: number; scale: number }[] = []
     for (let i = 0; i < COUNT; i++) {
-      // r()² biases toward the waterline (SEA_INNER); a few range out to sea.
-      const t = r()
+      const t = r() // t² biases toward the waterline (SEA_I); a few range out to sea
       out.push({
-        x: side * (SEA_INNER + 0.3 + t * t * 7.5),
+        off: side * (SEA_I + 0.4 + t * t * 8),
         z: RIDE.spawnZ + ((i + r() * 0.8) / COUNT) * SPAN,
         rot: (r() - 0.5) * 0.5,
         scale: 0.6 + r() * 1.5,
@@ -139,7 +201,7 @@ function SeaFoam({ side }: { side: 1 | -1 }) {
       const it = insts[i]
       it.z -= MOTION.speed * dt
       if (it.z < RIDE.spawnZ) it.z += SPAN
-      _p.set(it.x, 0.16, it.z)
+      _p.set(roadX(it.z) + it.off, FOAM_Y, it.z)
       _q.setFromAxisAngle(_up, it.rot)
       _s.set(it.scale, 1, it.scale)
       _m.compose(_p, _q, _s)
@@ -151,39 +213,37 @@ function SeaFoam({ side }: { side: 1 | -1 }) {
 }
 
 export function Beach({ side }: { side: 1 | -1 }) {
+  const zs = useMemo(() => {
+    const a = new Array<number>(SAMPLES)
+    for (let i = 0; i < SAMPLES; i++) a[i] = Z_FAR + (i / (SAMPLES - 1)) * (Z_NEAR - Z_FAR)
+    return a
+  }, [])
+  const sandGeom = useMemo(() => buildStrip(SAMPLES, 1, SAND_Y), [])
+  const seaGeom = useMemo(() => buildStrip(SAMPLES, SEA_ACROSS, SEA_Y), [])
   const seaMat = useMemo(makeSeaMaterial, [])
   const clock = useRef(0)
-  useEffect(() => () => seaMat.dispose(), [seaMat])
+  useEffect(() => () => {
+    sandGeom.dispose()
+    seaGeom.dispose()
+    seaMat.dispose()
+  }, [sandGeom, seaGeom, seaMat])
   useFrame((_, delta) => {
+    updateStrip(sandGeom, zs, side, 1, SAND_I, SAND_O, SAND_Y)
+    updateStrip(seaGeom, zs, side, SEA_ACROSS, SEA_I, SEA_O, SEA_Y)
     const dt = Math.min(delta, 0.05)
     clock.current += dt
     const sh = (seaMat.userData as { shader?: SeaShader }).shader
     if (sh) {
       sh.uniforms.uTime.value = clock.current
-      sh.uniforms.uScroll.value += MOTION.speed * dt // swell travels with the world
+      sh.uniforms.uScroll.value += MOTION.speed * dt
     }
   })
 
-  const sandX = side * (SAND_INNER + SAND_WIDTH / 2)
-  const seaX = side * (SEA_INNER + SEA_WIDTH / 2)
-  const foamX = side * (SEA_INNER + FOAM_WIDTH / 2 - 0.15)
-
   return (
     <group>
-      {/* Sea (rippling, scrolling). Lifted above the grass plane (both were at y=0
-          and z-fought, hiding the water). */}
-      <mesh material={seaMat} rotation={[-Math.PI / 2, 0, 0]} position={[seaX, 0.08, Z_CENTER]} receiveShadow>
-        <planeGeometry args={[SEA_WIDTH, DEPTH, 44, 110]} />
-      </mesh>
-      {/* Sandy shoulder, over the water's inner edge so it reads as the dry shore. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[sandX, 0.12, Z_CENTER]} receiveShadow>
-        <planeGeometry args={[SAND_WIDTH, DEPTH]} />
-        <meshStandardMaterial color={SAND_COLOR} roughness={1} />
-      </mesh>
-      {/* Static foam line at the waterline; the scrolling streaks ride over it. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[foamX, 0.14, Z_CENTER]}>
-        <planeGeometry args={[FOAM_WIDTH, DEPTH]} />
-        <meshStandardMaterial color={SHORE_FOAM} roughness={0.8} fog={false} />
+      <mesh geometry={seaGeom} material={seaMat} receiveShadow />
+      <mesh geometry={sandGeom} receiveShadow>
+        <meshStandardMaterial color={SAND_COLOR} roughness={1} side={THREE.DoubleSide} />
       </mesh>
       <SeaFoam side={side} />
     </group>
