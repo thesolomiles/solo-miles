@@ -3,10 +3,13 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RIDE, RIDE_COLORS } from '../../config/ride'
+import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
 import { makeTarmacTexture } from '../tarmac'
 import { RiggedFigure } from '../RiggedFigure'
 import { useShadowDispose } from '../useShadowDispose'
 import { useRideHud } from '../../state/rideHud'
+import { useGame } from '../../state/store'
+import { Beach } from './kits/Beach'
 import type { CharAnim } from '../Figure'
 
 const SPAN = RIDE.recycleZ - RIDE.spawnZ // length of the recycle band along Z
@@ -72,6 +75,16 @@ function curveSlope(z: number): number {
 // while the pace changes. The HUD (speed / grade / distance / elevation) is fed
 // from the same source, so the numbers match what you see.
 const MOTION = { speed: RIDE.scrollSpeed, grade: 0 }
+
+// --- Scene composition --------------------------------------------------------
+// Which side of the road the roadside forest is confined to (screen-space x sign):
+// 0 = both sides (the default look), ±1 = one side only. Set by RideWorld from the
+// current route's scene spec BEFORE the prop fields build, and read by `sideX`.
+const LAYOUT = { forestSide: 0 as -1 | 0 | 1 }
+
+// The riders are seen from behind (backs to camera, facing up the road), so a
+// rider's RIGHT hand is screen-right (+X) and their LEFT is screen-left (−X).
+const riderSideToScreen = (s: 'left' | 'right'): 1 | -1 => (s === 'right' ? 1 : -1)
 /** Simulated road gradient (%) along the route coordinate w — a rolling profile
  *  with long climbs/descents plus shorter undulations, so the pace visibly ebbs
  *  and surges. Roughly −8…+16%. */
@@ -206,7 +219,8 @@ function useProps(
 }
 
 const sideX = (min: number, spread: number) => (r: () => number) => {
-  const side = r() < 0.5 ? -1 : 1
+  // Confine to one side when the scene asks (LAYOUT.forestSide), else pick randomly.
+  const side = LAYOUT.forestSide !== 0 ? LAYOUT.forestSide : r() < 0.5 ? -1 : 1
   return { x: side * (RIDE.roadHalfWidth + min + r() * spread), rotY: r() * Math.PI * 2, scale: 0 }
 }
 
@@ -862,12 +876,20 @@ function RideLights() {
  */
 export function RideWorld() {
   const scene = useThree((s) => s.scene)
+  // The scene spec for this route (which kits, which sides). Set the forest side
+  // synchronously during render so the prop fields pick it up when they build
+  // (their useMemos run as the children below render, after this line).
+  const ride = useGame((s) => s.ride)
+  const spec: RideScene | undefined = ride ? RIDE_SCENES[ride] : undefined
+  LAYOUT.forestSide = spec?.forest ? riderSideToScreen(spec.forest) : 0
+
   useEffect(() => {
     const prev = scene.fog
     scene.fog = new THREE.Fog(0xe4dcc6, 34, 78)
     CURVE.phase = 0
     return () => {
       scene.fog = prev
+      LAYOUT.forestSide = 0
     }
   }, [scene])
 
@@ -877,6 +899,7 @@ export function RideWorld() {
       <MotionDriver />
       <Ground />
       <GroundPatches />
+      {spec?.beach && <Beach side={riderSideToScreen(spec.beach)} />}
       <CurvyRoad />
       <RoadDashes />
       <Pines />
