@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RIDE, RIDE_COLORS } from '../../config/ride'
 import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
+import { MOTION, SPAN, mulberry32 } from './motion'
 import { makeTarmacTexture } from '../tarmac'
 import { RiggedFigure } from '../RiggedFigure'
 import { useShadowDispose } from '../useShadowDispose'
@@ -12,23 +13,11 @@ import { useGame } from '../../state/store'
 import { Beach } from './kits/Beach'
 import type { CharAnim } from '../Figure'
 
-const SPAN = RIDE.recycleZ - RIDE.spawnZ // length of the recycle band along Z
 const _m = new THREE.Matrix4()
 const _q = new THREE.Quaternion()
 const _p = new THREE.Vector3()
 const _s = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
-
-/** Small deterministic RNG so the scenery lays out the same every ride. */
-function mulberry32(seed: number) {
-  return () => {
-    seed |= 0
-    seed = (seed + 0x6d2b79f5) | 0
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
 
 // --- The winding road ---------------------------------------------------------
 // The road meanders left/right. `roadX(z)` is the road centre's x at world z,
@@ -69,12 +58,10 @@ function curveSlope(z: number): number {
 }
 
 // --- Motion + gradient --------------------------------------------------------
-// The world scrolls at a live speed that eases with a simulated gradient: uphill
-// (positive grade) slows it, downhill speeds it up. Everything that moves reads
-// MOTION.speed, and CURVE.phase integrates it, so the whole scene stays in sync
-// while the pace changes. The HUD (speed / grade / distance / elevation) is fed
-// from the same source, so the numbers match what you see.
-const MOTION = { speed: RIDE.scrollSpeed, grade: 0 }
+// The world scrolls at a live speed (MOTION, shared in ./motion) that eases with a
+// simulated gradient: uphill slows it, downhill speeds it up. Everything that moves
+// reads MOTION.speed and CURVE.phase integrates it, so the scene stays in sync while
+// the pace changes; the HUD is fed from the same source.
 
 // --- Scene composition --------------------------------------------------------
 // Which side of the road the roadside forest is confined to (screen-space x sign):
@@ -798,7 +785,13 @@ function GroundPatch({
     color,
     seed,
     count,
-    (r) => ({ x: (r() * 2 - 1) * 40, rotY: r() * Math.PI * 2, scale: smin + r() * (smax - smin) }),
+    (r) => {
+      // These are LAND patches — when a scene puts water on one side (LAYOUT.forestSide),
+      // keep them on the land side so no grass discs float in the sea.
+      const fs = LAYOUT.forestSide
+      const x = fs !== 0 ? fs * (1 + r() * 39) : (r() * 2 - 1) * 40
+      return { x, rotY: r() * Math.PI * 2, scale: smin + r() * (smax - smin) }
+    },
   )
   return <ScrollField {...p} castShadow={false} />
 }
