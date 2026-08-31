@@ -17,7 +17,7 @@ const ROAD = {
   // no sliver shows), inside the bridge railings (x ∈ [-1.6, 2.4]).
   xMin: -1.5,
   xMax: 2.3,
-  zSouth: 1.3, // plaza end
+  zSouth: 2.7, // plaza end — runs down to meet the dirt path (no grass gap)
   zNorth: -28, // forest edge / map edge
   y: 0.05, // a hair above the ground/deck so it never z-fights
   tile: 2.6, // world-units per texture tile (grain scale)
