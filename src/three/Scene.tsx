@@ -14,6 +14,8 @@ import { Player } from './Player'
 // import { Bgm } from './Bgm' // BGM disabled for now — see Scene render below
 import { AmbientSound } from './AmbientSound'
 import { TownModel } from './TownModel'
+import { TownRoad } from './TownRoad'
+import { TownDust } from './TownDust'
 import { CafeModel } from './CafeModel'
 import { CafeWorkers } from './actors/CafeWorker'
 import { Patrons } from './actors/Patron'
@@ -324,6 +326,8 @@ export function Scene() {
           {/* Phase 3: the real Blender-modelled town replaces the greybox
               Environment + Building meshes. */}
           <TownModel />
+          <TownRoad />
+          <TownDust />
           {edit && <ColliderEditor />}
           {zonesEdit && <ZoneEditor />}
           {debug && !edit && <ColliderDebug boundary={WORLD.boundary} />}
