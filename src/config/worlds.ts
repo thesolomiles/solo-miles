@@ -24,6 +24,9 @@ export interface Route {
   /** The real route-map trace, a web path under public/routes/. Rendered as the
       card thumbnail — the actual shape of the ride. */
   map?: string
+  /** A scenic photo/illustration for the card (web path under public/thumbs/).
+      When set it becomes the card's hero image instead of the gradient + trace. */
+  photo?: string
   /** Strava activity for the ride (source of the distance/elevation/map). */
   strava?: string
   /** What Leonard says on the ride, line by line. Optional — when absent, a
@@ -66,7 +69,7 @@ export const WORLDS: Country[] = [
       { id: 'jirisan', place: 'Jirisan', region: 'Jirisan National Park', distanceKm: 82.5, elevationM: 2133, difficulty: 4, map: '/routes/jirisan.svg', strava: 'https://www.strava.com/activities/10065502447', thumb: { ...G.korea, glyph: '🏔️' } },
       { id: 'suncheon-bay', place: 'Suncheon Bay Loop', region: 'Suncheon', distanceKm: 153.4, elevationM: 1420, difficulty: 3, map: '/routes/suncheon-bay.svg', strava: 'https://www.strava.com/activities/10071353489', thumb: { ...G.korea, glyph: '🌾' } },
       { id: 'jeju-round', place: 'Jeju Round Island', region: 'Jeju-do', distanceKm: 225.7, elevationM: 1406, difficulty: 3, map: '/routes/jeju-round.svg', strava: 'https://www.strava.com/activities/10082940987', thumb: { ...G.korea, glyph: '🌊' } },
-      { id: 'jeju-volcano', place: 'Jeju Volcano Loop', region: 'Jeju-do', distanceKm: 103.2, elevationM: 2027, difficulty: 4, map: '/routes/jeju-volcano.svg', strava: 'https://www.strava.com/activities/10076606492', thumb: { ...G.korea, glyph: '🌋' } },
+      { id: 'jeju-volcano', place: 'Jeju Volcano Loop', region: 'Jeju-do', distanceKm: 103.2, elevationM: 2027, difficulty: 4, map: '/routes/jeju-volcano.svg', photo: '/thumbs/jeju-volcano.png', strava: 'https://www.strava.com/activities/10076606492', thumb: { ...G.korea, glyph: '🌋' } },
       { id: 'jeju-western', place: 'Jeju Western Loop', region: 'Jeju-do', distanceKm: 113.6, elevationM: 1626, difficulty: 3, map: '/routes/jeju-western.svg', strava: 'https://www.strava.com/activities/14452327361', thumb: { ...G.korea, glyph: '🌅' } },
       { id: 'hwaaksan', place: 'Hwaaksan', region: 'Gangwon', distanceKm: 148, elevationM: 1391, difficulty: 3, map: '/routes/hwaaksan.svg', strava: 'https://www.strava.com/activities/10105679554', thumb: { ...G.korea, glyph: '🌲' } },
       { id: 'that-busan-route', place: 'That Busan Route', region: 'Busan', distanceKm: 104, elevationM: 2546, difficulty: 5, map: '/routes/busan.svg', strava: 'https://www.strava.com/activities/14371983582', thumb: { ...G.korea, glyph: '🌉' } },

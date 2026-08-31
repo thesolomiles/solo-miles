@@ -30,10 +30,16 @@ function RouteCard({ route }: { route: Route }) {
       }}
     >
       <div
-        className="wsel__thumb"
-        style={{ background: `linear-gradient(150deg, ${route.thumb.from}, ${route.thumb.to})` }}
+        className={'wsel__thumb' + (route.photo ? ' wsel__thumb--photo' : '')}
+        style={
+          route.photo
+            ? undefined
+            : { background: `linear-gradient(150deg, ${route.thumb.from}, ${route.thumb.to})` }
+        }
       >
-        {route.map ? (
+        {route.photo ? (
+          <img className="wsel__photo" src={route.photo} alt="" aria-hidden draggable={false} />
+        ) : route.map ? (
           <img className="wsel__map" src={route.map} alt="" aria-hidden draggable={false} />
         ) : (
           <span className="wsel__glyph">{route.thumb.glyph}</span>
