@@ -18,7 +18,7 @@ import { RIDE } from '../../../config/ride'
  */
 
 const HW = RIDE.roadHalfWidth // road half-width — the beach starts at the road edge
-const SAND_W = 1.4 // width of the sandy shoulder (kept slim so the sea still shows in the tight frustum)
+const SAND_W = 2.8 // width of the sandy shoulder
 const SEA_W = 55 // sea reaches well off-frame / to the horizon
 // Offsets are magnitudes from the road centre; `side` picks left/right.
 const SAND_I = HW - 0.2

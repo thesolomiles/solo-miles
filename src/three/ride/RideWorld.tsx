@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RIDE, RIDE_COLORS } from '../../config/ride'
+import { makePine, PINE_SPECS, makeGrassTuft, makeShrub, makeDeadTree, makeRock } from './assets'
 import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
 import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope } from './motion'
 import { makeTarmacTexture } from '../tarmac'
@@ -176,73 +176,9 @@ const sideX = (min: number, spread: number) => (r: () => number) => {
   return { x: side * (RIDE.roadHalfWidth + min + r() * spread), rotY: r() * Math.PI * 2, scale: 0 }
 }
 
-// --- Low-poly pine trees (a variety) -----------------------------------------
-
-/** Paint every vertex of a part one flat colour, so a merged tree can carry a
- *  brown trunk and green tiers under a single vertex-colour material. */
-function tinted(g: THREE.BufferGeometry, color: THREE.ColorRepresentation): THREE.BufferGeometry {
-  const c = new THREE.Color(color)
-  const n = g.attributes.position.count
-  const arr = new Float32Array(n * 3)
-  for (let i = 0; i < n; i++) {
-    arr[i * 3] = c.r
-    arr[i * 3 + 1] = c.g
-    arr[i * 3 + 2] = c.b
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(arr, 3))
-  return g
-}
-
-interface PineSpec {
-  trunkH: number
-  trunkR: number
-  trunk: number
-  sides: number
-  foliage: number
-  /** Stacked foliage cones: radius, height, base-y. */
-  tiers: { r: number; h: number; y: number }[]
-}
-
-/** A stacked-cone conifer built from one spec: a tapered trunk plus foliage tiers,
- *  each tier a hair darker toward the base for a little depth. Flat-shaded, low
- *  poly, vertex-coloured. */
-function makePine(spec: PineSpec): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = []
-  const trunk = new THREE.CylinderGeometry(spec.trunkR * 0.8, spec.trunkR, spec.trunkH, 5)
-  trunk.translate(0, spec.trunkH / 2, 0)
-  parts.push(tinted(trunk, spec.trunk))
-  const base = new THREE.Color(spec.foliage)
-  spec.tiers.forEach((t, i) => {
-    const cone = new THREE.ConeGeometry(t.r, t.h, spec.sides)
-    cone.translate(0, t.y + t.h / 2, 0)
-    // lower tiers slightly darker, top tier slightly brighter
-    const shade = 0.82 + (i / Math.max(1, spec.tiers.length - 1)) * 0.28
-    parts.push(tinted(cone, base.clone().multiplyScalar(shade)))
-  })
-  const g = mergeGeometries(parts, false)!
-  g.computeVertexNormals()
-  return g
-}
-
-/** Five distinct pine silhouettes — spruce, fir, tall pine, young sapling, bushy
- *  — in a spread of greens, so the roadside reads as a real mixed forest. */
-const PINE_SPECS: PineSpec[] = [
-  // tall narrow spruce
-  { trunkH: 0.5, trunkR: 0.13, trunk: 0x6b4a2f, sides: 6, foliage: 0x3c5a2b,
-    tiers: [{ r: 1.3, h: 1.2, y: 0.4 }, { r: 1.02, h: 1.15, y: 1.2 }, { r: 0.74, h: 1.1, y: 2.0 }, { r: 0.46, h: 1.0, y: 2.75 }] },
-  // broad fir
-  { trunkH: 0.42, trunkR: 0.15, trunk: 0x6e4c30, sides: 7, foliage: 0x50702f,
-    tiers: [{ r: 1.7, h: 1.35, y: 0.35 }, { r: 1.24, h: 1.3, y: 1.25 }, { r: 0.72, h: 1.25, y: 2.15 }] },
-  // tall pine on a bare trunk
-  { trunkH: 1.0, trunkR: 0.13, trunk: 0x5f4029, sides: 6, foliage: 0x35563a,
-    tiers: [{ r: 1.05, h: 1.5, y: 0.9 }, { r: 0.82, h: 1.45, y: 1.9 }, { r: 0.5, h: 1.3, y: 2.85 }] },
-  // young sapling
-  { trunkH: 0.3, trunkR: 0.1, trunk: 0x6b4a2f, sides: 6, foliage: 0x6b8f3f,
-    tiers: [{ r: 0.9, h: 1.05, y: 0.25 }, { r: 0.56, h: 0.95, y: 1.0 }] },
-  // squat bushy pine
-  { trunkH: 0.35, trunkR: 0.14, trunk: 0x6e4c30, sides: 7, foliage: 0x466b34,
-    tiers: [{ r: 1.5, h: 1.5, y: 0.3 }, { r: 1.02, h: 1.35, y: 1.3 }] },
-]
+// --- Roadside forest ---------------------------------------------------------
+// The tree/shrub/rock geometry lives in ./assets (the reusable asset library, also
+// shown in the asset-gallery page); the field components below instance them.
 
 /** The roadside forest: one instanced field per pine variant, interleaved down
  *  the band with wide size variety. */
@@ -275,36 +211,6 @@ function Pines() {
   )
 }
 
-/** A low-poly grass tuft — a few flat-shaded blades fanned out from the base. */
-function makeGrassTuft(): THREE.BufferGeometry {
-  const rand = mulberry32(0x9a55)
-  const blades: THREE.BufferGeometry[] = []
-  for (let i = 0; i < 5; i++) {
-    const h = 0.38 + rand() * 0.28
-    const b = new THREE.ConeGeometry(0.045, h, 3)
-    b.translate(0, h / 2, 0)
-    b.rotateZ((rand() - 0.5) * 0.6)
-    b.rotateY(rand() * Math.PI * 2)
-    b.translate((rand() - 0.5) * 0.28, 0, (rand() - 0.5) * 0.28)
-    blades.push(b)
-  }
-  return mergeGeometries(blades, false)!
-}
-
-/** A low rounded shrub — a couple of clustered flat-shaded icospheres. */
-function makeShrub(): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = []
-  const add = (r: number, x: number, y: number, z: number) => {
-    const s = new THREE.IcosahedronGeometry(r, 1)
-    s.translate(x, y, z)
-    parts.push(s)
-  }
-  add(0.5, 0, 0.42, 0)
-  add(0.34, 0.34, 0.3, 0.06)
-  add(0.32, -0.3, 0.32, -0.08)
-  return mergeGeometries(parts, false)!
-}
-
 function Grass() {
   const p = useProps(makeGrassTuft, RIDE_COLORS.grassBlade, 0x6a12, 120, (r) => ({
     ...sideX(0.2, 22)(r),
@@ -319,40 +225,6 @@ function Shrubs() {
     scale: 0.55 + r() * 0.75,
   }))
   return <ScrollField {...p} />
-}
-
-/** A bare, weathered dead tree — a tapered trunk with a few angular leafless
- *  branches (and the odd fork). Randomised per `seed` so variants differ. */
-function makeDeadTree(seed: number): THREE.BufferGeometry {
-  const rand = mulberry32(seed)
-  const parts: THREE.BufferGeometry[] = []
-  const H = 2.2 + rand() * 1.4
-  const trunk = new THREE.CylinderGeometry(0.08, 0.19, H, 5)
-  trunk.translate(0, H / 2, 0)
-  parts.push(trunk)
-  const nb = 4 + Math.floor(rand() * 4)
-  for (let i = 0; i < nb; i++) {
-    const by = H * (0.42 + rand() * 0.5)
-    const len = 0.5 + rand() * 1.1
-    const branch = new THREE.CylinderGeometry(0.025, 0.07, len, 4)
-    branch.translate(0, len / 2, 0)
-    branch.rotateZ((0.6 + rand() * 0.7) * (rand() < 0.5 ? -1 : 1))
-    branch.rotateY(rand() * Math.PI * 2)
-    branch.translate(0, by, 0)
-    parts.push(branch)
-    if (rand() < 0.5) {
-      const len2 = 0.3 + rand() * 0.5
-      const fork = new THREE.CylinderGeometry(0.02, 0.045, len2, 4)
-      fork.translate(0, len2 / 2, 0)
-      fork.rotateZ((0.5 + rand() * 0.6) * (rand() < 0.5 ? -1 : 1))
-      fork.rotateY(rand() * Math.PI * 2)
-      fork.translate((rand() - 0.5) * len, by + len * 0.55, (rand() - 0.5) * len)
-      parts.push(fork)
-    }
-  }
-  const g = mergeGeometries(parts, false)!
-  g.computeVertexNormals()
-  return g
 }
 
 /** One dead-tree field: a bare-tree variant scattered along the roadside. */
@@ -379,7 +251,7 @@ function DeadTrees() {
 }
 
 function Rocks() {
-  const p = useProps(() => new THREE.IcosahedronGeometry(1, 0).translate(0, 0.4, 0), RIDE_COLORS.rock, 0x5eed, 26, (r) => ({
+  const p = useProps(makeRock, RIDE_COLORS.rock, 0x5eed, 26, (r) => ({
     ...sideX(0.6, 20)(r),
     scale: 0.3 + r() * 0.5,
   }))
