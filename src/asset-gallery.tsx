@@ -1,7 +1,7 @@
-import { StrictMode, useMemo } from 'react'
+import { StrictMode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Bounds, Center } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { RIDE_ASSETS, type RideAsset } from './three/ride/assets'
 import { makeTarmacTexture } from './three/tarmac'
@@ -15,7 +15,23 @@ import { RIDE_COLORS } from './config/ride'
  * systems, which aren't single geometries.
  */
 
-const GROUND = 0x2a2e24
+/** A soft ground pad: a warm-dark disc under the asset that fades to the card
+ *  background at its rim, so there's no hard brown horizon line cutting the frame —
+ *  just a subtle shadow-catching vignette. */
+function makeGroundTexture(): THREE.CanvasTexture {
+  const S = 256
+  const c = document.createElement('canvas')
+  c.width = c.height = S
+  const ctx = c.getContext('2d')!
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2)
+  g.addColorStop(0, 'rgba(42, 46, 36, 1)')
+  g.addColorStop(0.55, 'rgba(30, 33, 25, 1)')
+  g.addColorStop(1, 'rgba(21, 23, 15, 0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, S, S)
+  return new THREE.CanvasTexture(c)
+}
+const GROUND_TEX = makeGroundTexture()
 
 function Lights() {
   return (
@@ -28,21 +44,68 @@ function Lights() {
   )
 }
 
-/** A single asset in an auto-rotating, orbit-able viewer, auto-framed by <Bounds>. */
+/** Deterministically fit any asset to the viewer: scale so its largest dimension
+ *  fills a fixed target, centre it on X/Z and rest its base on the ground (y=0).
+ *  Replaces drei <Bounds>, whose auto-fit mis-framed the tall pole assets. */
+const FIT_SIZE = 2.6
+function Framed({ children }: { children: React.ReactNode }) {
+  const ref = useRef<THREE.Group>(null)
+  useLayoutEffect(() => {
+    const g = ref.current
+    if (!g) return
+    g.scale.setScalar(1)
+    g.position.set(0, 0, 0)
+    g.updateWorldMatrix(true, true)
+    const box = new THREE.Box3().setFromObject(g)
+    const size = new THREE.Vector3()
+    box.getSize(size)
+    const s = FIT_SIZE / (Math.max(size.x, size.y, size.z) || 1)
+    g.scale.setScalar(s)
+    g.updateWorldMatrix(true, true)
+    const b2 = new THREE.Box3().setFromObject(g)
+    const c = new THREE.Vector3()
+    b2.getCenter(c)
+    g.position.set(-c.x, -b2.min.y, -c.z) // centre X/Z, base on the ground
+  }, [children])
+  return <group ref={ref}>{children}</group>
+}
+
+/** A single asset in an auto-rotating, orbit-able viewer.
+ *  The Canvas is only mounted while the card is near the viewport — each Canvas is a
+ *  live WebGL context and browsers cap those (~16), so with a growing catalog we'd
+ *  otherwise blow the limit and the earliest viewers would go blank. */
 function AssetViewer({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { rootMargin: '250px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [3, 2.4, 4], fov: 42 }}>
-      <color attach="background" args={['#15170f']} />
-      <Lights />
-      <Bounds fit clip observe margin={1.25}>
-        <Center>{children}</Center>
-      </Bounds>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
-        <circleGeometry args={[6, 40]} />
-        <meshStandardMaterial color={GROUND} roughness={1} />
-      </mesh>
-      <OrbitControls autoRotate autoRotateSpeed={1.4} enablePan={false} minDistance={2} maxDistance={16} />
-    </Canvas>
+    <div ref={ref} style={{ width: '100%', height: '100%' }}>
+      {visible && (
+        <Canvas shadows dpr={[1, 2]} camera={{ position: [2.9, 2.4, 3.5], fov: 42 }}>
+          <color attach="background" args={['#15170f']} />
+          <Lights />
+          <Framed>{children}</Framed>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+            <circleGeometry args={[7, 48]} />
+            <meshStandardMaterial map={GROUND_TEX} transparent roughness={1} />
+          </mesh>
+          <OrbitControls
+            autoRotate
+            autoRotateSpeed={1.4}
+            enablePan={false}
+            target={[0, FIT_SIZE * 0.42, 0]}
+            minDistance={2}
+            maxDistance={16}
+          />
+        </Canvas>
+      )}
+    </div>
   )
 }
 
@@ -57,7 +120,15 @@ function PropAsset({ asset }: { asset: RideAsset }) {
       }),
     [asset],
   )
-  return <mesh geometry={geom} material={mat} castShadow receiveShadow />
+  // Glow parts (lamp, signal lenses) render unlit so they read as self-illuminated.
+  const litGeom = useMemo(() => asset.emissive?.(), [asset])
+  const litMat = useMemo(() => new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }), [])
+  return (
+    <group>
+      <mesh geometry={geom} material={mat} castShadow receiveShadow />
+      {litGeom && <mesh geometry={litGeom} material={litMat} />}
+    </group>
+  )
 }
 
 /** A short straight length of the ride road: tarmac + painted edge lines + dashes. */
@@ -109,7 +180,7 @@ function CoastSwatch() {
   )
 }
 
-const CATEGORIES = ['Trees', 'Ground & Rock'] as const
+const CATEGORIES = ['Trees', 'Farmland', 'Roadside', 'Ground & Rock'] as const
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (

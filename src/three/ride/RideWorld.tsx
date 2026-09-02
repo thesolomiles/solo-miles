@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RIDE, RIDE_COLORS } from '../../config/ride'
-import { makePine, PINE_SPECS, makeGrassTuft, makeShrub, makeDeadTree, makeRock } from './assets'
+import { makeTree, TREE_SPECS, makeGrassTuft, makeShrub, makeDeadTree, makeRock } from './assets'
 import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
 import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope } from './motion'
 import { makeTarmacTexture } from '../tarmac'
@@ -180,18 +180,18 @@ const sideX = (min: number, spread: number) => (r: () => number) => {
 // The tree/shrub/rock geometry lives in ./assets (the reusable asset library, also
 // shown in the asset-gallery page); the field components below instance them.
 
-/** The roadside forest: one instanced field per pine variant, interleaved down
- *  the band with wide size variety. */
-function Pines() {
+/** The roadside forest: one instanced field per tree variant (the East-Asian set),
+ *  interleaved down the band with wide size variety. */
+function Trees() {
   const material = useMemo(
     () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 }),
     [],
   )
-  const variants = useMemo(() => PINE_SPECS.map(makePine), [])
+  const variants = useMemo(() => TREE_SPECS.map(makeTree), [])
   const fields = useMemo(
     () =>
-      PINE_SPECS.map((_, i) =>
-        makeField(34, mulberry32(0xc0ffee + i * 977), (r) => ({
+      TREE_SPECS.map((_, i) =>
+        makeField(30, mulberry32(0xc0ffee + i * 977), (r) => ({
           ...sideX(0.6, 26)(r),
           scale: 0.7 + r() * 1.1,
         })),
@@ -732,7 +732,7 @@ export function RideWorld() {
       {spec?.beach && <Beach side={riderSideToScreen(spec.beach)} />}
       <CurvyRoad />
       <RoadDashes />
-      <Pines />
+      <Trees />
       <DeadTrees />
       <Grass />
       <Shrubs />
