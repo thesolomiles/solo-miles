@@ -12,6 +12,29 @@ export const MOTION = { speed: RIDE.scrollSpeed, grade: 0 }
  *  wrap forward by one span once they pass it. */
 export const SPAN = RIDE.recycleZ - RIDE.spawnZ
 
+// The land side alternates ALONG the road between tidy farm stretches and small
+// wild tree-grove stretches, so crops and trees never share ground. Intervals are
+// in u-space = the instance's ORIGINAL offset from spawnZ, in [0, SPAN) — stable
+// per instance because every field/prop scrolls and wraps by exactly SPAN, so a
+// cell's membership decided at creation holds forever. Groves are a small minority
+// (farmland dominates); trees live in the grove CORE while the fields skip a wider
+// zone (core + GROVE_MARGIN each side) so tree canopies never overhang the crops.
+export const LAND_GROVES: readonly [number, number][] = [
+  [18, 23],
+  [49, 53],
+]
+/** Bare buffer (world units) the fields leave around each grove so tree canopies
+ *  never touch a crop plot. */
+export const GROVE_MARGIN = 3.2
+
+/** Is a base z (creation-time) inside the buffered no-crops zone around a grove?
+ *  (Used by the farmland to keep a clear margin; trees themselves stay in the raw
+ *  grove core, LAND_GROVES.) */
+export function inGrove(baseZ: number): boolean {
+  const u = (((baseZ - RIDE.spawnZ) % SPAN) + SPAN) % SPAN
+  return LAND_GROVES.some(([a, b]) => u >= a - GROVE_MARGIN && u < b + GROVE_MARGIN)
+}
+
 /** Small deterministic RNG so scenery lays out the same every ride. */
 export function mulberry32(seed: number) {
   return () => {

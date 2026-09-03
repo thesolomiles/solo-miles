@@ -262,6 +262,10 @@ export function Scene() {
         tp: (x: number, z: number) => posRef.current.set(x, 0, z),
         three: { gl, scene },
       }
+      // Dev shortcut: `?ride=<routeId>` boots straight into that ride scene
+      // (skips the walk-to-Leonard flow) so the ride world can be iterated on.
+      const r = new URLSearchParams(window.location.search).get('ride')
+      if (r) useGame.setState({ ride: r })
     }
   }, [gl, scene])
   const params =

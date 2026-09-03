@@ -180,7 +180,7 @@ function CoastSwatch() {
   )
 }
 
-const CATEGORIES = ['Trees', 'Farmland', 'Roadside', 'Ground & Rock'] as const
+const CATEGORIES = ['Trees', 'Farmland', 'Buildings', 'Roadside', 'Ground & Rock'] as const
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (

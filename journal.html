@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-09-03">2026-09-03</a>
       <a href="#2026-09-02">2026-09-02</a>
       <a href="#2026-08-31">2026-08-31</a>
       <a href="#2026-08-30">2026-08-30</a>
@@ -105,6 +106,16 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-09-03">
+        <h3><a class="perma" href="#2026-09-03">2026-09-03 · Wednesday</a></h3>
+        <ul>
+          <li><strong>Dressed the Jeju round island ride</strong> — the first climb with a properly place-specific scene instead of the generic beach+forest. Scene composition is a per-route spec (<code>config/rideScenes.ts</code>) the kits build from; Jeju is now: open <strong>farmland on the land side</strong>, a wide <strong>basalt-strewn beach + sea</strong> on the other, sparse lit street furniture and the odd coastal house. Added a dev-only <code>?ride=&lt;id&gt;</code> shortcut that boots straight into a ride for iterating.</li>
+          <li><strong>New assets/kits.</strong> A <strong>Farmland kit</strong> (<code>kits/Farmland.tsx</code>) tiles rice-paddy / tea-row / crop plots on an aligned grid that follows the road's bends and scrolls (like the Beach kit, not the forest's random scatter). A <strong>coastal house</strong> (<code>makeBuilding</code> — basalt footing, painted walls, low hipped roof) placed only on the land side so none float in the sea. The library's <strong>lit lamps + traffic light</strong> finally placed via a small <code>LitField</code> (matte body + unlit glow mesh instanced together).</li>
+          <li><strong>Beach reworked to read like the real Jeju coast.</strong> Widened the sand into a proper open beach, dropped the foam whitecaps (they read as clouds floating on the water), and strewed the shore with <strong>black volcanic rocks in long outcrop stretches</strong> — a run of open sand giving way to a run of dark basalt, alternating down the shore — always a clear sand margin from the road.</li>
+          <li><strong>Land side now alternates farm ⇄ tree-grove stretches.</strong> Trees kept ending up standing in the crops; the fix is to segment the land along the road (<code>LAND_GROVES</code> in <code>motion.ts</code>) into tidy farm stretches and small wild groves, with the fields skipping a buffered zone around each grove so no canopy overhangs a plot. Farmland dominates; trees are few, small, and clustered into the groves. Tuned with Leonard over several passes ("crops need full sunlight").</li>
+          <li><strong>Gotcha — two placement coordinate systems.</strong> The road ribbon/fields offset along the road <em>normal</em> (so on bends their world-Z swings sideways), but the scatter fields used a plain horizontal X offset — so on curves a field would swing under a grove tree even though their along-road stretches were separate. Fixed by giving <code>ScrollField</code> a <code>normalOffset</code> mode and putting the grove props in the fields' coordinate frame. <strong>Dropped Hallasan</strong> too: the locked ¾ ortho camera has no horizon band (distant geometry projects off the top; a sky-baked silhouette is fully covered by scenery) — and per Leonard the beach + farmland read truer to Jeju anyway. <code>pnpm build</code> clean.</li>
+        </ul>
+      </article>
       <article id="2026-09-02">
         <h3><a class="perma" href="#2026-09-02">2026-09-02 · Tuesday</a></h3>
         <ul>

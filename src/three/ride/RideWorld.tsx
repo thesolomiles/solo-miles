@@ -2,15 +2,27 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RIDE, RIDE_COLORS } from '../../config/ride'
-import { makeTree, TREE_SPECS, makeGrassTuft, makeShrub, makeDeadTree, makeRock } from './assets'
+import {
+  makeTree,
+  TREE_SPECS,
+  makeGrassTuft,
+  makeShrub,
+  makeDeadTree,
+  makeRock,
+  makeBuilding,
+  makeStreetLamp,
+  makeTrafficLight,
+  type LitAsset,
+} from './assets'
 import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
-import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope } from './motion'
+import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope, LAND_GROVES } from './motion'
 import { makeTarmacTexture } from '../tarmac'
 import { RiggedFigure } from '../RiggedFigure'
 import { useShadowDispose } from '../useShadowDispose'
 import { useRideHud } from '../../state/rideHud'
 import { useGame } from '../../state/store'
 import { Beach } from './kits/Beach'
+import { Farmland } from './kits/Farmland'
 import type { CharAnim } from '../Figure'
 
 const _m = new THREE.Matrix4()
@@ -32,7 +44,16 @@ const _up = new THREE.Vector3(0, 1, 0)
 // Which side of the road the roadside forest is confined to (screen-space x sign):
 // 0 = both sides (the default look), ±1 = one side only. Set by RideWorld from the
 // current route's scene spec BEFORE the prop fields build, and read by `sideX`.
-const LAYOUT = { forestSide: 0 as -1 | 0 | 1 }
+const LAYOUT = {
+  forestSide: 0 as -1 | 0 | 1,
+  beachSide: 0 as -1 | 0 | 1,
+  farmlandSide: 0 as -1 | 0 | 1,
+  density: 1,
+}
+
+/** Scale a base prop count by the scene's density (open/airy scenes want fewer),
+ *  keeping at least a couple so a field never vanishes entirely. */
+const dens = (base: number) => Math.max(2, Math.round(base * LAYOUT.density))
 
 // The riders are seen from behind (backs to camera, facing up the road), so a
 // rider's RIGHT hand is screen-right (+X) and their LEFT is screen-left (−X).
@@ -90,6 +111,12 @@ interface Inst {
  * once past `spawnZ`, wraps forward by one span. Its x tracks the winding road
  * (`roadX`) so props line the bends; `align` also yaws each instance to the road
  * tangent (for the centre dashes).
+ *
+ * `normalOffset` interprets `it.x` as a signed offset along the road NORMAL (the
+ * same placement the road ribbon / fields use) instead of a plain horizontal x
+ * offset — so a prop keeps its along-road position on bends and can't swing across
+ * a curve onto a neighbouring field. Used for the farmland-side groves so trees
+ * never drift over the crops.
  */
 function ScrollField({
   insts,
@@ -97,12 +124,14 @@ function ScrollField({
   material,
   castShadow = true,
   align = false,
+  normalOffset = false,
 }: {
   insts: Inst[]
   geometry: THREE.BufferGeometry
   material: THREE.Material
   castShadow?: boolean
   align?: boolean
+  normalOffset?: boolean
 }) {
   const ref = useRef<THREE.InstancedMesh>(null!)
   useFrame((_, delta) => {
@@ -115,7 +144,15 @@ function ScrollField({
       if (it.z < RIDE.spawnZ) it.z += SPAN
       const rotY = align ? Math.atan(curveSlope(it.z)) : it.rotY
       _q.setFromAxisAngle(_up, rotY)
-      _p.set(it.x + roadX(it.z), 0, it.z)
+      if (normalOffset) {
+        // it.x is a signed magnitude along the road normal (same maths as the road
+        // ribbon / fields), so the prop shares the fields' coordinate frame.
+        const sl = curveSlope(it.z)
+        const invL = 1 / Math.hypot(1, sl)
+        _p.set(roadX(it.z) + it.x * invL, 0, it.z - it.x * sl * invL)
+      } else {
+        _p.set(it.x + roadX(it.z), 0, it.z)
+      }
       _s.setScalar(it.scale)
       _m.compose(_p, _q, _s)
       mesh.setMatrixAt(i, _m)
@@ -148,26 +185,55 @@ function makeField(
   return out
 }
 
+/** Instances clustered into the land-side tree-grove stretches (farmland scenes):
+ *  a cluster of props per grove, in the near band on the farmland side — so trees
+ *  and wild growth sit in the groves BETWEEN fields, never in the crops. */
+interface GroveOpts { perGrove: number; latMin: number; latSpread: number; sMin: number; sSpread: number }
+function groveField(seed: number, o: GroveOpts): Inst[] {
+  const rand = mulberry32(seed)
+  const side = LAYOUT.farmlandSide || -1
+  const out: Inst[] = []
+  for (const [a, b] of LAND_GROVES) {
+    const cz = RIDE.spawnZ + (a + b) / 2
+    for (let t = 0; t < o.perGrove; t++) {
+      out.push({
+        x: side * (RIDE.roadHalfWidth + o.latMin + rand() * o.latSpread),
+        z: cz + (rand() - 0.5) * (b - a),
+        rotY: rand() * Math.PI * 2,
+        scale: o.sMin + rand() * o.sSpread,
+      })
+    }
+  }
+  return out
+}
+
 /** A roadside prop field: memoised geometry (pivoted to the ground) + material +
- *  a jittered instance pool, disposed together on unmount. */
+ *  a jittered instance pool, disposed together on unmount. On a farmland scene,
+ *  props with a `grove` spec are confined to the tree-grove stretches instead of
+ *  scattered across the fields. */
 function useProps(
   makeGeom: () => THREE.BufferGeometry,
   color: number,
   seed: number,
   count: number,
   place: (r: () => number) => Omit<Inst, 'z'>,
+  grove?: GroveOpts,
 ) {
   const geometry = useMemo(makeGeom, [])
   const material = useMemo(
     () => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.95 }),
     [color],
   )
-  const insts = useMemo(() => makeField(count, mulberry32(seed), place), [])
+  const usedGrove = LAYOUT.farmlandSide !== 0 && !!grove
+  const insts = useMemo(
+    () => (usedGrove ? groveField(seed, grove!) : makeField(count, mulberry32(seed), place)),
+    [],
+  )
   useEffect(() => () => {
     geometry.dispose()
     material.dispose()
   }, [geometry, material])
-  return { geometry, material, insts }
+  return { geometry, material, insts, normalOffset: usedGrove }
 }
 
 const sideX = (min: number, spread: number) => (r: () => number) => {
@@ -188,15 +254,140 @@ function Trees() {
     [],
   )
   const variants = useMemo(() => TREE_SPECS.map(makeTree), [])
+  const fields = useMemo(() => {
+    // Farmland scenes: trees cluster into the tree-grove stretches (never in the
+    // crops), and stay a minority against the fields. Otherwise: the usual scatter.
+    if (LAYOUT.farmlandSide !== 0) {
+      const rand = mulberry32(0x7ac0)
+      const side = LAYOUT.farmlandSide
+      const perVariant: Inst[][] = TREE_SPECS.map(() => [])
+      for (const [a, b] of LAND_GROVES) {
+        const cz = RIDE.spawnZ + (a + b) / 2
+        // Keep trees near the grove CENTRE (well inside the fields' buffer) so no
+        // canopy can reach a crop plot.
+        const dzHalf = Math.max(0.5, (b - a) / 2 - 1.5)
+        for (let t = 0; t < 3; t++) {
+          const vi = Math.floor(rand() * TREE_SPECS.length)
+          perVariant[vi].push({
+            x: side * (RIDE.roadHalfWidth + 2 + rand() * 8), // signed road-normal offset
+            z: cz + (rand() - 0.5) * 2 * dzHalf,
+            rotY: rand() * Math.PI * 2,
+            scale: 0.6 + rand() * 0.45, // small, so canopies stay inside the buffer
+          })
+        }
+      }
+      return perVariant
+    }
+    // Trees get an extra thinning beyond the scene density — coastal routes read
+    // more open with only a scattering of trees.
+    return TREE_SPECS.map((_, i) =>
+      makeField(dens(16), mulberry32(0xc0ffee + i * 977), (r) => ({
+        ...sideX(0.6, 26)(r),
+        scale: 0.7 + r() * 1.1,
+      })),
+    )
+  }, [])
+  const groveMode = LAYOUT.farmlandSide !== 0
+  useEffect(() => () => {
+    variants.forEach((g) => g.dispose())
+    material.dispose()
+  }, [variants, material])
+  return (
+    <>
+      {variants.map((geo, i) => (
+        <ScrollField key={i} insts={fields[i]} geometry={geo} material={material} normalOffset={groveMode} />
+      ))}
+    </>
+  )
+}
+
+function Grass() {
+  const p = useProps(
+    makeGrassTuft,
+    RIDE_COLORS.grassBlade,
+    0x6a12,
+    dens(120),
+    (r) => ({ ...sideX(0.2, 22)(r), scale: 0.7 + r() * 0.9 }),
+    { perGrove: 8, latMin: 0.5, latSpread: 12, sMin: 0.7, sSpread: 0.9 },
+  )
+  return <ScrollField {...p} castShadow={false} />
+}
+
+function Shrubs() {
+  const p = useProps(
+    makeShrub,
+    RIDE_COLORS.shrub,
+    0xb105,
+    dens(170),
+    (r) => ({ ...sideX(0.5, 26)(r), scale: 0.55 + r() * 0.75 }),
+    { perGrove: 5, latMin: 1, latSpread: 12, sMin: 0.55, sSpread: 0.75 },
+  )
+  return <ScrollField {...p} />
+}
+
+/** One dead-tree field: a bare-tree variant scattered along the roadside (or, on a
+ *  farmland scene, tucked into the tree groves). */
+function DeadTree({ geomSeed, color, fieldSeed, count }: { geomSeed: number; color: number; fieldSeed: number; count: number }) {
+  const p = useProps(
+    () => makeDeadTree(geomSeed),
+    color,
+    fieldSeed,
+    count,
+    (r) => ({ ...sideX(0.8, 24)(r), scale: 0.8 + r() * 0.7 }),
+    { perGrove: 1, latMin: 2, latSpread: 11, sMin: 0.8, sSpread: 0.7 },
+  )
+  return <ScrollField {...p} />
+}
+
+/** A scattering of weathered dead trees among the forest, in a couple of shapes
+ *  and driftwood-grey/brown tones. */
+function DeadTrees() {
+  return (
+    <>
+      <DeadTree geomSeed={0xd1a} color={0x6f6151} fieldSeed={0xdead01} count={dens(15)} />
+      <DeadTree geomSeed={0xd2b} color={0x7d6c54} fieldSeed={0xdead02} count={dens(12)} />
+    </>
+  )
+}
+
+function Rocks() {
+  const p = useProps(
+    makeRock,
+    RIDE_COLORS.rock,
+    0x5eed,
+    dens(26),
+    (r) => ({ ...sideX(0.6, 20)(r), scale: 0.3 + r() * 0.5 }),
+    { perGrove: 2, latMin: 2, latSpread: 11, sMin: 0.3, sSpread: 0.5 },
+  )
+  return <ScrollField {...p} />
+}
+
+// --- Buildings ---------------------------------------------------------------
+/** Occasional small coastal houses set well back from both sides of the road (a
+ *  hamlet, not a wall of them). Their footprints face the road via a per-instance
+ *  yaw so the door reads toward the tarmac. */
+function Buildings() {
+  const material = useMemo(
+    () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 }),
+    [],
+  )
+  const variants = useMemo(() => [makeBuilding(0xb01), makeBuilding(0xb02), makeBuilding(0xb03)], [])
   const fields = useMemo(
     () =>
-      TREE_SPECS.map((_, i) =>
-        makeField(30, mulberry32(0xc0ffee + i * 977), (r) => ({
-          ...sideX(0.6, 26)(r),
-          scale: 0.7 + r() * 1.1,
-        })),
+      variants.map((_, i) =>
+        makeField(4, mulberry32(0xb01ce + i * 613), (r) => {
+          // Set back behind the verge. Keep them off the beach side (a house set
+          // back from a coastal road would land in the sea) — so on a beach route
+          // they line the land side; otherwise either side.
+          const side = LAYOUT.beachSide !== 0 ? (-LAYOUT.beachSide as -1 | 1) : r() < 0.5 ? -1 : 1
+          return {
+            x: side * (RIDE.roadHalfWidth + 5 + r() * 12),
+            rotY: (side > 0 ? Math.PI : 0) + (r() - 0.5) * 0.8,
+            scale: 0.9 + r() * 0.5,
+          }
+        }),
       ),
-    [],
+    [variants],
   )
   useEffect(() => () => {
     variants.forEach((g) => g.dispose())
@@ -211,52 +402,104 @@ function Trees() {
   )
 }
 
-function Grass() {
-  const p = useProps(makeGrassTuft, RIDE_COLORS.grassBlade, 0x6a12, 120, (r) => ({
-    ...sideX(0.2, 22)(r),
-    scale: 0.7 + r() * 0.9,
-  }))
-  return <ScrollField {...p} castShadow={false} />
-}
-
-function Shrubs() {
-  const p = useProps(makeShrub, RIDE_COLORS.shrub, 0xb105, 170, (r) => ({
-    ...sideX(0.5, 26)(r),
-    scale: 0.55 + r() * 0.75,
-  }))
-  return <ScrollField {...p} />
-}
-
-/** One dead-tree field: a bare-tree variant scattered along the roadside. */
-function DeadTree({ geomSeed, color, fieldSeed, count }: { geomSeed: number; color: number; fieldSeed: number; count: number }) {
-  const p = useProps(
-    () => makeDeadTree(geomSeed),
-    color,
-    fieldSeed,
-    count,
-    (r) => ({ ...sideX(0.8, 24)(r), scale: 0.8 + r() * 0.7 }),
+// --- Lit street furniture ----------------------------------------------------
+/** A scrolling field of a lit roadside asset (a LitAsset — matte `body` + glowing
+ *  `lit`): the body takes the flat vertex-coloured standard material, the lit mesh
+ *  an unlit MeshBasic so it reads as self-illuminated at golden hour. Both meshes
+ *  share the same per-instance transforms and scroll/track the road like any prop. */
+function LitField({ asset, insts }: { asset: LitAsset; insts: Inst[] }) {
+  const bodyMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.6, metalness: 0.25 }),
+    [],
   )
-  return <ScrollField {...p} />
-}
-
-/** A scattering of weathered dead trees among the forest, in a couple of shapes
- *  and driftwood-grey/brown tones. */
-function DeadTrees() {
+  const litMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, fog: false }),
+    [],
+  )
+  const bodyRef = useRef<THREE.InstancedMesh>(null!)
+  const litRef = useRef<THREE.InstancedMesh>(null!)
+  useEffect(() => () => {
+    bodyMat.dispose()
+    litMat.dispose()
+  }, [bodyMat, litMat])
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.05)
+    for (let i = 0; i < insts.length; i++) {
+      const it = insts[i]
+      it.z -= MOTION.speed * dt
+      if (it.z < RIDE.spawnZ) it.z += SPAN
+      _q.setFromAxisAngle(_up, it.rotY)
+      _p.set(it.x + roadX(it.z), 0, it.z)
+      _s.setScalar(it.scale)
+      _m.compose(_p, _q, _s)
+      bodyRef.current?.setMatrixAt(i, _m)
+      litRef.current?.setMatrixAt(i, _m)
+    }
+    if (bodyRef.current) bodyRef.current.instanceMatrix.needsUpdate = true
+    if (litRef.current) litRef.current.instanceMatrix.needsUpdate = true
+  })
   return (
     <>
-      <DeadTree geomSeed={0xd1a} color={0x6f6151} fieldSeed={0xdead01} count={15} />
-      <DeadTree geomSeed={0xd2b} color={0x7d6c54} fieldSeed={0xdead02} count={12} />
+      <instancedMesh ref={bodyRef} args={[asset.body, bodyMat, insts.length]} castShadow receiveShadow frustumCulled={false} />
+      <instancedMesh ref={litRef} args={[asset.lit, litMat, insts.length]} frustumCulled={false} />
     </>
   )
 }
 
-function Rocks() {
-  const p = useProps(makeRock, RIDE_COLORS.rock, 0x5eed, 26, (r) => ({
-    ...sideX(0.6, 20)(r),
-    scale: 0.3 + r() * 0.5,
-  }))
-  return <ScrollField {...p} />
+/** Sparse lit street furniture along the road: cobra-head lamps posted at the road
+ *  edge (their arm arcing over the tarmac) plus the odd traffic light. The lamp
+ *  arm reaches +x, so left-side posts stand as-built and right-side posts are
+ *  turned 180° so the arm always reaches in over the road. */
+function StreetFurniture() {
+  const lamp = useMemo(makeStreetLamp, [])
+  const signal = useMemo(makeTrafficLight, [])
+  const edge = RIDE.roadHalfWidth + 0.5
+  const lampInsts = useMemo(() => {
+    const r = mulberry32(0x1a4b)
+    const n = 7
+    const out: Inst[] = []
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1 // alternate banks down the road
+      out.push({
+        x: side * edge,
+        z: RIDE.spawnZ + ((i + r() * 0.5) / n) * SPAN,
+        rotY: side > 0 ? Math.PI : 0, // arm reaches in over the road
+        scale: 0.9,
+      })
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const signalInsts = useMemo(() => {
+    const r = mulberry32(0x7c33)
+    const n = 2
+    const out: Inst[] = []
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? 1 : -1
+      out.push({
+        x: side * edge,
+        z: RIDE.spawnZ + ((i + 0.35 + r() * 0.3) / n) * SPAN,
+        // Lenses are on the head's +z face; the rider faces the camera (+z), so a
+        // small turn toward the road keeps the signal facing the oncoming rider.
+        rotY: side > 0 ? 0.3 : -0.3,
+        scale: 0.95,
+      })
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => () => {
+    lamp.body.dispose(); lamp.lit.dispose()
+    signal.body.dispose(); signal.lit.dispose()
+  }, [lamp, signal])
+  return (
+    <>
+      <LitField asset={lamp} insts={lampInsts} />
+      <LitField asset={signal} insts={signalInsts} />
+    </>
+  )
 }
+
 
 /** A soft round sprite (radial gradient) so each mote reads as a glowing speck
  *  rather than a hard square. */
@@ -712,6 +955,9 @@ export function RideWorld() {
   const ride = useGame((s) => s.ride)
   const spec: RideScene | undefined = ride ? RIDE_SCENES[ride] : undefined
   LAYOUT.forestSide = spec?.forest ? riderSideToScreen(spec.forest) : 0
+  LAYOUT.beachSide = spec?.beach ? riderSideToScreen(spec.beach) : 0
+  LAYOUT.farmlandSide = spec?.farmland ? riderSideToScreen(spec.farmland) : 0
+  LAYOUT.density = spec?.density ?? 1
 
   useEffect(() => {
     const prev = scene.fog
@@ -720,6 +966,9 @@ export function RideWorld() {
     return () => {
       scene.fog = prev
       LAYOUT.forestSide = 0
+      LAYOUT.beachSide = 0
+      LAYOUT.farmlandSide = 0
+      LAYOUT.density = 1
     }
   }, [scene])
 
@@ -730,6 +979,7 @@ export function RideWorld() {
       <Ground />
       <GroundPatches />
       {spec?.beach && <Beach side={riderSideToScreen(spec.beach)} />}
+      {spec?.farmland && <Farmland side={riderSideToScreen(spec.farmland)} />}
       <CurvyRoad />
       <RoadDashes />
       <Trees />
@@ -737,6 +987,8 @@ export function RideWorld() {
       <Grass />
       <Shrubs />
       <Rocks />
+      {spec?.buildings && <Buildings />}
+      {spec?.streetFurniture && <StreetFurniture />}
       <RideRunner x={RIDE.playerX} />
       <RideRunner x={RIDE.leonardX} />
       <Motes />

@@ -398,6 +398,43 @@ export function makeCrops(): THREE.BufferGeometry {
   return g
 }
 
+// --- Buildings ---------------------------------------------------------------
+// Small low-poly coastal houses for the roadside — a Jeju-style basalt stone
+// base, painted walls and a low hipped tiled roof. Same flat-shaded,
+// vertex-coloured grammar as everything else; randomised per seed so a scattered
+// field reads as a hamlet, not clones.
+
+const HOUSE_WALLS = [0xe8ddc6, 0xd9c9a8, 0xcdd6d2, 0xe3cba0, 0xcbb892]
+const HOUSE_ROOFS = [0xa9553e, 0x8f4a3a, 0x4d5a63, 0x6a4a38, 0x8a6a4a]
+
+/** A small coastal house: basalt stone footing, painted walls, a low overhanging
+ *  hipped roof, and a dark door on the front. Pivoted to the ground. */
+export function makeBuilding(seed: number): THREE.BufferGeometry {
+  const rand = mulberry32(seed)
+  const pick = <T,>(a: T[]): T => a[Math.floor(rand() * a.length)]
+  const parts: THREE.BufferGeometry[] = []
+  const w = 2.4 + rand() * 1.8 // width (x)
+  const d = 2.0 + rand() * 1.3 // depth (z)
+  const wallH = 1.4 + rand() * 0.9
+  const baseH = 0.26
+  // basalt stone footing (a touch wider than the walls)
+  parts.push(tinted(new THREE.BoxGeometry(w + 0.2, baseH, d + 0.2).translate(0, baseH / 2, 0), 0x3a3733))
+  // painted walls
+  parts.push(tinted(new THREE.BoxGeometry(w, wallH, d).translate(0, baseH + wallH / 2, 0), pick(HOUSE_WALLS)))
+  // low hipped roof (a 4-sided pyramid, overhanging the footprint)
+  const rr = Math.max(w, d) * 0.72 + 0.32
+  const roofH = 0.7 + rand() * 0.5
+  const roof = new THREE.ConeGeometry(rr, roofH, 4).rotateY(Math.PI / 4)
+  roof.translate(0, baseH + wallH + roofH / 2 - 0.02, 0)
+  parts.push(tinted(roof, pick(HOUSE_ROOFS)))
+  // a dark door on the +z face
+  const doorH = Math.min(1.0, wallH * 0.7)
+  parts.push(tinted(new THREE.BoxGeometry(0.5, doorH, 0.08).translate(0, baseH + doorH / 2, d / 2 + 0.02), 0x4a3b2c))
+  const g = mergeGeometries(parts, false)!
+  g.computeVertexNormals()
+  return g
+}
+
 // --- Roadside: lit street furniture ------------------------------------------
 // Poles and housings are matte (vertex-coloured, like everything else); the
 // glowing parts — the lamp and the signal lenses — come back as a SEPARATE
@@ -475,7 +512,7 @@ const TRAFFIC_LIGHT = makeTrafficLight()
 export interface RideAsset {
   id: string
   name: string
-  category: 'Trees' | 'Farmland' | 'Roadside' | 'Ground & Rock'
+  category: 'Trees' | 'Farmland' | 'Roadside' | 'Buildings' | 'Ground & Rock'
   geometry: () => THREE.BufferGeometry
   /** Optional glow mesh (vertex-coloured), rendered unlit so it reads as lit. */
   emissive?: () => THREE.BufferGeometry
@@ -497,6 +534,8 @@ export const RIDE_ASSETS: RideAsset[] = [
   { id: 'rice-field', name: 'Rice paddy', category: 'Farmland', geometry: makeRicePaddy, vertexColors: true },
   { id: 'plantation', name: 'Tea plantation', category: 'Farmland', geometry: makeTeaPlantation, vertexColors: true },
   { id: 'crops', name: 'Crop rows', category: 'Farmland', geometry: makeCrops, vertexColors: true },
+  { id: 'house-1', name: 'Coastal house', category: 'Buildings', geometry: () => makeBuilding(0xb01), vertexColors: true },
+  { id: 'house-2', name: 'Coastal house (large)', category: 'Buildings', geometry: () => makeBuilding(0xb02), vertexColors: true },
   { id: 'street-lamp', name: 'Street lamp', category: 'Roadside', geometry: () => STREET_LAMP.body, emissive: () => STREET_LAMP.lit, vertexColors: true },
   { id: 'traffic-light', name: 'Traffic light', category: 'Roadside', geometry: () => TRAFFIC_LIGHT.body, emissive: () => TRAFFIC_LIGHT.lit, vertexColors: true },
   { id: 'shrub', name: 'Shrub', category: 'Ground & Rock', geometry: makeShrub, color: RIDE_COLORS.shrub },
