@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import { useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { useTownGLTF } from '../gltf'
 import { RIDE, RIDE_COLORS } from '../../config/ride'
 import {
   makeTree,
@@ -17,13 +20,11 @@ import {
 import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
 import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope, LAND_GROVES } from './motion'
 import { makeTarmacTexture } from '../tarmac'
-import { RiggedFigure } from '../RiggedFigure'
 import { useShadowDispose } from '../useShadowDispose'
 import { useRideHud } from '../../state/rideHud'
 import { useGame } from '../../state/store'
 import { Beach } from './kits/Beach'
 import { Farmland } from './kits/Farmland'
-import type { CharAnim } from '../Figure'
 
 const _m = new THREE.Matrix4()
 const _q = new THREE.Quaternion()
@@ -889,22 +890,72 @@ function GroundPatches() {
   )
 }
 
-/** One rider: the shared rigged character, looping its run clip, turned to face
- *  the camera. Completely static — the world (road included) moves under it; if a
- *  switchback swings the tarmac aside, that's fine. */
-function RideRunner({ x }: { x: number }) {
-  const anim = useRef<CharAnim>({
-    moving: true, phase: 0, speed: RIDE.runSpeed, gait: 'run',
-    jumpSeq: 0, jumpKind: 'jump', jumping: false,
-  })
-  // Cadence the legs with the live world speed — quicker on the descents, labouring
-  // on the climbs — without moving the rider.
+const CYCLIST_MODEL = '/models/cyclist.glb'
+// The Tron wheel glow is rendered here in three.js (emissive + the scene's Bloom
+// pass), so the colour is themeable without re-exporting the model.
+const TRON_GLOW = { color: '#12e6ff', intensity: 12 }
+// cyclist.glb is authored ~true-size; match the town figure's footprint on the road.
+const CYCLIST_SCALE = 0.9
+
+/** One ride cyclist: the kitted rider on the bike (cyclist.glb), looping its baked
+ *  `cycle` clip (legs pedalling ~85rpm, cranks + Tron wheels spinning), turned to
+ *  face the camera. Static like the old runner — the world moves under it. The
+ *  `TronGlow` rim material is swapped to a vivid unlit glow so the scene's Bloom
+ *  haloes it (desktop; mobile shows it bright but un-haloed, like the town's lit
+ *  windows). Each instance clones the model + material so riders are independent. */
+function RideCyclist({ x }: { x: number }) {
+  const { scene, animations } = useTownGLTF(CYCLIST_MODEL)
+  const model = useMemo(() => skeletonClone(scene), [scene])
+  const root = useRef<THREE.Group>(null!)
+  const { actions } = useAnimations(animations, root)
+
+  useEffect(() => {
+    model.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh) return
+      m.castShadow = true
+      m.receiveShadow = true
+      const mats = Array.isArray(m.material) ? m.material : [m.material]
+      mats.forEach((mm, i) => {
+        const std = mm as THREE.MeshStandardMaterial
+        if (std?.name !== 'TronGlow') return
+        const glow = std.clone() as THREE.MeshStandardMaterial
+        glow.emissive = new THREE.Color(TRON_GLOW.color)
+        glow.emissiveIntensity = TRON_GLOW.intensity
+        glow.color = new THREE.Color(0x000000)
+        glow.toneMapped = false // keep the glow vivid so Bloom catches it
+        if (Array.isArray(m.material)) m.material[i] = glow
+        else m.material = glow
+        m.castShadow = false
+      })
+    })
+  }, [model])
+
+  useEffect(() => {
+    actions['cycle']?.reset().play()
+  }, [actions])
+
+  // Pedal cadence eases with the live world speed — quicker on descents, labouring
+  // on climbs — same feel as the old runner (1.0 = the baked 85rpm at cruise).
+  // Also yaw the rider to the road's heading at its row so it stays true to the
+  // road as the bends flow past (base π faces the camera; the road tangent adds on
+  // top — same atan(curveSlope) alignment the dashes use). The lateral seat tracks
+  // the road normal so the two riders straddle the centreline through bends.
   useFrame(() => {
-    anim.current.speed = RIDE.runSpeed * (MOTION.speed / RIDE.scrollSpeed)
+    const a = actions['cycle']
+    if (a) a.timeScale = MOTION.speed / RIDE.scrollSpeed
+    const g = root.current
+    if (!g) return
+    const ang = Math.atan(curveSlope(RIDE.runnerZ))
+    g.rotation.y = Math.PI + ang
+    g.position.set(x * Math.cos(ang), RIDE.roadHeight, RIDE.runnerZ - x * Math.sin(ang))
   })
+
   return (
-    <group position={[x, RIDE.roadHeight, RIDE.runnerZ]} rotation={[0, 0, 0]}>
-      <RiggedFigure anim={anim} />
+    // Position + yaw are driven per-frame (above) so the rider follows the road's
+    // heading; these initial values just avoid a one-frame pop before useFrame runs.
+    <group ref={root} position={[x, RIDE.roadHeight, RIDE.runnerZ]} rotation={[0, Math.PI, 0]} scale={CYCLIST_SCALE}>
+      <primitive object={model} />
     </group>
   )
 }
@@ -989,9 +1040,12 @@ export function RideWorld() {
       <Rocks />
       {spec?.buildings && <Buildings />}
       {spec?.streetFurniture && <StreetFurniture />}
-      <RideRunner x={RIDE.playerX} />
-      <RideRunner x={RIDE.leonardX} />
+      <RideCyclist x={RIDE.playerX} />
+      <RideCyclist x={RIDE.leonardX} />
       <Motes />
     </group>
   )
 }
+
+// Preload the cyclist model so the ride scene has it ready when a route is picked.
+useTownGLTF.preload(CYCLIST_MODEL)
