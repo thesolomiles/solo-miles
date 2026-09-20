@@ -903,7 +903,7 @@ const CYCLIST_SCALE = 0.9
  *  `TronGlow` rim material is swapped to a vivid unlit glow so the scene's Bloom
  *  haloes it (desktop; mobile shows it bright but un-haloed, like the town's lit
  *  windows). Each instance clones the model + material so riders are independent. */
-function RideCyclist({ x }: { x: number }) {
+function RideCyclist({ x, phase = 0, rate = 1 }: { x: number; phase?: number; rate?: number }) {
   const { scene, animations } = useTownGLTF(CYCLIST_MODEL)
   const model = useMemo(() => skeletonClone(scene), [scene])
   const root = useRef<THREE.Group>(null!)
@@ -932,8 +932,13 @@ function RideCyclist({ x }: { x: number }) {
   }, [model])
 
   useEffect(() => {
-    actions['cycle']?.reset().play()
-  }, [actions])
+    const a = actions['cycle']
+    if (!a) return
+    a.reset()
+    // Stagger this rider's pedal phase so the two aren't in lockstep.
+    a.time = phase * a.getClip().duration
+    a.play()
+  }, [actions, phase])
 
   // Pedal cadence eases with the live world speed — quicker on descents, labouring
   // on climbs — same feel as the old runner (1.0 = the baked 85rpm at cruise).
@@ -943,7 +948,9 @@ function RideCyclist({ x }: { x: number }) {
   // the road normal so the two riders straddle the centreline through bends.
   useFrame(() => {
     const a = actions['cycle']
-    if (a) a.timeScale = MOTION.speed / RIDE.scrollSpeed
+    // `rate` slightly detunes each rider's cadence so they drift out of phase over
+    // time instead of pedalling in perfect sync.
+    if (a) a.timeScale = (MOTION.speed / RIDE.scrollSpeed) * rate
     const g = root.current
     if (!g) return
     const ang = Math.atan(curveSlope(RIDE.runnerZ))
@@ -1041,7 +1048,7 @@ export function RideWorld() {
       {spec?.buildings && <Buildings />}
       {spec?.streetFurniture && <StreetFurniture />}
       <RideCyclist x={RIDE.playerX} />
-      <RideCyclist x={RIDE.leonardX} />
+      <RideCyclist x={RIDE.leonardX} phase={0.37} rate={1.06} />
       <Motes />
     </group>
   )
