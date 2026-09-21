@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-09-21">2026-09-21</a>
       <a href="#2026-09-20">2026-09-20</a>
       <a href="#2026-09-03">2026-09-03</a>
       <a href="#2026-09-02">2026-09-02</a>
@@ -107,6 +108,14 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-09-21">
+        <h3><a class="perma" href="#2026-09-21">2026-09-21 · Monday</a></h3>
+        <ul>
+          <li><strong>Parked cyclist Leonard at the end of the town road.</strong> Swapped the standing playable-character NPC (who just looped an idle) for the kitted road cyclist (<code>cyclist.glb</code>): Leonard now sits <em>on his bike, not pedalling</em> — the pedal clip is played but held paused on one frame — facing south toward the approaching player. Same model the ride uses, so he reads as one set; wheels keep their Tron glow, and the "wanna join me?" talk interaction is untouched.</li>
+          <li><strong>The two ride riders now look like two people.</strong> In the ride scene the player and Leonard were identical (same GLB). Gave the <em>player</em> a red jersey + black helmet while Leonard keeps his blue/white — so you can tell yourselves apart mid-ride.</li>
+          <li><strong>How the recolour works (no re-export).</strong> The whole rider shares one Imphenzia palette material — colour is which swatch each face's UVs land on — and there's no cyclist <code>.blend</code> in the repo (it was built live in Blender), so a clean two-variant re-export wasn't on the table. Instead a kit variant is done at runtime: clone the albedo texture and repaint the two swatches the jersey and helmet use (found by sampling the model's own UVs). Because the jersey shares its swatch with the gloves and the helmet with the socks/shoes, a recolour reads as a coherent alternate kit. Themeable per rider from a one-line constant. Factored the model-load + Tron-glow + recolour into a shared <code>three/cyclist.ts</code> used by both the town NPC and the ride. <code>pnpm build</code> clean.</li>
+        </ul>
+      </article>
       <article id="2026-09-20">
         <h3><a class="perma" href="#2026-09-20">2026-09-20 · Sunday</a></h3>
         <ul>

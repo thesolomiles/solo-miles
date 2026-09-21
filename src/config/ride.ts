@@ -45,6 +45,13 @@ export const RIDE = {
  *  the ride and returns to town. */
 export const RIDE_OUTRO_LINE = 'That was a great ride — let’s head back.'
 
+/** Kit variants so the two ride riders read as two people. Leonard keeps the
+ *  baked blue jersey / white helmet (no recolour); the player rides in a red
+ *  jersey + black helmet. Hex sRGB — a recolour also tints the matching gloves
+ *  (jersey) and socks/shoes (helmet), reading as a coherent alternate kit. See
+ *  three/cyclist.ts. */
+export const PLAYER_KIT = { jersey: '#cf3a2f', helmet: '#1c1c1c' } as const
+
 /** Palette for the flat-shaded ride scenery (shared low-poly language). */
 export const RIDE_COLORS = {
   grass: 0x8fab68,

@@ -252,9 +252,10 @@ export const ACTORS = {
   rider: {
     id: 'rider',
     // At the reachable end of the trail — north of the bridge, on the road just
-    // before the forest closes in. Kept inside WORLD.boundary (±27) so the
-    // player can actually walk up to him (he used to sit at z −30.5, off-map).
-    post: new THREE.Vector3(0, 0, -26),
+    // before the forest closes in. Pulled a little south of the ±27 boundary so
+    // the clamped ortho camera frames him fully instead of clipping his top (he
+    // used to sit at z −30.5 off-map, then −26 which the camera clamp cut off).
+    post: new THREE.Vector3(0, 0, -23),
     interact: {
       id: 'rider',
       name: 'Leonard',

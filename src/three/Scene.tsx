@@ -195,7 +195,9 @@ function RideController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     prevRide.current = ride
     if (ride === null && wasRiding) {
       setActiveWorld('town')
-      posRef.current.set(0, 0, -22)
+      // A few units south of Leonard's post (now z −23) so the player fades in
+      // standing clear of him, not overlapping — bump this south with his post.
+      posRef.current.set(0, 0, -19)
     }
   }, [ride, posRef])
   return null
