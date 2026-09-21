@@ -6,7 +6,8 @@ import { useTownGLTF } from './gltf'
 /**
  * Shared loader for the kitted road cyclist (cyclist.glb) — used both by the
  * parked Leonard at the end of the town road and by the two riders in the ride
- * scene. It clones the model per instance (independent skeletons/materials) and:
+ * scene. It clones the model per instance (independent skeletons; the glow + kit
+ * materials are shared read-only, built once — see glowMaterial/kitMaterial) and:
  *
  *  - swaps the wheels' `TronGlow` rim material for a vivid unlit emissive so the
  *    scene's Bloom pass haloes it (desktop; mobile shows it bright but un-haloed);
@@ -31,8 +32,11 @@ export type CyclistKit = { jersey: string; helmet: string }
 
 // The exact sRGB swatch colours the baked jersey and helmet faces sample, found
 // once from the decoded model (Draco, so it can't be read offline). Keyed "r,g,b".
+// Only a SUCCESSFUL detection is cached — a failed attempt returns null without
+// caching, so a one-off miss (e.g. texture not decoded yet) retries next mount
+// instead of disabling the recolour for the whole session.
 type Swatches = { jersey: string; helmet: string }
-let swatchCache: Swatches | null | undefined // undefined = not tried, null = failed
+let swatchCache: Swatches | undefined
 
 function findChar(scene: THREE.Object3D): { char?: THREE.Mesh; map?: THREE.Texture } {
   // The rider is the only skinned mesh (the bike parts are rigid), so match on
@@ -57,20 +61,19 @@ function findChar(scene: THREE.Object3D): { char?: THREE.Mesh; map?: THREE.Textu
  * though the rider is posed seated at runtime.
  */
 function detectSwatches(scene: THREE.Object3D): Swatches | null {
-  if (swatchCache !== undefined) return swatchCache
-  swatchCache = null
+  if (swatchCache) return swatchCache // only a successful result is cached
   const { char, map } = findChar(scene)
   const img = map?.image as CanvasImageSource | undefined
   const pos = char?.geometry.getAttribute('position') as THREE.BufferAttribute | undefined
   const uv = char?.geometry.getAttribute('uv') as THREE.BufferAttribute | undefined
-  if (!img || !pos || !uv) return swatchCache
+  if (!img || !pos || !uv) return null // not ready — retry next mount, don't cache
   const W = (img as HTMLImageElement).width || (img as ImageBitmap).width
   const H = (img as HTMLImageElement).height || (img as ImageBitmap).height
   const cv = document.createElement('canvas')
   cv.width = W
   cv.height = H
   const ctx = cv.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return swatchCache
+  if (!ctx) return null
   ctx.drawImage(img, 0, 0, W, H)
   const data = ctx.getImageData(0, 0, W, H).data
   const flip = map!.flipY
@@ -108,7 +111,8 @@ function detectSwatches(scene: THREE.Object3D): Swatches | null {
   const mode = (c: Record<string, number>) => Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0]
   const jersey = mode(torso)
   const helmet = mode(top)
-  if (jersey && helmet) swatchCache = { jersey, helmet }
+  if (!jersey || !helmet) return null
+  swatchCache = { jersey, helmet }
   return swatchCache
 }
 
@@ -156,6 +160,37 @@ function recolouredTexture(base: THREE.Texture, remap: { from: string; to: strin
   return tex
 }
 
+// The glow + kit materials carry no per-instance state, so they're built once
+// and shared across every rider (town + both ride riders, every ride entry)
+// rather than cloned per mount — no accumulating material objects to dispose.
+let glowMat: THREE.MeshStandardMaterial | undefined
+function glowMaterial(src: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+  if (!glowMat) {
+    const g = src.clone()
+    g.emissive = new THREE.Color(TRON_GLOW.color)
+    g.emissiveIntensity = TRON_GLOW.intensity
+    g.color = new THREE.Color(0x000000)
+    g.toneMapped = false // keep the glow vivid so Bloom catches it
+    glowMat = g
+  }
+  return glowMat
+}
+
+const kitMatCache = new Map<string, THREE.MeshStandardMaterial>()
+function kitMaterial(src: THREE.MeshStandardMaterial, kit: CyclistKit, sw: Swatches): THREE.MeshStandardMaterial {
+  const key = kit.jersey + '|' + kit.helmet
+  let m = kitMatCache.get(key)
+  if (!m) {
+    m = src.clone() as THREE.MeshStandardMaterial
+    m.map = recolouredTexture(src.map!, [
+      { from: sw.jersey, to: kit.jersey },
+      { from: sw.helmet, to: kit.helmet },
+    ])
+    kitMatCache.set(key, m)
+  }
+  return m
+}
+
 /**
  * Load + clone the cyclist, apply the Tron glow, and (if `kit` is given) recolour
  * the jersey + helmet. Returns the prepared model and its animation clips; the
@@ -167,7 +202,6 @@ export function useCyclistModel(kit?: CyclistKit) {
 
   useMemo(() => {
     const sw = kit ? detectSwatches(scene) : null
-    let recoloured: THREE.Texture | null = null
     model.traverse((o) => {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
@@ -176,29 +210,16 @@ export function useCyclistModel(kit?: CyclistKit) {
       const mats = Array.isArray(m.material) ? m.material : [m.material]
       mats.forEach((mm, i) => {
         const std = mm as THREE.MeshStandardMaterial
+        let next: THREE.MeshStandardMaterial | undefined
         if (std?.name === 'TronGlow') {
-          const glow = std.clone() as THREE.MeshStandardMaterial
-          glow.emissive = new THREE.Color(TRON_GLOW.color)
-          glow.emissiveIntensity = TRON_GLOW.intensity
-          glow.color = new THREE.Color(0x000000)
-          glow.toneMapped = false // keep the glow vivid so Bloom catches it
-          if (Array.isArray(m.material)) m.material[i] = glow
-          else m.material = glow
+          next = glowMaterial(std)
           m.castShadow = false
-          return
+        } else if (kit && sw && std?.name === 'Material' && std.map) {
+          next = kitMaterial(std, kit, sw)
         }
-        if (kit && sw && std?.name === 'Material' && std.map) {
-          if (!recoloured) {
-            recoloured = recolouredTexture(std.map, [
-              { from: sw.jersey, to: kit.jersey },
-              { from: sw.helmet, to: kit.helmet },
-            ])
-          }
-          const cm = std.clone() as THREE.MeshStandardMaterial
-          cm.map = recoloured
-          if (Array.isArray(m.material)) m.material[i] = cm
-          else m.material = cm
-        }
+        if (!next) return
+        if (Array.isArray(m.material)) m.material[i] = next
+        else m.material = next
       })
     })
   }, [model, scene, kit])

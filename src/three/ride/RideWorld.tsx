@@ -894,7 +894,7 @@ function GroundPatches() {
  *  face the camera. Static like the old runner — the world moves under it. The
  *  `TronGlow` rim material glows (see useCyclistModel); an optional `kit` recolours
  *  the jersey + helmet so the two riders read as two people. Each instance clones
- *  the model + materials so riders are independent. */
+ *  the model (skeleton) — glow/kit materials are shared read-only. */
 function RideCyclist({ x, phase = 0, rate = 1, kit }: { x: number; phase?: number; rate?: number; kit?: CyclistKit }) {
   const { model, animations } = useCyclistModel(kit)
   const root = useRef<THREE.Group>(null!)
