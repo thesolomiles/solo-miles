@@ -399,12 +399,12 @@ canvas {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 .wsel__row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .wsel__card {
-  flex: 0 0 156px;
+  min-width: 0;
   color: #f3e6c8;
 }
 .wsel__thumb {
@@ -415,6 +415,11 @@ canvas {
   justify-content: center;
   border: 3px solid #1a120c;
   box-shadow: inset 0 0 0 1px rgba(255, 220, 140, 0.15);
+  transition: border-color 0.12s ease;
+}
+.wsel__card:hover .wsel__thumb,
+.wsel__card:focus-visible .wsel__thumb {
+  border-color: #f5d04a;
 }
 .wsel__glyph {
   font-size: 40px;
