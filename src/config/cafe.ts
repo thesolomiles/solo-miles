@@ -73,17 +73,23 @@ export const CAFE = {
     { pos: [-3.2, -5.2] as [number, number], rot: 0, phase: 1, primary: 'talk' },
   ],
 
-  /** Seated customers. Each is a cloned patron GLB frozen on its `sit` clip at a
-   *  chair. `model` is the GLB (patron-1 = sit-and-talk, patron-2 = cross-legged),
-   *  `pos` the chair's floor spot (three-space x,z), `rot` the facing (+Z = model
-   *  front = toward the camera / into the room; π = toward the back wall), `yFix`
-   *  nudges the seat height. See three/actors/Patron. */
+  /** Seated customers. Each is a cloned patron GLB at a chair. `model` is the
+   *  GLB, `pos` the chair's floor spot (three-space x,z), `rot` the facing
+   *  (+Z = model front; 0 = toward the camera / into the room; π = toward the
+   *  back wall; ±π/2 = along X), `yFix` nudges the seat height. Single-clip
+   *  patrons loop `sit`; multi-clip ones loop `idle` and periodically play their
+   *  extra. See three/actors/Patron. */
   patrons: [
     // Left-wall 2-top (T2L1): the two share a table, facing each other across it.
     // patron-1 at the north chair faces +Z (toward the table + camera; we see his
     // face); patron-2 opposite at the south chair faces −Z (toward him).
     { model: '/models/patron-1.glb', pos: [-6.35, -2.3] as [number, number], rot: 0, yFix: 0 },
     { model: '/models/patron-2.glb', pos: [-6.35, -0.7] as [number, number], rot: Math.PI, yFix: 0 },
+    // Left 4-top (T4a): george / james / melanie on W / N / E; south chair empty.
+    // Chairs face the table: west → +X, north → +Z (camera sees his face), east → −X.
+    { model: '/models/george.glb', pos: [-3.95, 1.5] as [number, number], rot: Math.PI / 2, yFix: 0 },
+    { model: '/models/james.glb', pos: [-2.8, 0.35] as [number, number], rot: 0, yFix: 0 },
+    { model: '/models/melanie.glb', pos: [-1.65, 1.5] as [number, number], rot: -Math.PI / 2, yFix: 0 },
   ],
 
   /** The walkable staff strip the baristas roam: the gap between the counter's

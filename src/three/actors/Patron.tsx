@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -8,22 +9,29 @@ import { CAFE } from '../../config/cafe'
 // The patron GLBs stand ~ the same ~2u human as the player + baristas; 0.9 lands
 // them at the shared ~1.8u seated scale.
 const SCALE = 0.9
+const FADE = 0.3
 
 type PatronDef = (typeof CAFE.patrons)[number]
 
 /**
  * One seated café customer: a cloned skinned instance of a patron GLB
- * (`def.model`, e.g. patron-1 = sit-and-talk, patron-2 = cross-legged) parked at
- * a chair, looping its `sit` clip. No movement or behaviour — it's ambient
- * set-dressing, like the baristas but stationary. Each instance gets its OWN
- * skeleton via SkeletonUtils.clone (sharing the useGLTF scene would make all
- * patrons of that model drive the same bones and only one would render), and
- * starts its clip at a random offset so patrons aren't frame-synced.
+ * (`def.model`) parked at a chair. Single-clip patrons (patron-1 / patron-2)
+ * loop `sit`. Multi-clip ones (george / james / melanie) loop `idle` and
+ * periodically play their extra once (thumbs-up / angry / clap), then return.
+ * Each instance gets its OWN skeleton via SkeletonUtils.clone (sharing the
+ * useGLTF scene would make all patrons of that model drive the same bones),
+ * and extras are staggered so the table doesn't gesture in lockstep.
  */
-function OnePatron({ def }: { def: PatronDef }) {
+function OnePatron({ def, index }: { def: PatronDef; index: number }) {
   const { scene, animations } = useTownGLTF(def.model)
   const model = useMemo(() => skeletonClone(scene), [scene])
   const { actions } = useAnimations(animations, model)
+
+  const idleName = useRef('sit')
+  const extras = useRef<string[]>([])
+  const playing = useRef('')
+  const mode = useRef<'idle' | 'extra'>('idle')
+  const timer = useRef(0)
 
   useEffect(() => {
     model.traverse((o) => {
@@ -35,15 +43,46 @@ function OnePatron({ def }: { def: PatronDef }) {
     })
   }, [model])
 
+  const play = (name: string, loop: boolean) => {
+    const next = actions[name]
+    if (!next || playing.current === name) return
+    actions[playing.current]?.fadeOut(FADE)
+    next.reset()
+    next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1)
+    next.clampWhenFinished = !loop
+    if (loop) next.time = Math.random() * next.getClip().duration
+    next.fadeIn(FADE).play()
+    playing.current = name
+  }
+
   useEffect(() => {
-    const clip = actions.sit
-    if (!clip) return
-    clip.reset()
-    clip.setLoop(THREE.LoopRepeat, Infinity)
-    clip.time = Math.random() * clip.getClip().duration
-    clip.play()
-    return () => void clip.stop()
+    idleName.current = actions.idle ? 'idle' : 'sit'
+    extras.current = Object.keys(actions).filter((n) => n !== idleName.current && actions[n])
+    play(idleName.current, true)
+    mode.current = 'idle'
+    // Stagger first extras so the four-top doesn't fire as a chorus.
+    timer.current = extras.current.length ? 3 + Math.random() * 5 + index * 1.4 : Infinity
+    return () => {
+      Object.values(actions).forEach((a) => a?.stop())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actions])
+
+  useFrame((_, delta) => {
+    if (!extras.current.length) return
+    timer.current -= Math.min(delta, 0.05)
+    if (timer.current > 0) return
+    if (mode.current === 'idle') {
+      const extra = extras.current[Math.floor(Math.random() * extras.current.length)]
+      play(extra, false)
+      mode.current = 'extra'
+      timer.current = (actions[extra]?.getClip().duration ?? 2) + FADE
+    } else {
+      play(idleName.current, true)
+      mode.current = 'idle'
+      timer.current = 5 + Math.random() * 8
+    }
+  })
 
   return (
     <group
@@ -61,7 +100,7 @@ export function Patrons() {
   return (
     <>
       {CAFE.patrons.map((p, i) => (
-        <OnePatron key={i} def={p} />
+        <OnePatron key={p.model} def={p} index={i} />
       ))}
     </>
   )

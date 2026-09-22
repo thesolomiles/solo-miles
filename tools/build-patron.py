@@ -15,9 +15,10 @@ export. So: import once as the mesh/skeleton base, drop its bundled takes, then
 re-import as a throwaway clip source and bake its real (mixamo) take back onto the
 base as a clean, exportable action.
 
-Output: public/models/<patron>.glb, one animation `sit` (the Patron component
-always plays `sit`). A single-clip patron's only pose is named `sit` regardless of
-its filename; extend NAME_MAP to add named poses later.
+Output: public/models/<patron>.glb. A single-clip patron exports one animation
+`sit`. Multi-clip patrons export `idle` plus named extras (thumbs-up / angry /
+clap); Patron.tsx loops idle and periodically plays the extra. Extend NAME_MAP
+for new pose filenames.
 """
 import bpy, os, sys, glob
 from mathutils import Vector
@@ -41,9 +42,15 @@ OUT = os.path.join(ROOT, "public/models", PATRON + ".glb")
 
 # Filenames -> clean animation names. A single-clip patron always exports its one
 # seated pose as `sit` (what Patron.tsx plays), so any lone file collapses to it.
+# Multi-clip patrons export `idle` plus a named extra (thumbs-up / angry / clap).
 NAME_MAP = {
     "sit-talk": "sit",       # patron-1: seated, chatting
     "sit-cross-leg": "sit",  # patron-2: seated cross-legged
+    "Sitting Idle": "idle",
+    "Sitting Idle (1)": "idle",
+    "Sitting Thumbs Up": "thumbs-up",
+    "Sitting Angry": "angry",
+    "Sitting Clap": "clap",
 }
 
 def log(*a): print("[build-patron]", PATRON, *a)
@@ -52,7 +59,12 @@ def clean(path, only=False):
     base = os.path.splitext(os.path.basename(path))[0]
     if only:  # a patron's single pose is always `sit`
         return "sit"
-    return NAME_MAP.get(base, base.lower().replace(" ", "-"))
+    if base in NAME_MAP:
+        return NAME_MAP[base]
+    slug = base.lower()
+    if "idle" in slug:
+        return "idle"
+    return slug.replace(" ", "-")
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -134,9 +146,12 @@ files = sorted(glob.glob(os.path.join(SRC, "*.fbx")))
 if not files:
     log("ERROR: no fbx in", SRC); sys.exit(1)
 
-# ---- base: the first file that imports with a skinned mesh --------------------
+# ---- base: prefer an idle file so the rest pose is seated idle ---------------
+base_candidates = sorted(
+    files, key=lambda p: (0 if "idle" in os.path.basename(p).lower() else 1, p)
+)
 base_path = base_arm = mesh = None
-for p in files:
+for p in base_candidates:
     objs, acts = import_fbx(p)
     arm = next((o for o in objs if o.type == 'ARMATURE'), None)
     msh = next((o for o in objs if o.type == 'MESH'), None)
@@ -173,8 +188,8 @@ for path in files:
     for o in objs:
         bpy.data.objects.remove(o, do_unlink=True)
 
-# keep every final action alive on export; rest on the first (only) clip
-rest = "sit" if "sit" in final else sorted(final)[0]
+# keep every final action alive on export; rest on idle (or sit, or first clip)
+rest = "idle" if "idle" in final else "sit" if "sit" in final else sorted(final)[0]
 for a in list(bpy.data.actions):
     a.use_fake_user = a.name in final
     if a.name not in final:

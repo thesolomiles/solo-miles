@@ -266,8 +266,16 @@ export function Scene() {
       }
       // Dev shortcut: `?ride=<routeId>` boots straight into that ride scene
       // (skips the walk-to-Leonard flow) so the ride world can be iterated on.
-      const r = new URLSearchParams(window.location.search).get('ride')
+      const q = new URLSearchParams(window.location.search)
+      const r = q.get('ride')
       if (r) useGame.setState({ ride: r })
+      // Dev shortcut: `?cafe` boots straight into the café (skips the door) so
+      // patrons/staff can be iterated on the same way `?ride=` skips Leonard.
+      if (q.has('cafe')) {
+        useGame.setState({ interior: 'cafe', started: true })
+        setActiveWorld('cafe')
+        posRef.current.set(CAFE.spawn.x, 0, CAFE.spawn.z)
+      }
     }
   }, [gl, scene])
   const params =

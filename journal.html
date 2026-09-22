@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-09-22">2026-09-22</a>
       <a href="#2026-09-21">2026-09-21</a>
       <a href="#2026-09-20">2026-09-20</a>
       <a href="#2026-09-03">2026-09-03</a>
@@ -108,6 +109,14 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-09-22">
+        <h3><a class="perma" href="#2026-09-22">2026-09-22 · Tuesday</a></h3>
+        <ul>
+          <li><strong>Gave "george" a default head.</strong> George (a duplicate of the white-t-shirt town character) had a cap + hair added; Leonard wanted the plain default head back. The catch: this head is built as loose, overlapping shells meant to hide under hair, so peeling the hat/hair off just left holes. Cleanest fix was a <strong>head transplant</strong> — swap in the watertight head the base town characters use (same rig/coordinate space, reassigned to george's palette material so the skin/eyes match), delete george's old head blob, and join. Then closed the leftover neck gap and collapsed a redundant neck skirt from the donor so it didn't read as an extra shoulder. Result: a clean, hole-free default head, still weighted to the <code>Head</code> bone.</li>
+          <li><strong>New <code>export-character</code> skill.</strong> Added a skill that exports a Blender collection to <code>&lt;collection&gt;.fbx</code> in <code>~/Desktop/blender/</code> with the project's fixed FBX settings (Path Copy + embed textures, FBX-unit scale, Y-forward/Z-up, no baked animation). It selects the character mesh <em>and its armature</em> so the rig exports, and — the real gotcha we hit — <strong>un-hides the target collection first</strong>: a hidden/excluded collection silently exports an empty ~4&nbsp;KB file with no rig or textures. Added a size sanity-check so that can't slip through again.</li>
+          <li><strong>George, James and Melanie sit at the café's left 4-top.</strong> Built each Mixamo pair (idle + extra) into its own GLB via <code>build-patron.py</code> — george thumbs-up, james angry, melanie clap. They occupy the west / north / east chairs of table <code>T4a</code> (south left empty), looping idle and periodically playing the extra once. Dev shortcut <code>?cafe</code> boots straight into the room. The original left-wall 2-top pair is unchanged.</li>
+        </ul>
+      </article>
       <article id="2026-09-21">
         <h3><a class="perma" href="#2026-09-21">2026-09-21 · Monday</a></h3>
         <ul>
