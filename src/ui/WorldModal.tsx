@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useGame } from '../state/store'
 import { WORLDS, type Route } from '../config/worlds'
+import { playWorldSfx } from './worldSfx'
 
 /** A 5-pip difficulty rating (filled = harder), sitting on the thumbnail. */
 function Pips({ n }: { n: number }) {
@@ -22,6 +24,7 @@ function RouteCard({ route }: { route: Route }) {
       role="button"
       tabIndex={0}
       onClick={ride}
+      onMouseEnter={() => playWorldSfx('hover')}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
@@ -52,6 +55,24 @@ function RouteCard({ route }: { route: Route }) {
       <span className="wsel__region">{route.region}</span>
     </div>
   )
+}
+
+/**
+ * Open / close / pick stings. Mounted for the life of the HUD (not inside the
+ * selector) so the close and pick sounds still fire as the modal unmounts.
+ * Zustand's listener runs inside the click or key handler, so play() stays a
+ * user gesture. Picking a route closes the selector in the same update as the
+ * ride fade — that one plays the select sting instead of the close sting.
+ */
+export function useWorldSelectorSfx() {
+  useEffect(() => {
+    return useGame.subscribe((s, prev) => {
+      if (s.worldOpen === prev.worldOpen) return
+      if (s.worldOpen) playWorldSfx('open')
+      else if (s.transition?.kind === 'ride' && s.transition.to) playWorldSfx('select')
+      else playWorldSfx('close')
+    })
+  }, [])
 }
 
 /**
