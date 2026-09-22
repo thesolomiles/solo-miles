@@ -224,6 +224,8 @@ canvas {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   margin-top: 12px;
 }
 .dialogue__progress {
@@ -262,6 +264,7 @@ canvas {
 }
 .dialogue__choices {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .dialogue__choice {

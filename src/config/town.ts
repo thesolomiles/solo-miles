@@ -24,6 +24,12 @@ export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openWorld'
 export interface DialogueChoice {
   label: string
   outcome: ChoiceOutcome
+  /**
+   * If set, choosing this doesn't resolve the outcome yet — it continues the
+   * same conversation with these follow-up lines (e.g. a café patron's
+   * testimonial about Leonard), then closes on the last one.
+   */
+  reply?: string[]
 }
 
 /** A thing the player can walk up to and press E on. */

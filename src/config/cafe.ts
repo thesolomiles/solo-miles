@@ -1,22 +1,31 @@
 import * as THREE from 'three'
 import type { BoxCollider, Interactable, InteractZone } from './town'
 
-/** Same talk as cyclist Leonard: Yes opens the world selector, No sends you back. */
-function rideTalk(id: string, name: string, color: number): Interactable {
+/**
+ * A café regular who introduces themselves and can share what it was like to
+ * work with Leonard. "I would like to know more about Leonard" unfolds their
+ * real LinkedIn testimonial (page by page); "Nice to meet you" just ends the
+ * chat. `role` is who they were to Leonard; `testimonial` is their words,
+ * verbatim, split into speech-box pages.
+ */
+function meetLeonard(
+  id: string,
+  name: string,
+  role: string,
+  color: number,
+  testimonial: string[],
+): Interactable {
   return {
     id,
     name,
-    role: 'up for a ride',
+    role,
     verb: 'Talk',
     color,
     radius: 3.6,
-    lines: [
-      'Heya! I was just about to head out for a ride.',
-      'Wanna join me?',
-    ],
+    lines: [`Hey there, I'm ${name}.`],
     choices: [
-      { label: 'Yes', outcome: 'openWorld' },
-      { label: 'No', outcome: 'sendBack' },
+      { label: 'I would like to know more about Leonard', outcome: 'dismiss', reply: testimonial },
+      { label: 'Nice to meet you', outcome: 'dismiss' },
     ],
   }
 }
@@ -112,21 +121,33 @@ export const CAFE = {
       pos: [-3.95, 1.5] as [number, number],
       rot: Math.PI / 2,
       yFix: 0.4,
-      interact: rideTalk('george', 'George', 0x5a7a6e),
+      interact: meetLeonard('george', 'George', 'Product Manager', 0x5a7a6e, [
+        "Leonard is a strong design leader that lead the charge in defining SWAT Mobility's Design ops and processes to be able to support the fast paced and complex product needs required to serve all the varied needs of our stakeholders.",
+        'As a Product Manager, I have thoroughly enjoyed working alongside him and his team.',
+        'I admired his leadership in directing the design team to come up with beautiful and modular design system that was well-received by the users and the engineering team.',
+        'As a designer, Leonard is always improving at his craft and excels at balancing the tricky needs between beautiful, usable and implementable designs and manages the creative tension between design and engineering very well. I would definitely want to work with Leonard again!',
+      ]),
     },
     {
       model: '/models/james.glb',
       pos: [-2.8, 0.35] as [number, number],
       rot: 0,
       yFix: 0.4,
-      interact: rideTalk('james', 'James', 0xc45c4a),
+      interact: meetLeonard('james', 'James', 'Chief Product Officer', 0xc45c4a, [
+        "Leonard was a key founding member of the SWAT product team, conceptualizing and designing for SWAT's B2B products & passenger apps.",
+        'Highly collaborative and currently leads the design team to support the full spectrum of product design.',
+      ]),
     },
     {
       model: '/models/melanie.glb',
       pos: [-1.65, 1.5] as [number, number],
       rot: -Math.PI / 2,
       yFix: 0.4,
-      interact: rideTalk('melanie', 'Melanie', 0x8b6b9c),
+      interact: meetLeonard('melanie', 'Melanie', 'design colleague', 0x8b6b9c, [
+        'Leonard built out a really strong design organization at SWAT. While we started scrappy, his focus on the craft really helped us mature as a team.',
+        'His pragmatic approach helped the team strike the right balance between moving quickly and taking the time to test things and get them right.',
+        'I also really appreciated how closely Leonard worked with our frontend developers to pre-empt the "buildability" and scalability of the designs. Also, his designs are just beautiful 🤩',
+      ]),
     },
   ],
 

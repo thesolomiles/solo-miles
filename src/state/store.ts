@@ -185,6 +185,16 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   choose: (choice) => {
+    // A choice with follow-up lines (a patron's testimonial) keeps the
+    // conversation going instead of resolving an outcome: swap in the reply
+    // lines, drop the choices, and let `advance` close it on the last one.
+    if (choice.reply?.length) {
+      const { dialogue } = get()
+      if (dialogue) {
+        set({ dialogue: { ...dialogue, lines: choice.reply, choices: undefined }, line: 0 })
+        return
+      }
+    }
     set({ dialogue: null, line: 0 })
     if (choice.outcome === 'sendBack') {
       // Leonard's "No" glides you back to the bridge. Same choice from a café
