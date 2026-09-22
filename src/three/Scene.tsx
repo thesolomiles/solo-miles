@@ -329,7 +329,7 @@ export function Scene() {
         <>
           <CafeModel />
           <CafeWorkers />
-          <Patrons />
+          <Patrons playerPos={posRef} />
           {/* Café collision editor (?edit) — same draggable boxes as the town,
               driven by the café registry. */}
           {edit && <ColliderEditorFor store={useCafeColliderEdit} />}

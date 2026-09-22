@@ -1,5 +1,25 @@
 import * as THREE from 'three'
-import type { BoxCollider, InteractZone } from './town'
+import type { BoxCollider, Interactable, InteractZone } from './town'
+
+/** Same talk as cyclist Leonard: Yes opens the world selector, No sends you back. */
+function rideTalk(id: string, name: string, color: number): Interactable {
+  return {
+    id,
+    name,
+    role: 'up for a ride',
+    verb: 'Talk',
+    color,
+    radius: 3.6,
+    lines: [
+      'Heya! I was just about to head out for a ride.',
+      'Wanna join me?',
+    ],
+    choices: [
+      { label: 'Yes', outcome: 'openWorld' },
+      { label: 'No', outcome: 'sendBack' },
+    ],
+  }
+}
 
 /**
  * The café interior — a separate little "world" the player drops into when they
@@ -87,9 +107,27 @@ export const CAFE = {
     { model: '/models/patron-2.glb', pos: [-6.35, -0.7] as [number, number], rot: Math.PI, yFix: 0 },
     // Left 4-top (T4a): george / james / melanie on W / N / E; south chair empty.
     // Chairs face the table: west → +X, north → +Z (camera sees his face), east → −X.
-    { model: '/models/george.glb', pos: [-3.95, 1.5] as [number, number], rot: Math.PI / 2, yFix: 0 },
-    { model: '/models/james.glb', pos: [-2.8, 0.35] as [number, number], rot: 0, yFix: 0 },
-    { model: '/models/melanie.glb', pos: [-1.65, 1.5] as [number, number], rot: -Math.PI / 2, yFix: 0 },
+    {
+      model: '/models/george.glb',
+      pos: [-3.95, 1.5] as [number, number],
+      rot: Math.PI / 2,
+      yFix: 0.4,
+      interact: rideTalk('george', 'George', 0x5a7a6e),
+    },
+    {
+      model: '/models/james.glb',
+      pos: [-2.8, 0.35] as [number, number],
+      rot: 0,
+      yFix: 0.4,
+      interact: rideTalk('james', 'James', 0xc45c4a),
+    },
+    {
+      model: '/models/melanie.glb',
+      pos: [-1.65, 1.5] as [number, number],
+      rot: -Math.PI / 2,
+      yFix: 0.4,
+      interact: rideTalk('melanie', 'Melanie', 0x8b6b9c),
+    },
   ],
 
   /** The walkable staff strip the baristas roam: the gap between the counter's

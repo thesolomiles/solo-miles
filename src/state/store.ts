@@ -186,8 +186,12 @@ export const useGame = create<GameState>((set, get) => ({
 
   choose: (choice) => {
     set({ dialogue: null, line: 0 })
-    if (choice.outcome === 'sendBack') set({ sendBack: true })
-    else if (choice.outcome === 'openWorld') set({ worldOpen: true })
+    if (choice.outcome === 'sendBack') {
+      // Leonard's "No" glides you back to the bridge. Same choice from a café
+      // talker fades you out the door (sendBack's town glide isn't a café path).
+      if (get().interior === 'cafe') get().requestInterior(null)
+      else set({ sendBack: true })
+    } else if (choice.outcome === 'openWorld') set({ worldOpen: true })
   },
 
   closeDialogue: () => set({ dialogue: null, line: 0 }),
@@ -205,6 +209,9 @@ export const useGame = create<GameState>((set, get) => ({
       worldOpen: false,
       near: null,
       nearZone: null,
+      // A ride started from the café must land back in town (by Leonard) when
+      // it ends — don't keep interior='cafe' under the ride.
+      ...(to ? { interior: null } : {}),
     })
   },
   advanceRide: () => {

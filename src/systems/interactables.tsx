@@ -53,10 +53,10 @@ export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vect
 
   useFrame(() => {
     const st = useGame.getState()
-    // Town interactables don't exist inside an interior (the café), so stand down
-    // there — otherwise a town door at similar coords could ghost a prompt. Also
-    // stand down during a transition fade.
-    if (!st.started || st.dialogue || st.section || st.interior || st.transition) {
+    // Town actors unmount when the café is up, so the registry only holds
+    // whoever is actually in this world (Leonard outdoors, café talkers inside).
+    // Stand down during a transition fade or while a dialogue/section is open.
+    if (!st.started || st.dialogue || st.section || st.transition) {
       if (st.near) setNear(null)
       return
     }
