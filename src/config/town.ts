@@ -267,11 +267,12 @@ export const ACTORS = {
     interact: {
       id: 'rider',
       name: 'Leonard',
-      role: 'up for a ride',
+      // Name tag is just "Leonard". The ride chat reads this same interactable.
+      role: '',
       verb: 'Talk',
       color: 0x2f8f83,
       radius: 2.8,
-      portrait: '/portraits/leonard.png',
+      portrait: '/portraits/leonard-cyclist.png',
       lines: [
         'Heya! I was just about to head out for a ride.',
         'Wanna join me?',

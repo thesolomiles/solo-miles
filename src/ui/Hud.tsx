@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useGame } from '../state/store'
 import { SECTIONS, type Interactable, type InteractZone } from '../config/town'
 import { TouchControls } from './TouchControls'
@@ -8,8 +8,8 @@ import { RideDialogue } from './RideDialogue'
 import { RideHud } from './RideHud'
 import { RideRouteOverview } from './RideRouteOverview'
 import { PacmanHud } from './PacmanHud'
+import { SpeechBox } from './SpeechBox'
 import { isTypingTarget } from '../systems/input'
-import { pagesForBox, samePages } from './dialoguePages'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -46,239 +46,27 @@ function ZonePrompt({ zone }: { zone: InteractZone }) {
   )
 }
 
-const TYPE_MS = 22 // per-character reveal speed
-
 function Dialogue({ item, line }: { item: Interactable; line: number }) {
-  const choose = useGame((s) => s.choose)
   const full = item.lines[line] ?? ''
   const last = line >= item.lines.length - 1
-  const hasChoices = last && !!item.choices?.length
   // Choices are shown top-to-bottom in reverse of the data order (Leonard's Figma
   // puts the dismiss option on top); number keys follow the shown order.
-  const shownChoices = hasChoices ? [...item.choices!].reverse() : []
-
-  const [shown, setShown] = useState('')
-  const [done, setDone] = useState(false)
-  const [sel, setSel] = useState(0) // highlighted choice
-  // Visual pages of the current line. Null until the box has been measured.
-  const [pages, setPages] = useState<string[] | null>(null)
-  const [page, setPage] = useState(0)
-  const timer = useRef<number | undefined>(undefined)
-  const textRef = useRef<HTMLParagraphElement>(null)
-  const doneRef = useRef(false)
-  // The press that finishes the typewriter is spent until that key is released.
-  // One Enter can't both skip the line and turn the page.
-  const spentRef = useRef(false)
-  const fullRef = useRef(full)
-  const hasChoicesRef = useRef(hasChoices)
-  const choicesReadyRef = useRef(false)
-  const shownChoicesRef = useRef(shownChoices)
-  const selRef = useRef(sel)
-  const chunkRef = useRef('')
-  const moreRef = useRef(false)
-  const chunk = pages?.[page] ?? ''
-  const more = !!pages && page < pages.length - 1
-  fullRef.current = full
-  hasChoicesRef.current = hasChoices
-  choicesReadyRef.current = done && hasChoices && !more
-  shownChoicesRef.current = shownChoices
-  selRef.current = sel
-  chunkRef.current = chunk
-  moreRef.current = more
-
-  // Measure how much of this line fits in the two-line box, and again if the
-  // box width changes. A later press shows the next chunk; nothing scrolls off.
-  useLayoutEffect(() => {
-    const el = textRef.current
-    if (!el) return
-    const apply = (reset: boolean) => {
-      const next = pagesForBox(el, fullRef.current)
-      setPages((prev) => (samePages(prev, next) ? prev : next))
-      setPage((p) => (reset ? 0 : Math.min(p, Math.max(0, next.length - 1))))
-    }
-    apply(true)
-    setShown('')
-    setDone(false)
-    doneRef.current = false
-    setSel(0)
-    const ro = new ResizeObserver(() => apply(false))
-    ro.observe(el)
-    // Space Mono loading after the first measure would let a chunk overflow.
-    let cancel = false
-    document.fonts?.ready.then(() => {
-      if (!cancel) apply(false)
-    })
-    return () => {
-      cancel = true
-      ro.disconnect()
-    }
-  }, [full])
-
-  // Type the current chunk. Stop when it fills the box; the rest waits for a press.
-  useEffect(() => {
-    if (!pages) return
-    setShown('')
-    setDone(false)
-    doneRef.current = false
-    let i = 0
-    window.clearInterval(timer.current)
-    if (!chunk) {
-      doneRef.current = true
-      setDone(true)
-      return
-    }
-    timer.current = window.setInterval(() => {
-      i++
-      setShown(chunk.slice(0, i))
-      if (i >= chunk.length) {
-        window.clearInterval(timer.current)
-        doneRef.current = true
-        setDone(true)
-      }
-    }, TYPE_MS)
-    return () => window.clearInterval(timer.current)
-  }, [chunk, pages])
-
-  const finishReveal = () => {
-    window.clearInterval(timer.current)
-    setShown(chunkRef.current)
-    doneRef.current = true
-    setDone(true)
-  }
-
-  const nextChunk = () => {
-    doneRef.current = false
-    setDone(false)
-    setShown('')
-    setPage((p) => p + 1)
-  }
-  const nextChunkRef = useRef(nextChunk)
-  nextChunkRef.current = nextChunk
-
-  const choicesReady = done && hasChoices && !more
-
-  // A tap completes the reveal; the next one advances (unless choices are
-  // waiting). A click from the key that just finished the line is ignored —
-  // that press is spent until keyup.
-  const onAdvance = () => {
-    if (spentRef.current) return
-    if (!doneRef.current) finishReveal()
-    else if (moreRef.current) nextChunk()
-    else if (!hasChoices) useGame.getState().advance()
-  }
-
-  // Bound once. Rebinding on every typed character let the same Enter finish
-  // the line and then turn the page (the new listener saw the line as done).
-  useEffect(() => {
-    const advanceKey = (e: KeyboardEvent) =>
-      e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter'
-    const reveal = () => {
-      window.clearInterval(timer.current)
-      setShown(chunkRef.current)
-      doneRef.current = true
-      setDone(true)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target)) return
-      // A ride's speech box owns these keys while one is running.
-      if (useGame.getState().ride) return
-      if (advanceKey(e)) {
-        // Swallow the press so no other listener (and no click it would
-        // synthesize) can also advance or confirm.
-        e.preventDefault()
-        e.stopImmediatePropagation()
-        if (e.repeat || spentRef.current) return
-        spentRef.current = true
-        if (!doneRef.current) {
-          reveal()
-          return
-        }
-        if (moreRef.current) {
-          nextChunkRef.current()
-          return
-        }
-        if (choicesReadyRef.current) {
-          const choices = shownChoicesRef.current
-          const pick = choices[selRef.current]
-          if (pick) useGame.getState().choose(pick)
-          return
-        }
-        if (!hasChoicesRef.current) useGame.getState().advance()
-        return
-      }
-      if (!choicesReadyRef.current) return
-      const choices = shownChoicesRef.current
-      if (e.code === 'ArrowUp' || e.code === 'KeyW') {
-        e.preventDefault()
-        setSel((s) => (s - 1 + choices.length) % choices.length)
-        return
-      }
-      if (e.code === 'ArrowDown' || e.code === 'KeyS') {
-        e.preventDefault()
-        setSel((s) => (s + 1) % choices.length)
-        return
-      }
-      const idx = ({ Digit1: 0, Digit2: 1, Digit3: 2 } as Record<string, number>)[e.code]
-      if (idx !== undefined && choices[idx]) {
-        e.preventDefault()
-        useGame.getState().choose(choices[idx])
-      }
-    }
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (advanceKey(e)) spentRef.current = false
-    }
-    window.addEventListener('keydown', onKey, true)
-    window.addEventListener('keyup', onKeyUp, true)
-    return () => {
-      window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('keyup', onKeyUp, true)
-    }
-  }, [])
+  const shownChoices = last && item.choices?.length ? [...item.choices].reverse() : undefined
 
   return (
-    <div className="dialogue dialogue--show">
-      <div className={'dbox' + (item.portrait ? '' : ' dbox--noface')}>
-        {item.portrait && (
-          <div className="dbox__bust">
-            <img src={item.portrait} alt={item.name} />
-          </div>
-        )}
-        <div className="dbox__name">
-          {item.name}, {item.role}
-        </div>
-        {choicesReady && (
-          <div className="dbox__choices">
-            {shownChoices.map((c, i) => (
-              <button
-                key={c.label}
-                className={'dchoice' + (i === sel ? ' dchoice--sel' : '')}
-                onMouseEnter={() => setSel(i)}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (spentRef.current) return
-                  choose(c)
-                }}
-              >
-                <span className="dchoice__cursor" aria-hidden>
-                  ▶
-                </span>
-                {c.label}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="dbox__panel" onClick={onAdvance}>
-          <p className="dbox__text" ref={textRef}>
-            {shown}
-          </p>
-          {done && !choicesReady && (
-            <span className="dbox__more" aria-hidden>
-              ▶
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
+    <SpeechBox
+      name={item.name}
+      role={item.role || undefined}
+      portrait={item.portrait}
+      text={full}
+      choices={shownChoices?.map((c) => ({ label: c.label }))}
+      onChoose={(i) => {
+        const pick = shownChoices?.[i]
+        if (pick) useGame.getState().choose(pick)
+      }}
+      onContinue={() => useGame.getState().advance()}
+      yieldToRide
+    />
   )
 }
 
