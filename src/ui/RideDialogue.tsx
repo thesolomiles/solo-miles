@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useGame } from '../state/store'
 import { ROUTES, routeScript } from '../config/worlds'
 import { RIDE_OUTRO_LINE } from '../config/ride'
 import { isTypingTarget } from '../systems/input'
-import { LeonardAvatar } from './LeonardAvatar'
+import { pagesForBox, samePages } from './dialoguePages'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 const TYPE_MS = 22 // per-character reveal speed
 
 /**
  * Leonard's ride chat — a Pokémon-style speech box pinned to the bottom while the
- * auto-runner scrolls. Text types out; press E / Space / tap to fast-forward the
- * reveal, then again to advance. Advancing past the last line (the closing
- * "great ride" line) ends the ride and fades back to town (store.advanceRide).
+ * auto-runner scrolls, in the same portrait speech box as town dialogue.
+ * Text types out inside two lines; press E / Space / tap to finish the chunk
+ * on screen, then again for the next chunk or the next line. Advancing past
+ * the last line (the closing "great ride" line) ends the ride and fades back
+ * to town (store.advanceRide).
  */
 export function RideDialogue() {
   const ride = useGame((s) => s.ride)
@@ -23,44 +25,95 @@ export function RideDialogue() {
 
   const [shown, setShown] = useState('')
   const [done, setDone] = useState(false)
+  const [pages, setPages] = useState<string[] | null>(null)
+  const [page, setPage] = useState(0)
   const timer = useRef<number | undefined>(undefined)
+  const textRef = useRef<HTMLParagraphElement>(null)
   const doneRef = useRef(false)
   // The press that finishes the typewriter is spent until that key is released.
   const spentRef = useRef(false)
   const fullRef = useRef(full)
+  const chunkRef = useRef('')
+  const moreRef = useRef(false)
+  const chunk = pages?.[page] ?? ''
+  const more = !!pages && page < pages.length - 1
   fullRef.current = full
+  chunkRef.current = chunk
+  moreRef.current = more
 
-  // Type the current line out, character by character.
+  // Measure how much of this line fits in the two-line box, and again if the
+  // box width changes. A later press shows the next chunk; nothing scrolls off.
+  useLayoutEffect(() => {
+    const el = textRef.current
+    if (!el) return
+    const apply = (reset: boolean) => {
+      const next = pagesForBox(el, fullRef.current)
+      setPages((prev) => (samePages(prev, next) ? prev : next))
+      setPage((p) => (reset ? 0 : Math.min(p, Math.max(0, next.length - 1))))
+    }
+    apply(true)
+    setShown('')
+    setDone(false)
+    doneRef.current = false
+    const ro = new ResizeObserver(() => apply(false))
+    ro.observe(el)
+    let cancel = false
+    document.fonts?.ready.then(() => {
+      if (!cancel) apply(false)
+    })
+    return () => {
+      cancel = true
+      ro.disconnect()
+    }
+  }, [full])
+
+  // Type the current chunk. Stop when it fills the box; the rest waits for a press.
   useEffect(() => {
+    if (!pages) return
     setShown('')
     setDone(false)
     doneRef.current = false
     let i = 0
     window.clearInterval(timer.current)
+    if (!chunk) {
+      doneRef.current = true
+      setDone(true)
+      return
+    }
     timer.current = window.setInterval(() => {
       i++
-      setShown(full.slice(0, i))
-      if (i >= full.length) {
+      setShown(chunk.slice(0, i))
+      if (i >= chunk.length) {
         window.clearInterval(timer.current)
         doneRef.current = true
         setDone(true)
       }
     }, TYPE_MS)
     return () => window.clearInterval(timer.current)
-  }, [full])
+  }, [chunk, pages])
 
   const finishReveal = () => {
     window.clearInterval(timer.current)
-    setShown(full)
+    setShown(chunkRef.current)
     doneRef.current = true
     setDone(true)
   }
 
-  // A tap completes the reveal; the next one advances. The key that finishes
-  // the typewriter is spent until release, so it can't also turn the page.
+  const nextChunk = () => {
+    doneRef.current = false
+    setDone(false)
+    setShown('')
+    setPage((p) => p + 1)
+  }
+  const nextChunkRef = useRef(nextChunk)
+  nextChunkRef.current = nextChunk
+
+  // A tap completes the reveal; the next one shows the rest of the line, or
+  // advances. The key that finishes the typewriter is spent until release.
   const advance = () => {
     if (spentRef.current) return
     if (!doneRef.current) finishReveal()
+    else if (moreRef.current) nextChunk()
     else useGame.getState().advanceRide()
   }
 
@@ -72,7 +125,7 @@ export function RideDialogue() {
       e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter'
     const reveal = () => {
       window.clearInterval(timer.current)
-      setShown(fullRef.current)
+      setShown(chunkRef.current)
       doneRef.current = true
       setDone(true)
     }
@@ -85,6 +138,10 @@ export function RideDialogue() {
         spentRef.current = true
         if (!doneRef.current) {
           reveal()
+          return
+        }
+        if (moreRef.current) {
+          nextChunkRef.current()
           return
         }
         useGame.getState().advanceRide()
@@ -120,15 +177,21 @@ export function RideDialogue() {
           <span className="ride-blog__label">Read the log</span>
         </button>
       )}
-      <div className="ridebox" onClick={advance}>
-        <div className="ridebox__row">
-          <div className="ridebox__avatar" aria-hidden>
-            <LeonardAvatar />
+      <div className="dialogue dialogue--show">
+        <div className="dbox">
+          <div className="dbox__bust">
+            <img src="/portraits/leonard-cyclist.png" alt="Leonard" />
           </div>
-          <div className="ridebox__panel">
-            <div className="ridebox__name">Leonard</div>
-            <p className="ridebox__text">{shown}</p>
-            <span className={'ridebox__next' + (done ? ' is-ready' : '')}>▼</span>
+          <div className="dbox__name">Leonard</div>
+          <div className="dbox__panel" onClick={advance}>
+            <p className="dbox__text" ref={textRef}>
+              {shown}
+            </p>
+            {done && (
+              <span className="dbox__more" aria-hidden>
+                ▶
+              </span>
+            )}
           </div>
         </div>
         <div className="ridebox__hint">{isTouch ? 'Tap to continue' : 'E / Space to continue · Esc to leave'}</div>

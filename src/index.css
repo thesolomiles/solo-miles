@@ -979,89 +979,10 @@ canvas {
   text-transform: uppercase;
 }
 
-/* --- Ride speech box (Leonard's route chat — Pokémon style) --- */
-.ridebox {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 26px;
-  z-index: 6;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  pointer-events: auto;
-  cursor: pointer;
-  animation: ridebox-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-}
-@keyframes ridebox-in {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: none; }
-}
-.ridebox__row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 14px;
-  width: min(820px, calc(100% - 32px));
-}
-.ridebox__avatar {
-  flex: 0 0 auto;
-  filter: drop-shadow(0 10px 20px rgba(43, 38, 32, 0.4));
-  margin-bottom: 4px;
-}
-.ridebox__avatar svg { display: block; width: 76px; height: 76px; }
-.ridebox__panel {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 96px;
-  background: linear-gradient(180deg, #fffaf0, var(--paper));
-  border: 4px solid var(--clay-deep);
-  border-radius: 16px;
-  box-shadow: 0 18px 44px rgba(43, 38, 32, 0.4), inset 0 0 0 2px rgba(255, 255, 255, 0.5);
-  padding: 22px 24px 20px;
-}
-.ridebox__name {
-  position: absolute;
-  top: -16px;
-  left: 22px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  color: var(--paper);
-  background: var(--clay);
-  border: 2px solid var(--clay-deep);
-  border-radius: 999px;
-  padding: 4px 16px;
-  box-shadow: 0 4px 10px rgba(43, 38, 32, 0.25);
-}
-.ridebox__text {
-  margin: 4px 0 0;
-  font-size: 20px;
-  line-height: 1.5;
-  color: var(--ink);
-  min-height: 2.9em;
-  /* keep the box from reflowing as characters type in */
-  white-space: pre-wrap;
-}
-.ridebox__next {
-  position: absolute;
-  right: 18px;
-  bottom: 12px;
-  font-size: 15px;
-  color: var(--clay-deep);
-  opacity: 0;
-}
-.ridebox__next.is-ready {
-  opacity: 1;
-  animation: ridebox-bob 0.9s ease-in-out infinite;
-}
-@keyframes ridebox-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(3px); }
-}
+/* Hint under the ride speech box. The box itself is the shared town dialogue. */
 .ridebox__hint {
+  margin-top: 8px;
+  text-align: center;
   font-size: 12px;
   color: var(--paper);
   letter-spacing: 0.04em;
