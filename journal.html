@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-09-23">2026-09-23</a>
       <a href="#2026-09-22">2026-09-22</a>
       <a href="#2026-09-21">2026-09-21</a>
       <a href="#2026-09-20">2026-09-20</a>
@@ -109,6 +110,15 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-09-23">
+        <h3><a class="perma" href="#2026-09-23">2026-09-23 · Wednesday</a></h3>
+        <ul>
+          <li><strong>Redesigned the NPC dialogue box to Leonard's Figma.</strong> The town/café speech box was three.js-era plain styling; rebuilt it to a Persona-style look Leonard designed in Figma (pulled the two frames — café + outside — straight from the Figma MCP). Final design: a <strong>character portrait bust cut out on the left</strong>, a <strong>navy/cyan Space&nbsp;Mono name tag</strong> (<code>#03183d</code> / <code>#20cfff</code>), a <strong>near-black rounded box</strong> (<code>rgba(0,0,0,.9)</code>, <code>#353535</code> border, 24px radius), and <strong>black rounded choice pills</strong> top-right. We iterated through a few directions first (warm "Pokémon" frame, an FE3H circular medallion with the head jutting out) before Leonard settled the look in Figma and said implement it as-is. One shared box serves café and outside.</li>
+          <li><strong>Real NPC faces as portraits.</strong> Rather than draw avatars, each portrait is a <em>screenshot of the actual character model</em>. Built a dev-only face-capture page (<code>face-shot.html</code>): it loads a character GLB on a transparent canvas, frames the head off the head bone, and grabs a clean cut-out PNG (tunable by URL params). Captured George, James and Melanie (café patrons) and Leonard for the road cyclist — Leonard's shot comes from the standing <code>character.glb</code>, not <code>cyclist.glb</code>, because the cycling pose bows his head down. Saved to <code>public/portraits/*.png</code> and wired via a new optional <code>portrait</code> on <code>Interactable</code>.</li>
+          <li><strong>Gotchas.</strong> The prod build's <code>tsc -b</code> is stricter than <code>tsc --noEmit</code> (caught an unused import <code>tsc --noEmit</code> missed) — always <code>pnpm build</code> before calling it done. Editing config files mid-session makes Vite HMR hand out a <em>duplicate</em> store module, so poking <code>useGame</code> via a fresh <code>import()</code> silently misses the live UI; added a dev-only <code>window.__game</code> handle to the store for reliable in-console dialogue previews. <code>pnpm build</code> clean.</li>
+          <li><strong>Dialogue polish pass (from an updated Figma + Leonard's notes).</strong> Five changes to the box: (1) <strong>flipped the choice order</strong> so the dismiss option sits on top, matching the mock; (2) the <strong>name tag now straddles the box's top edge</strong> instead of floating above it; (3) a <strong>typewriter reveal</strong> — each line types out (the box now owns its own keys, like the ride box, and the Hud defers to it while a dialogue is open); (4) <strong>choices only appear once the line has finished typing</strong> and are <strong>keyboard-navigable</strong> (↑/↓ or W/S, Enter/E to confirm, number keys, or hover) — the highlighted option gets a cyan fill, a ▶ cursor and a soft pulse to draw the eye (the box border itself stays static); (5) a bobbing cyan <strong>▼</strong> continue indicator at the box's bottom-right. <code>pnpm build</code> clean.</li>
+        </ul>
+      </article>
       <article id="2026-09-22">
         <h3><a class="perma" href="#2026-09-22">2026-09-22 · Tuesday</a></h3>
         <ul>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGame } from '../state/store'
 import { SECTIONS, type Interactable, type InteractZone } from '../config/town'
 import { TouchControls } from './TouchControls'
@@ -11,8 +11,6 @@ import { PacmanHud } from './PacmanHud'
 import { isTypingTarget } from '../systems/input'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
-
-const hex = (n: number) => '#' + n.toString(16).padStart(6, '0')
 
 function Hint() {
   const [show, setShow] = useState(true)
@@ -47,39 +45,126 @@ function ZonePrompt({ zone }: { zone: InteractZone }) {
   )
 }
 
+const TYPE_MS = 22 // per-character reveal speed
+
 function Dialogue({ item, line }: { item: Interactable; line: number }) {
-  const advance = useGame((s) => s.advance)
   const choose = useGame((s) => s.choose)
+  const full = item.lines[line] ?? ''
   const last = line >= item.lines.length - 1
-  const showChoices = last && !!item.choices?.length
-  const nextLabel = last ? (item.section ? `Open ${SECTIONS[item.section].title} →` : 'Close') : 'Continue'
+  const hasChoices = last && !!item.choices?.length
+  // Choices are shown top-to-bottom in reverse of the data order (Leonard's Figma
+  // puts the dismiss option on top); number keys follow the shown order.
+  const shownChoices = hasChoices ? [...item.choices!].reverse() : []
+
+  const [shown, setShown] = useState('')
+  const [done, setDone] = useState(false)
+  const [sel, setSel] = useState(0) // highlighted choice
+  const timer = useRef<number | undefined>(undefined)
+
+  // Type the current line out, character by character.
+  useEffect(() => {
+    setShown('')
+    setDone(false)
+    setSel(0)
+    let i = 0
+    window.clearInterval(timer.current)
+    timer.current = window.setInterval(() => {
+      i++
+      setShown(full.slice(0, i))
+      if (i >= full.length) {
+        window.clearInterval(timer.current)
+        setDone(true)
+      }
+    }, TYPE_MS)
+    return () => window.clearInterval(timer.current)
+  }, [full])
+
+  const finishReveal = () => {
+    window.clearInterval(timer.current)
+    setShown(full)
+    setDone(true)
+  }
+
+  // First press/tap completes the reveal; the next advances (unless choices are
+  // waiting, in which case the player must pick one). This box owns its keys
+  // while it's open — the Hud defers to it (like RideDialogue in-ride).
+  const onAdvance = () => {
+    if (!done) finishReveal()
+    else if (!hasChoices) useGame.getState().advance()
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return
+      if (done && hasChoices) {
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+          e.preventDefault()
+          setSel((s) => (s - 1 + shownChoices.length) % shownChoices.length)
+          return
+        }
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+          e.preventDefault()
+          setSel((s) => (s + 1) % shownChoices.length)
+          return
+        }
+        if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') {
+          e.preventDefault()
+          choose(shownChoices[sel])
+          return
+        }
+        const idx = { Digit1: 0, Digit2: 1, Digit3: 2 }[e.code]
+        if (idx !== undefined && shownChoices[idx]) {
+          e.preventDefault()
+          choose(shownChoices[idx])
+        }
+        return
+      }
+      if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault()
+        onAdvance()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   return (
     <div className="dialogue dialogue--show">
-      <div className="dialogue__box">
-        <div className="dialogue__who">
-          <span className="dialogue__dot" style={{ background: hex(item.color) }} />
-          <span className="dialogue__name">{item.name}</span>
-          <span className="dialogue__role">· {item.role}</span>
+      <div className={'dbox' + (item.portrait ? '' : ' dbox--noface')}>
+        {item.portrait && (
+          <div className="dbox__bust">
+            <img src={item.portrait} alt={item.name} />
+          </div>
+        )}
+        <div className="dbox__name">
+          {item.name}, {item.role}
         </div>
-        <div className="dialogue__text">{item.lines[line]}</div>
-        <div className="dialogue__foot">
-          <div className="dialogue__progress">
-            {item.lines.map((_, i) => (
-              <span key={i} className={'pip' + (i <= line ? ' pip--on' : '')} />
+        {done && hasChoices && (
+          <div className="dbox__choices">
+            {shownChoices.map((c, i) => (
+              <button
+                key={c.label}
+                className={'dchoice' + (i === sel ? ' dchoice--sel' : '')}
+                onMouseEnter={() => setSel(i)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  choose(c)
+                }}
+              >
+                <span className="dchoice__cursor" aria-hidden>
+                  ▶
+                </span>
+                {c.label}
+              </button>
             ))}
           </div>
-          {showChoices ? (
-            <div className="dialogue__choices">
-              {item.choices!.map((c, i) => (
-                <button key={c.label} className="dialogue__choice" onClick={() => choose(c)}>
-                  {c.label} <span className="dialogue__k">{i + 1}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <button className="dialogue__next" onClick={advance}>
-              {nextLabel} <span className="dialogue__k">E</span>
-            </button>
+        )}
+        <div className="dbox__panel" onClick={onAdvance}>
+          <p className="dbox__text">{shown}</p>
+          {done && (
+            <span className="dbox__more" aria-hidden>
+              ▼
+            </span>
           )}
         </div>
       </div>
@@ -174,15 +259,14 @@ export function Hud() {
       // During a ride the speech box (RideDialogue) owns the keys (advance / Esc);
       // don't also run movement/interact handling here.
       if (st.ride) return
-      // Number keys resolve a choice dialogue (Leonard's Yes/No).
-      const choices = st.dialogue?.choices
-      if (choices && st.line >= st.dialogue!.lines.length - 1) {
-        const idx = { Digit1: 0, Digit2: 1, Digit3: 2 }[e.code]
-        if (idx !== undefined && choices[idx]) {
+      // An open dialogue box owns its own keys (typewriter reveal, advance, choices)
+      // — see Dialogue. The Hud only handles Escape to close it.
+      if (st.dialogue) {
+        if (e.code === 'Escape') {
           e.preventDefault()
-          st.choose(choices[idx])
-          return
+          st.closeDialogue()
         }
+        return
       }
       if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault()

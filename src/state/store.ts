@@ -265,3 +265,9 @@ export const useGame = create<GameState>((set, get) => ({
   },
   endTransition: () => set({ transition: null }),
 }))
+
+// Dev-only handle so the running game's store can be poked from the console
+// (e.g. previewing a dialogue without walking up to the NPC).
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { __game: typeof useGame }).__game = useGame
+}

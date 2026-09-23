@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap');
 
 :root {
   --paper: #fbf4e8;
@@ -174,117 +174,148 @@ canvas {
 .dialogue {
   position: absolute;
   left: 50%;
-  bottom: 26px;
-  transform: translate(-50%, 14px);
-  width: min(560px, calc(100% - 32px));
+  bottom: 28px;
+  transform: translate(-50%, 12px);
+  width: min(629px, calc(100% - 32px));
   opacity: 0;
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 6;
 }
 .dialogue--show {
   opacity: 1;
   transform: translate(-50%, 0);
   pointer-events: auto;
 }
-.dialogue__box {
-  background: var(--paper);
-  border: 1px solid rgba(43, 38, 32, 0.14);
-  border-radius: 18px;
-  padding: 18px 20px 16px;
-  box-shadow: 0 18px 46px rgba(43, 38, 32, 0.3);
+
+/* The box is the anchor; the bust, name tag and choices float around it. */
+.dbox {
+  position: relative;
+  font-family: 'Space Mono', ui-monospace, monospace;
 }
-.dialogue__who {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 9px;
-}
-.dialogue__dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  flex: none;
-}
-.dialogue__name {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-}
-.dialogue__role {
-  font-size: 11.5px;
-  color: #8a7f6f;
-  font-weight: 500;
-}
-.dialogue__text {
-  font-size: 15px;
-  line-height: 1.55;
-  color: #3a332a;
-  min-height: 46px;
-}
-.dialogue__foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-.dialogue__progress {
-  display: flex;
-  gap: 5px;
-}
-.pip {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(43, 38, 32, 0.18);
-}
-.pip--on {
-  background: var(--clay);
-}
-.dialogue__next {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  font-size: 12.5px;
-  color: var(--clay-deep);
-  background: none;
-  border: none;
+.dbox__panel {
+  position: relative;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid #353535;
+  border-radius: 24px;
+  padding: 16px 40px 16px 82px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px;
 }
-.dialogue__k {
-  font-weight: 700;
+.dbox--noface .dbox__panel {
+  padding-left: 24px;
+}
+.dbox__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
   color: #fff;
-  background: var(--clay);
-  border-radius: 6px;
-  padding: 3px 7px;
-  font-size: 11px;
+  word-break: break-word;
+  white-space: pre-wrap;
+  min-height: 2.9em;
 }
-.dialogue__choices {
+/* "there's more — tap/press to continue" indicator, bottom-right. */
+.dbox__more {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  color: #20cfff;
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(32, 207, 255, 0.5);
+  animation: dbox-more 0.9s ease-in-out infinite;
+}
+@keyframes dbox-more {
+  0%, 100% { transform: translateY(0); opacity: 0.85; }
+  50% { transform: translateY(4px); opacity: 1; }
+}
+
+/* Character bust — a cut-out that overlaps the box's left edge. */
+.dbox__bust {
+  position: absolute;
+  left: -141px;
+  top: -102px;
+  width: 237px;
+  height: 178px;
+  pointer-events: none;
+}
+.dbox__bust img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom;
+}
+
+/* Navy / cyan name tag, straddling the box's top-left edge. */
+.dbox__name {
+  position: absolute;
+  left: 78px;
+  top: 0;
+  transform: translateY(-52%);
+  z-index: 3;
+  background: #03183d;
+  color: #20cfff;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 5px 14px;
+}
+.dbox--noface .dbox__name {
+  left: 22px;
+}
+
+/* Choice pills, above the box's top-right, right-aligned. */
+.dbox__choices {
+  position: absolute;
+  right: 0;
+  top: -105px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
 }
-.dialogue__choice {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  font-size: 12.5px;
-  color: var(--clay-deep);
-  background: rgba(217, 138, 90, 0.12);
-  border: 1px solid rgba(217, 138, 90, 0.4);
-  border-radius: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 12px;
-  transition: background 0.14s ease, border-color 0.14s ease;
+.dbox--noface .dbox__choices {
+  top: auto;
+  bottom: calc(100% + 8px);
 }
-.dialogue__choice:hover {
-  background: rgba(217, 138, 90, 0.22);
-  border-color: var(--clay);
+.dchoice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.dchoice__cursor {
+  font-size: 10px;
+  color: #20cfff;
+  opacity: 0;
+  transform: translateX(-2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+/* Highlighted (hovered / keyboard-selected) choice — a pulsing cyan glow draws
+   the eye to the options (the box border stays static). */
+.dchoice--sel {
+  background: #20cfff;
+  color: #04203a;
+  border-color: #bfefff;
+  animation: dchoice-pulse 1.25s ease-in-out infinite;
+}
+@keyframes dchoice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(32, 207, 255, 0.15); }
+  50% { box-shadow: 0 0 16px 2px rgba(32, 207, 255, 0.6); }
+}
+.dchoice--sel .dchoice__cursor {
+  color: #04203a;
+  opacity: 1;
+  transform: none;
 }
 
 /* --- Section overlay --- */
@@ -1030,5 +1061,27 @@ canvas {
   }
   .prompt {
     bottom: 150px;
+  }
+  /* Shrink the dialogue bust + tuck the floaters so nothing runs off a phone. */
+  .dbox__bust {
+    left: -46px;
+    top: -66px;
+    width: 150px;
+    height: 113px;
+  }
+  .dbox__panel {
+    padding-left: 66px;
+  }
+  .dbox__name {
+    left: 40px;
+    top: -72px;
+    font-size: 9px;
+  }
+  .dbox__choices {
+    top: -70px;
+  }
+  .dchoice {
+    font-size: 13px;
+    padding: 7px 11px;
   }
 }

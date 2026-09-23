@@ -45,6 +45,8 @@ export interface Interactable {
   section?: SectionId
   /** If set, the last line ends with a choice instead of a "Continue". */
   choices?: DialogueChoice[]
+  /** Cut-out portrait bust shown beside the speech box (public/portraits/*.png). */
+  portrait?: string
 }
 
 /**
@@ -269,6 +271,7 @@ export const ACTORS = {
       verb: 'Talk',
       color: 0x2f8f83,
       radius: 3.6,
+      portrait: '/portraits/leonard.png',
       lines: [
         'Heya! I was just about to head out for a ride.',
         'Wanna join me?',

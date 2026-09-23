@@ -14,6 +14,7 @@ function meetLeonard(
   role: string,
   color: number,
   testimonial: string[],
+  portrait?: string,
 ): Interactable {
   return {
     id,
@@ -22,6 +23,7 @@ function meetLeonard(
     verb: 'Talk',
     color,
     radius: 3.6,
+    portrait,
     lines: [`Hey there, I'm ${name}.`],
     choices: [
       { label: 'I would like to know more about Leonard', outcome: 'dismiss', reply: testimonial },
@@ -126,7 +128,7 @@ export const CAFE = {
         'As a Product Manager, I have thoroughly enjoyed working alongside him and his team.',
         'I admired his leadership in directing the design team to come up with beautiful and modular design system that was well-received by the users and the engineering team.',
         'As a designer, Leonard is always improving at his craft and excels at balancing the tricky needs between beautiful, usable and implementable designs and manages the creative tension between design and engineering very well. I would definitely want to work with Leonard again!',
-      ]),
+      ], '/portraits/george.png'),
     },
     {
       model: '/models/james.glb',
@@ -136,7 +138,7 @@ export const CAFE = {
       interact: meetLeonard('james', 'James', 'Chief Product Officer', 0xc45c4a, [
         "Leonard was a key founding member of the SWAT product team, conceptualizing and designing for SWAT's B2B products & passenger apps.",
         'Highly collaborative and currently leads the design team to support the full spectrum of product design.',
-      ]),
+      ], '/portraits/james.png'),
     },
     {
       model: '/models/melanie.glb',
@@ -147,7 +149,7 @@ export const CAFE = {
         'Leonard built out a really strong design organization at SWAT. While we started scrappy, his focus on the craft really helped us mature as a team.',
         'His pragmatic approach helped the team strike the right balance between moving quickly and taking the time to test things and get them right.',
         'I also really appreciated how closely Leonard worked with our frontend developers to pre-empt the "buildability" and scalability of the designs. Also, his designs are just beautiful 🤩',
-      ]),
+      ], '/portraits/melanie.png'),
     },
   ],
 
