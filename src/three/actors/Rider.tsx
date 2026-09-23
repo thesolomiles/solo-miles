@@ -49,7 +49,7 @@ function ParkedCyclist() {
  *
  * When the visitor gets close a "!" pops above his head and the E-prompt lights
  * up; pressing E opens his "wanna join me?" question (see the store / Hud choice
- * handling: Yes → world selector, No → glide back to the bridge). He's a normal
+ * handling: Yes → world selector, No → glide back toward town). He's a normal
  * registered interactable — the proximity system finds him like any door.
  */
 export function Rider({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {

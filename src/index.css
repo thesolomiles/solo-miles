@@ -210,9 +210,11 @@ canvas {
   color: #fff;
   word-break: break-word;
   white-space: pre-wrap;
-  min-height: 2.9em;
+  /* Exactly two lines. Longer copy scrolls inside the box so the height never jumps. */
+  height: 3em;
+  overflow: hidden;
 }
-/* "there's more — tap/press to continue" indicator, bottom-right. */
+/* "there's more — tap/press to continue" indicator, bottom-right, pointing on. */
 .dbox__more {
   position: absolute;
   right: 18px;
@@ -224,17 +226,18 @@ canvas {
   animation: dbox-more 0.9s ease-in-out infinite;
 }
 @keyframes dbox-more {
-  0%, 100% { transform: translateY(0); opacity: 0.85; }
-  50% { transform: translateY(4px); opacity: 1; }
+  0%, 100% { transform: translateX(0); opacity: 0.85; }
+  50% { transform: translateX(5px); opacity: 1; }
 }
 
-/* Character bust — a cut-out that overlaps the box's left edge. */
+/* Character bust — a cut-out overlapping the box's left edge, painted in front of it. */
 .dbox__bust {
   position: absolute;
   left: -141px;
   top: -102px;
   width: 237px;
   height: 178px;
+  z-index: 2;
   pointer-events: none;
 }
 .dbox__bust img {
@@ -269,6 +272,7 @@ canvas {
   position: absolute;
   right: 0;
   top: -105px;
+  z-index: 4;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -286,12 +290,18 @@ canvas {
   font-size: 14px;
   color: #fff;
   background: rgba(0, 0, 0, 0.9);
-  border: 1px solid transparent;
+  border: 1px solid #20cfff;
   border-radius: 8px;
   padding: 8px 14px;
   cursor: pointer;
   white-space: nowrap;
+  animation: dchoice-idle 1.6s ease-in-out infinite;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+/* Unselected choices keep a cyan border glow so they still read as selectable. */
+@keyframes dchoice-idle {
+  0%, 100% { box-shadow: 0 0 3px rgba(32, 207, 255, 0.22); }
+  50% { box-shadow: 0 0 6px rgba(32, 207, 255, 0.4); }
 }
 .dchoice__cursor {
   font-size: 10px;
@@ -309,8 +319,8 @@ canvas {
   animation: dchoice-pulse 1.25s ease-in-out infinite;
 }
 @keyframes dchoice-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(32, 207, 255, 0.15); }
-  50% { box-shadow: 0 0 16px 2px rgba(32, 207, 255, 0.6); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(32, 207, 255, 0.08); }
+  50% { box-shadow: 0 0 8px 1px rgba(32, 207, 255, 0.32); }
 }
 .dchoice--sel .dchoice__cursor {
   color: #04203a;

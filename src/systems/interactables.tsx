@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, type ReactNode, type RefO
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { Interactable } from '../config/town'
+import { applyTalkDraft } from '../state/talkEdit'
 import { useGame } from '../state/store'
 import { zones } from './zones'
 import { cafeZones } from './cafeZones'
@@ -25,7 +26,7 @@ export function InteractablesProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={ref}>{children}</Ctx.Provider>
 }
 
-function useRegistry() {
+export function useInteractableRegistry() {
   const ref = useContext(Ctx)
   if (!ref) throw new Error('Interactables used outside <InteractablesProvider>')
   return ref
@@ -33,8 +34,9 @@ function useRegistry() {
 
 /** Register an interactable. `pos` must be a stable Vector3 (owner may mutate it). */
 export function useRegisterInteractable(interactable: Interactable, pos: THREE.Vector3) {
-  const reg = useRegistry()
+  const reg = useInteractableRegistry()
   useEffect(() => {
+    applyTalkDraft(interactable)
     reg.current.set(interactable.id, { interactable, pos })
     return () => {
       reg.current.delete(interactable.id)
@@ -48,7 +50,7 @@ export function useRegisterInteractable(interactable: Interactable, pos: THREE.V
  * section is open, or before the intro is dismissed.
  */
 export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
-  const reg = useRegistry()
+  const reg = useInteractableRegistry()
   const setNear = useGame((s) => s.setNear)
 
   useFrame(() => {

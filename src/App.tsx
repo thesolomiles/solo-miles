@@ -6,6 +6,7 @@ import { Scene } from './three/Scene'
 import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
+import { TalkRangePanel } from './ui/TalkRangePanel'
 import { ZoneEditorPanel } from './ui/ZoneEditorPanel'
 import { useGame } from './state/store'
 import { useLighting } from './state/lighting'
@@ -16,14 +17,16 @@ import { MOBILE_CANVAS_FILTER } from './three/PostFX'
 
 type Controls = 'forward' | 'back' | 'left' | 'right' | 'interact' | 'jump'
 
-// Dev overlays are URL-gated so production stays clean: `?debug` = lighting/perf
-// tuner, `?edit` = the collision editor toolbar, `?zones` = the interaction-zone
-// (named "door" box) editor toolbar.
+// Dev overlays are dev-build + URL-gated, so a production deploy of main never
+// shows them even if someone adds the query: `?debug` = lighting/perf tuner,
+// `?edit` = collision boxes, `?zones` = interaction zones, `?talk` = talk circles.
 const params =
   typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
-const DEBUG = !!params?.has('debug')
-const EDIT = !!params?.has('edit')
-const ZONES = !!params?.has('zones')
+const DEV = import.meta.env.DEV
+const DEBUG = DEV && !!params?.has('debug')
+const EDIT = DEV && !!params?.has('edit')
+const ZONES = DEV && !!params?.has('zones')
+const TALK = DEV && !!params?.has('talk')
 
 export default function App() {
   // Which world's collision editor the ?edit toolbar drives — the café while
@@ -90,6 +93,7 @@ export default function App() {
       )}
 
       <Hud />
+      {TALK && <TalkRangePanel />}
       {DEBUG && <LightingPanel />}
       {EDIT &&
         (inCafe ? (

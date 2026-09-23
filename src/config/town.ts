@@ -15,7 +15,7 @@ export type SectionId = 'about' | 'cycling' | 'travel' | 'contact' | 'story'
 /**
  * What choosing a dialogue option does.
  * - `dismiss`   — just close the dialogue.
- * - `sendBack`  — close, then send the player back to the bridge, facing town.
+ * - `sendBack`  — close, then walk the player back toward town, facing town.
  * - `openWorld` — close, then open Leonard's world selector (country → route).
  */
 export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openWorld'
@@ -215,10 +215,10 @@ export const TRAIL = {
   // The north road out of town, just before it disappears into the forest.
   signpostPos: [0, -32] as [number, number],
   interactPos: new THREE.Vector3(0, 0, -32),
-  // Just north of the bridge (deck spans z −21…−15 in town.glb). After the chat
-  // with Leonard, the player rides back down to here, facing town — a smooth
-  // move, not a teleport.
-  returnPos: new THREE.Vector3(0, 0, -22),
+  // Where Leonard's "No" walks you. +Z is toward town. He stands at z −23 with
+  // a 2.8 talk radius, so this is a few steps south of him — clear of the
+  // prompt, facing town — not a trek back across the bridge.
+  returnPos: new THREE.Vector3(0, 0, -18),
   interact: {
     id: 'trail',
     name: 'The trail',
@@ -270,14 +270,14 @@ export const ACTORS = {
       role: 'up for a ride',
       verb: 'Talk',
       color: 0x2f8f83,
-      radius: 3.6,
+      radius: 2.8,
       portrait: '/portraits/leonard.png',
       lines: [
         'Heya! I was just about to head out for a ride.',
         'Wanna join me?',
       ],
-      // "Yes" opens the world selector; "No" glides you back toward the bridge,
-      // facing south.
+      // "Yes" opens the world selector; "No" glides you back toward town,
+      // facing south (TRAIL.returnPos).
       choices: [
         { label: 'Yes', outcome: 'openWorld' },
         { label: 'No', outcome: 'sendBack' },

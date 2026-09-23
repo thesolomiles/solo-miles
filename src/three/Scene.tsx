@@ -7,6 +7,7 @@ import { InteractablesProvider, ProximitySystem, ZoneProximity } from '../system
 import { ColliderDebug } from './ColliderDebug'
 import { ColliderEditor, ColliderEditorFor } from './ColliderEditor'
 import { useCafeColliderEdit } from '../state/cafeColliderEdit'
+import { TalkRangeEditor } from './TalkRangeEditor'
 import { ZoneEditor, ZoneEditorFor } from './ZoneEditor'
 import { useCafeZoneEdit } from '../state/cafeZoneEdit'
 import { OrthoRig } from './OrthoRig'
@@ -280,12 +281,16 @@ export function Scene() {
   }, [gl, scene])
   const params =
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
-  const debug = !!params?.has('debug')
+  // Same gate as App.tsx: these overlays exist only in a dev build.
+  const dev = import.meta.env.DEV
+  const debug = dev && !!params?.has('debug')
   // `?edit` opens the hand-authored collision editor (draggable boxes) instead
   // of the static red debug slabs. See three/ColliderEditor + ui panel.
-  const edit = !!params?.has('edit')
+  const edit = dev && !!params?.has('edit')
   // `?zones` opens the interaction-zone editor (named "door" boxes, blue).
-  const zonesEdit = !!params?.has('zones')
+  const zonesEdit = dev && !!params?.has('zones')
+  // `?talk` draws each conversation's trigger circle so it can be resized.
+  const talkEdit = dev && !!params?.has('talk')
 
   const hemisphere = useLighting((s) => s.hemisphere)
   const ambient = useLighting((s) => s.ambient)
@@ -362,6 +367,7 @@ export function Scene() {
       <OrthoRig posRef={posRef} />
       <ProximitySystem playerPos={posRef} />
       <ZoneProximity playerPos={posRef} />
+      {talkEdit && <TalkRangeEditor />}
       {/* BGM disabled for now (couldn't get the right feel — went with ambient
           environment sound instead). Re-enable by uncommenting the import + this
           line; the crossfade-on-bridge logic in three/Bgm.tsx is kept intact. */}

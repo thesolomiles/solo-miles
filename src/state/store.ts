@@ -197,7 +197,7 @@ export const useGame = create<GameState>((set, get) => ({
     }
     set({ dialogue: null, line: 0 })
     if (choice.outcome === 'sendBack') {
-      // Leonard's "No" glides you back to the bridge. Same choice from a café
+      // Leonard's "No" glides you back toward town (TRAIL.returnPos). Same choice from a café
       // talker fades you out the door (sendBack's town glide isn't a café path).
       if (get().interior === 'cafe') get().requestInterior(null)
       else set({ sendBack: true })

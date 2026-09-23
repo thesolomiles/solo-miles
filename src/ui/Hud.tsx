@@ -60,8 +60,10 @@ function Dialogue({ item, line }: { item: Interactable; line: number }) {
   const [done, setDone] = useState(false)
   const [sel, setSel] = useState(0) // highlighted choice
   const timer = useRef<number | undefined>(undefined)
+  const textRef = useRef<HTMLParagraphElement>(null)
 
-  // Type the current line out, character by character.
+  // Type the whole line. The box stays two lines tall; once the copy runs past
+  // that, it scrolls so the sentence keeps going instead of jumping to a new page.
   useEffect(() => {
     setShown('')
     setDone(false)
@@ -79,11 +81,18 @@ function Dialogue({ item, line }: { item: Interactable; line: number }) {
     return () => window.clearInterval(timer.current)
   }, [full])
 
+  useEffect(() => {
+    const el = textRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [shown])
+
   const finishReveal = () => {
     window.clearInterval(timer.current)
     setShown(full)
     setDone(true)
   }
+
+  const choicesReady = done && hasChoices
 
   // First press/tap completes the reveal; the next advances (unless choices are
   // waiting, in which case the player must pick one). This box owns its keys
@@ -96,7 +105,7 @@ function Dialogue({ item, line }: { item: Interactable; line: number }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return
-      if (done && hasChoices) {
+      if (choicesReady) {
         if (e.code === 'ArrowUp' || e.code === 'KeyW') {
           e.preventDefault()
           setSel((s) => (s - 1 + shownChoices.length) % shownChoices.length)
@@ -139,7 +148,7 @@ function Dialogue({ item, line }: { item: Interactable; line: number }) {
         <div className="dbox__name">
           {item.name}, {item.role}
         </div>
-        {done && hasChoices && (
+        {choicesReady && (
           <div className="dbox__choices">
             {shownChoices.map((c, i) => (
               <button
@@ -160,10 +169,12 @@ function Dialogue({ item, line }: { item: Interactable; line: number }) {
           </div>
         )}
         <div className="dbox__panel" onClick={onAdvance}>
-          <p className="dbox__text">{shown}</p>
-          {done && (
+          <p className="dbox__text" ref={textRef}>
+            {shown}
+          </p>
+          {done && !choicesReady && (
             <span className="dbox__more" aria-hidden>
-              ▼
+              ▶
             </span>
           )}
         </div>
