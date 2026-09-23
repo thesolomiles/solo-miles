@@ -210,7 +210,7 @@ canvas {
   color: #fff;
   word-break: break-word;
   white-space: pre-wrap;
-  /* Exactly two lines. Longer copy scrolls inside the box so the height never jumps. */
+  /* Exactly two lines. Longer copy breaks here; a press shows the next chunk. */
   height: 3em;
   overflow: hidden;
 }
@@ -396,145 +396,318 @@ canvas {
   margin-bottom: 18px;
 }
 
-/* --- World selector (Leonard's ride → country/route picker) ---
-   Reuses the café arcade's wood-frame shell (.gselect*, defined below) and adds
-   stacked per-country sections of route thumbnails. */
-.wsel__frame {
-  width: min(820px, 100%);
+/* --- World selector (Leonard's ride → route picker) ---
+   Console-library layout: region tabs (jump links) over one side-scrolling row
+   of every route; the highlighted route's thumbnail, blurred, is the backdrop. */
+.wsel {
+  --wsel-accent: #20cfff;
+  --wsel-text: #f4f6fb;
+  --wsel-muted: rgba(244, 246, 251, 0.66);
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: auto;
+  color: var(--wsel-text);
+  background: #06102a;
+  animation: fade-in 0.22s ease;
 }
-.wsel__scroll {
-  overflow: auto;
-  min-height: 0;
-  padding: 2px 2px 6px;
+.wsel__bg,
+.wsel__bgimg,
+.wsel__shade {
+  position: absolute;
+  inset: 0;
 }
-.wsel__scroll::-webkit-scrollbar {
-  width: 8px;
+.wsel__bgimg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(12px) saturate(1.15);
+  transform: scale(1.15);
+  animation: fade-in 0.45s ease;
+  user-select: none;
 }
-.wsel__scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 220, 140, 0.28);
-  border-radius: 999px;
+.wsel__shade {
+  background:
+    linear-gradient(180deg, rgba(6, 16, 42, 0.5) 0%, rgba(6, 16, 42, 0.1) 30%, rgba(6, 16, 42, 0.85) 100%),
+    linear-gradient(90deg, rgba(6, 16, 42, 0.6), transparent 70%);
 }
-.wsel__country {
-  margin-bottom: 18px;
-}
-.wsel__country:last-child {
-  margin-bottom: 4px;
-}
-.wsel__country-name {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 0 0 10px;
-  padding-bottom: 7px;
-  border-bottom: 1px solid rgba(255, 220, 140, 0.18);
-  font-family: Belanosima, 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #f3e6c8;
-  text-shadow: 0 2px 0 #1a1008;
-}
-.wsel__flag {
-  font-size: 18px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-}
-.wsel__row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-.wsel__card {
-  min-width: 0;
-  color: #f3e6c8;
-}
-.wsel__thumb {
+.wsel__inner {
   position: relative;
-  aspect-ratio: 16 / 10;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(18px, 4vh, 40px) 0 clamp(16px, 3.5vh, 32px);
+}
+
+/* Region tabs */
+.wsel__tabs {
+  display: flex;
+  gap: clamp(14px, 2.4vw, 30px);
+  padding: 0 clamp(16px, 5vw, 64px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  position: relative;
+}
+.wsel__tabs::-webkit-scrollbar { display: none; }
+.wsel__tab {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border: 3px solid #1a120c;
-  box-shadow: inset 0 0 0 1px rgba(255, 220, 140, 0.15);
-  transition: border-color 0.12s ease;
+  gap: 7px;
+  padding: 6px 0 9px;
+  border: 0;
+  background: none;
+  color: var(--wsel-muted);
+  font: 600 13px/1 'Space Grotesk', sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
 }
-.wsel__card:hover .wsel__thumb,
-.wsel__card:focus-visible .wsel__thumb {
-  border-color: #f5d04a;
-}
-.wsel__glyph {
-  font-size: 40px;
-  filter: drop-shadow(0 3px 5px rgba(43, 38, 32, 0.4));
-}
-.wsel__pips {
+.wsel__tab::after {
+  content: '';
   position: absolute;
-  left: 7px;
-  bottom: 7px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--wsel-text);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+.wsel__tab:hover,
+.wsel__tab.is-active { color: var(--wsel-text); }
+.wsel__tab.is-active::after { transform: scaleX(1); }
+.wsel__tab.is-empty { opacity: 0.35; cursor: default; }
+.wsel__tab:focus-visible { outline: 2px solid var(--wsel-accent); outline-offset: 3px; }
+.wsel__flag { font-size: 15px; letter-spacing: 0; }
+.wsel__count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font: 700 10px/1 'Space Mono', monospace;
+  letter-spacing: 0;
+  color: #06102a;
+  background: var(--wsel-muted);
+}
+.wsel__tab.is-active .wsel__count { background: var(--wsel-text); }
+
+/* Hero: the highlighted route */
+.wsel__hero {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  gap: 3px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px 40px;
+  padding: 18px clamp(16px, 5vw, 64px) clamp(16px, 3vh, 28px);
+  animation: wsel-rise 0.3s ease;
 }
-.wsel__pip {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+.wsel__hero-main { min-width: 0; }
+.wsel__title {
+  margin: 0;
+  font: 700 clamp(30px, 5.4vw, 60px)/1.02 'Space Grotesk', sans-serif;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
 }
-.wsel__pip--on {
-  background: #f5d04a;
-  box-shadow: 0 0 5px rgba(245, 208, 74, 0.8);
+.wsel__sub {
+  margin: 10px 0 0;
+  font: 400 clamp(14px, 1.5vw, 17px)/1.4 'Inter', sans-serif;
+  color: var(--wsel-muted);
 }
-.wsel__km {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  font-family: Belanosima, sans-serif;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  padding: 2px 6px;
-  color: #1a120c;
-  background: rgba(243, 230, 200, 0.9);
+.wsel__stats {
+  display: flex;
+  gap: clamp(18px, 3vw, 36px);
+  margin: 0;
+  flex-shrink: 0;
+}
+.wsel__stats dt {
+  font: 400 11px/1 'Space Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wsel-muted);
+}
+.wsel__stats dd {
+  margin: 8px 0 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  font: 700 18px/1 'Space Grotesk', sans-serif;
+  white-space: nowrap;
+}
+/* The side-scrolling row */
+.wsel__strip {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 16px);
+  flex-shrink: 0;
+  height: clamp(150px, 27vh, 250px);
+  padding: 0 clamp(16px, 5vw, 64px);
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.wsel__strip::-webkit-scrollbar { display: none; }
+.wsel__card {
+  --h: clamp(112px, 20vh, 184px);
+  position: relative;
+  flex: 0 0 auto;
+  height: var(--h);
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #0b1838;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  opacity: 0.82;
+  transition: height 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+.wsel__card.is-group-start { margin-left: clamp(10px, 1.6vw, 22px); }
+.wsel__card.is-selected {
+  height: calc(var(--h) * 1.2);
+  aspect-ratio: 16 / 11;
+  opacity: 1;
+  box-shadow:
+    0 0 0 3px #06102a,
+    0 0 0 6px var(--wsel-text),
+    0 14px 34px rgba(0, 0, 0, 0.5);
+  margin-inline: 6px;
+}
+.wsel__card.is-selected.is-group-start { margin-left: calc(clamp(10px, 1.6vw, 22px) + 6px); }
+.wsel__photo,
+.wsel__fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.wsel__fallback {
+  display: grid;
+  place-items: center;
 }
 .wsel__map {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 11px 12px 9px;
-  filter: drop-shadow(0 2px 3px rgba(26, 16, 8, 0.45));
-  -webkit-user-drag: none;
-  user-select: none;
+  padding: 12%;
 }
-.wsel__photo {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  -webkit-user-drag: none;
-  user-select: none;
+.wsel__glyph { font-size: 40px; }
+.wsel__cardname {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 10px 8px;
+  font: 600 12px/1.2 'Space Grotesk', sans-serif;
+  letter-spacing: 0.02em;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.wsel__name {
-  margin: 8px 0 0;
-  font-family: Belanosima, sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.05em;
+.wsel__card.is-selected .wsel__cardname { opacity: 0; }
+.wsel__blog {
+  position: absolute;
+  left: 8px;
+  top: 7px;
+  font-size: 15px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* Button hints */
+.wsel__hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 26px;
+  padding: clamp(14px, 3vh, 26px) clamp(16px, 5vw, 64px) 0;
+  flex-shrink: 0;
+  font: 400 12px/1 'Space Mono', monospace;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  text-align: center;
+  color: var(--wsel-muted);
 }
-.wsel__region {
-  display: block;
-  margin-top: 2px;
-  text-align: center;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: rgba(243, 230, 200, 0.6);
+.wsel__hints span,
+.wsel__hint-btn { display: inline-flex; align-items: center; gap: 6px; }
+.wsel__hint-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--wsel-text);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
 }
-.wsel__soon {
-  margin: 2px 0 0;
-  font-size: 12px;
-  font-style: italic;
-  letter-spacing: 0.04em;
-  color: rgba(243, 230, 200, 0.42);
+.wsel__hint-btn:hover kbd { background: var(--wsel-accent); color: #06102a; }
+.wsel__hints kbd {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  font: 700 10px/1 'Space Mono', monospace;
+  color: #06102a;
+  background: var(--wsel-text);
+  transition: background 0.15s ease;
+}
+
+@keyframes wsel-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Phone-only close button (desktop has Esc / the footer's Back to town) */
+.wsel__close {
+  display: none;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  place-items: center;
+  border: 1.5px solid rgba(244, 246, 251, 0.5);
+  border-radius: 50%;
+  background: rgba(6, 16, 42, 0.55);
+  backdrop-filter: blur(6px);
+  color: var(--wsel-text);
+  cursor: pointer;
+}
+.wsel__close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.wsel__close:active { background: rgba(244, 246, 251, 0.2); }
+
+@media (max-width: 640px), (hover: none) and (pointer: coarse) {
+  .wsel__tabs,
+  .wsel__hint-back { display: none; }
+  .wsel__close { display: grid; }
+}
+
+@media (max-width: 640px) {
+  .wsel__hero { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 18px; }
+  .wsel__hints span { display: none; }
+}
+@media (hover: none) {
+  .wsel__hints span { display: none; }
 }
 
 @font-face {
@@ -1040,15 +1213,6 @@ canvas {
 }
 .ride-blog__icon { font-size: 17px; line-height: 1; }
 .ride-blog__label { line-height: 1; }
-
-/* 📖 marker on a world-selector card whose route has a ride log. */
-.wsel__blog {
-  position: absolute;
-  left: 7px;
-  top: 6px;
-  font-size: 15px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-}
 
 @media (max-width: 560px) {
   /* On a phone the label crowds the frame — the icon alone is enough. */

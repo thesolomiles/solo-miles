@@ -24,11 +24,17 @@ export function RideDialogue() {
   const [shown, setShown] = useState('')
   const [done, setDone] = useState(false)
   const timer = useRef<number | undefined>(undefined)
+  const doneRef = useRef(false)
+  // The press that finishes the typewriter is spent until that key is released.
+  const spentRef = useRef(false)
+  const fullRef = useRef(full)
+  fullRef.current = full
 
   // Type the current line out, character by character.
   useEffect(() => {
     setShown('')
     setDone(false)
+    doneRef.current = false
     let i = 0
     window.clearInterval(timer.current)
     timer.current = window.setInterval(() => {
@@ -36,39 +42,67 @@ export function RideDialogue() {
       setShown(full.slice(0, i))
       if (i >= full.length) {
         window.clearInterval(timer.current)
+        doneRef.current = true
         setDone(true)
       }
     }, TYPE_MS)
     return () => window.clearInterval(timer.current)
   }, [full])
 
-  // First press finishes the reveal; the next advances the line.
-  const advance = () => {
-    if (!done) {
-      window.clearInterval(timer.current)
-      setShown(full)
-      setDone(true)
-    } else {
-      useGame.getState().advanceRide()
-    }
+  const finishReveal = () => {
+    window.clearInterval(timer.current)
+    setShown(full)
+    doneRef.current = true
+    setDone(true)
   }
 
-  // Keyboard: E / Space / Enter advance; Escape leaves the ride. Owned here so the
-  // reveal-then-advance logic stays in one place (the Hud defers to us in-ride).
+  // A tap completes the reveal; the next one advances. The key that finishes
+  // the typewriter is spent until release, so it can't also turn the page.
+  const advance = () => {
+    if (spentRef.current) return
+    if (!doneRef.current) finishReveal()
+    else useGame.getState().advanceRide()
+  }
+
+  // Bound once. Rebinding on every typed character let one Enter finish the
+  // line and turn the page. Capture + stopImmediatePropagation so a leaked
+  // listener can't also handle the same press.
   useEffect(() => {
+    const advanceKey = (e: KeyboardEvent) =>
+      e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter'
+    const reveal = () => {
+      window.clearInterval(timer.current)
+      setShown(fullRef.current)
+      doneRef.current = true
+      setDone(true)
+    }
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return
-      if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') {
+      if (advanceKey(e)) {
         e.preventDefault()
-        advance()
+        e.stopImmediatePropagation()
+        if (e.repeat || spentRef.current) return
+        spentRef.current = true
+        if (!doneRef.current) {
+          reveal()
+          return
+        }
+        useGame.getState().advanceRide()
       } else if (e.code === 'Escape') {
         e.preventDefault()
         useGame.getState().requestRide(null)
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (advanceKey(e)) spentRef.current = false
+    }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+    }
+  }, [])
 
   return (
     <>
