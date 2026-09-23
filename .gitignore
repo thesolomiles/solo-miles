@@ -17,3 +17,6 @@ dist
 # env
 .env
 .env.local
+
+# legacy build download cache (JMdict / JLPT lists)
+legacy/data/generated/
