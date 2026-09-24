@@ -19,8 +19,11 @@ export function CafeModel() {
     scene.traverse((o) => {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
-      m.castShadow = true
-      m.receiveShadow = true
+      // The pastry case's glass (its own transparent CaseGlass material) must
+      // not cast shadows, or it would darken the pastries it's showing off.
+      const glass = (m.material as THREE.Material).transparent
+      m.castShadow = !glass
+      m.receiveShadow = !glass
     })
   }, [scene])
 

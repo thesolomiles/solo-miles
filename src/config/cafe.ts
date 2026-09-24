@@ -85,6 +85,13 @@ export const CAFE = {
     { minX: 0.9, maxX: 4.6, minZ: -0.3, maxZ: 3.5 },
     { minX: -7.4, maxX: -5.5, minZ: -2.7, maxZ: 3.5 },
     { minX: 5.3, maxX: 7.8, minZ: -2.5, maxZ: 3.6 },
+    { minX: 5.85, maxX: 6.75, minZ: -6.7, maxZ: -5.8 },
+    { minX: -6.9, maxX: -6.0, minZ: -6.75, maxZ: -5.85 },
+    { minX: 6.05, maxX: 6.95, minZ: -4.45, maxZ: -3.55 },
+    { minX: -6.95, maxX: -6.05, minZ: -4.45, maxZ: -3.55 },
+    { minX: -6.85, maxX: -5.95, minZ: 6.15, maxZ: 7.05 },
+    { minX: 5.95, maxX: 6.85, minZ: 6.05, maxZ: 6.95 },
+    { minX: 1.55, maxX: 2.45, minZ: 6.25, maxZ: 7.15 },
   ] as BoxCollider[],
 
   /** Floor lift: the café's wood planks sit ~0.16u above y=0 (their modelled

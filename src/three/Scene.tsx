@@ -22,6 +22,7 @@ import { TownDust } from './TownDust'
 import { CafeModel } from './CafeModel'
 import { HomeModel } from './HomeModel'
 import { HomeLights } from './HomeLights'
+import { CafeLights } from './CafeLights'
 import { CafeWorkers } from './actors/CafeWorker'
 import { Patrons } from './actors/Patron'
 import { CafeBgm } from './CafeBgm'
@@ -220,43 +221,6 @@ function RideController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     }
   }, [ride, posRef])
   return null
-}
-
-// Café window positions in three-space, nudged just inside each pane (Blender
-// Y-up export: +Y/north → −Z). A warm point light at each makes the windows
-// actually cast light into the room, not merely glow.
-const CAFE_WINDOW_LIGHTS: [number, number, number][] = [
-  [-6.4, 2.0, -4.0], // left · north
-  [-6.4, 2.0, 1.5], // left · south
-  [6.4, 2.0, -4.0], // right · north
-  [6.4, 2.0, 1.5], // right · south
-]
-
-/**
- * Lighting for the café interior — its own rig, independent of the town's sun.
- * The room is lit by warm daylight spilling in the four windows plus a low
- * ambient so nothing goes pitch-black; the emissive sconces / menu / arcade
- * screens add their own glow on top.
- */
-function CafeLights() {
-  return (
-    <>
-      <ambientLight intensity={0.35} color={'#ffe6c2'} />
-      {/* A general overhead fill so the middle of the room isn't dark — a warm
-          ceiling glow centred over the tables, independent of the town sun. */}
-      <pointLight position={[0, 6.5, -0.5]} color={'#ffdcb0'} intensity={55} distance={26} decay={2} />
-      {CAFE_WINDOW_LIGHTS.map((p, i) => (
-        <pointLight
-          key={i}
-          position={p}
-          color={'#ffd39a'}
-          intensity={22}
-          distance={18}
-          decay={2}
-        />
-      ))}
-    </>
-  )
 }
 
 export function Scene() {

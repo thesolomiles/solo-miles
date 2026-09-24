@@ -29,16 +29,18 @@ const DOWNLIGHTS_MOBILE = DOWNLIGHTS.slice(0, 2)
 /** Picture lights over the two framed jerseys (x). */
 const PICTURE_X = [-0.35, 0.95]
 
-const WARM = '#ffc98a'
+const WARM = '#ffc07a'
 
-/** A spot aimed at a fixed point (r3f spot targets need a real Object3D). */
-function Spot({
+/** A spot aimed at a fixed point (r3f spot targets need a real Object3D).
+ *  Shared with CafeLights. */
+export function Spot({
   from,
   to,
   angle,
   intensity,
   distance,
   color = WARM,
+  penumbra = 1,
 }: {
   from: V3
   to: V3
@@ -46,6 +48,7 @@ function Spot({
   intensity: number
   distance: number
   color?: string
+  penumbra?: number
 }) {
   const light = useRef<THREE.SpotLight>(null!)
   useLayoutEffect(() => {
@@ -57,7 +60,7 @@ function Spot({
       ref={light}
       position={from}
       angle={angle}
-      penumbra={1}
+      penumbra={penumbra}
       intensity={intensity}
       distance={distance}
       decay={2}
@@ -82,16 +85,16 @@ export function HomeLights() {
   return (
     <>
       {/* 1 · base */}
-      <ambientLight intensity={0.3} color={'#ffe9d2'} />
-      <hemisphereLight args={[0xfff2e0, 0x5a4330, 0.35]} />
+      <ambientLight intensity={0.3} color={'#ffe4c8'} />
+      <hemisphereLight args={[0xffeacc, 0x5a4330, 0.35]} />
       {/* The main light: a broad, high ceiling source over the middle of the
           room that lifts everything evenly, so the downlight pools read as
           accents on a lit floor instead of isolated spots in the dark. */}
-      <pointLight position={[0, 9, 0]} color={'#fff1e0'} intensity={110} distance={30} decay={2} />
+      <pointLight position={[0, 9, 0]} color={'#ffe8d0'} intensity={110} distance={30} decay={2} />
       <directionalLight
         position={[1, 12, 9]}
         intensity={0.45}
-        color={0xfff1dd}
+        color={0xffe8cc}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-11}
