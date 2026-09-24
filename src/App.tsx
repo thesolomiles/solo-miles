@@ -12,6 +12,7 @@ import { ZoneEditorPanel } from './ui/ZoneEditorPanel'
 import { useGame } from './state/store'
 import { useLighting } from './state/lighting'
 import { useCafeColliderEdit } from './state/cafeColliderEdit'
+import { useHomeColliderEdit } from './state/homeColliderEdit'
 import { useCafeZoneEdit } from './state/cafeZoneEdit'
 import { useHomeZoneEdit } from './state/homeZoneEdit'
 import { IS_MOBILE } from './systems/device'
@@ -109,6 +110,14 @@ export default function App() {
             savedKey="solomiles.cafeColliderSavedAt"
             draftKey="solomiles.cafeColliders"
             title="Café collision"
+          />
+        ) : inHome ? (
+          <ColliderEditorPanel
+            store={useHomeColliderEdit}
+            saveUrl="/__save-home-colliders"
+            savedKey="solomiles.homeColliderSavedAt"
+            draftKey="solomiles.homeColliders"
+            title="Home collision"
           />
         ) : (
           <ColliderEditorPanel />

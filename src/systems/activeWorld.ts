@@ -3,6 +3,7 @@ import { colliders as townColliders } from './colliders'
 import { cafeColliders } from './cafeColliders'
 import { CAFE } from '../config/cafe'
 import { HOME } from '../config/home'
+import { homeColliders } from './homeColliders'
 
 /**
  * Which set of colliders + which boundary the Player resolves against right now.
@@ -35,6 +36,7 @@ export function setActiveWorld(id: 'town' | 'cafe' | 'home') {
         // hold the reference, not a copy, so café edits apply live.
         { colliders: cafeColliders, boundary: CAFE.bounds }
       : id === 'home'
-        ? { colliders: [...HOME.colliders], boundary: HOME.bounds }
+        ? // Live registry the home's ?edit editor drives (same as the café).
+          { colliders: homeColliders, boundary: HOME.bounds }
         : { colliders: townColliders, boundary: WORLD.boundary }
 }
