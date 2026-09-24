@@ -169,6 +169,7 @@ function saveColliders(): Plugin {
 // boxes), driven by the café's ?edit editor. ----
 const CAFE_FILE = 'src/config/cafe.ts'
 const CAFE_BLOCK_RE = /  colliders: \[[\s\S]*?\n  \] as BoxCollider\[\],/
+// The `zones: [...] as InteractZone[],` block in an interior config (café, home).
 const CAFE_ZONES_BLOCK_RE = /  zones: \[[\s\S]*?\n  \] as InteractZone\[\],/
 
 function renderCafeBlock(boxes: Box[]): string {
@@ -229,7 +230,7 @@ function saveCafeColliders(): Plugin {
   }
 }
 
-function renderCafeZonesBlock(zones: Zone[]): string {
+function renderInteriorZonesBlock(zones: Zone[], where: string): string {
   const lines = zones
     .map((z) => {
       const parts = [`id: ${JSON.stringify(z.id)}`]
@@ -245,36 +246,38 @@ function renderCafeZonesBlock(zones: Zone[]): string {
     .join('\n')
   return (
     '  zones: [\n' +
-    '    // Hand-drawn in ?zones inside the café (Leonard), saved from the editor.\n' +
+    `    // Hand-drawn in ?zones inside the ${where} (Leonard), saved from the editor.\n` +
     (lines ? lines + '\n' : '') +
     '  ] as InteractZone[],'
   )
 }
 
-function saveCafeZones(): Plugin {
+/** Save an interior's `?zones` edits back into its config file — the
+ *  `zones: [...] as InteractZone[],` block — and git-commit that file.
+ *  `where` names the room in the comment + commit message (café, home). */
+function saveInteriorZones(file: string, endpoint: string, where: string): Plugin {
   return {
-    name: 'save-cafe-zones',
+    name: `save-${endpoint.replace(/^\/__/, '')}`,
     apply: 'serve',
     configureServer(server) {
-      server.middlewares.use('/__save-cafe-zones', (req, res, next) => {
+      server.middlewares.use(endpoint, (req, res, next) => {
         if (req.method !== 'POST') return next()
         void (async () => {
           try {
             const zones = JSON.parse(await readBody(req)) as Zone[]
             if (!Array.isArray(zones)) throw new Error('expected an array of zones')
 
-            const path = resolve(server.config.root, CAFE_FILE)
+            const path = resolve(server.config.root, file)
             const src = readFileSync(path, 'utf8')
-            if (!CAFE_ZONES_BLOCK_RE.test(src))
-              throw new Error(`CAFE.zones block not found in ${CAFE_FILE}`)
-            writeFileSync(path, src.replace(CAFE_ZONES_BLOCK_RE, renderCafeZonesBlock(zones)), 'utf8')
+            if (!CAFE_ZONES_BLOCK_RE.test(src)) throw new Error(`zones block not found in ${file}`)
+            writeFileSync(path, src.replace(CAFE_ZONES_BLOCK_RE, renderInteriorZonesBlock(zones, where)), 'utf8')
 
             let committed = true
             try {
-              execFileSync('git', ['add', CAFE_FILE], { cwd: server.config.root })
+              execFileSync('git', ['add', file], { cwd: server.config.root })
               execFileSync(
                 'git',
-                ['commit', '-m', `Save café interaction zones (${zones.length}) from ?zones`],
+                ['commit', '-m', `Save ${where} interaction zones (${zones.length}) from ?zones`],
                 { cwd: server.config.root },
               )
             } catch {
@@ -334,5 +337,8 @@ function saveShot(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), saveColliders(), saveCafeColliders(), saveZones(), saveCafeZones(), saveShot()],
+  plugins: [react(), saveColliders(), saveCafeColliders(), saveZones(),
+    saveInteriorZones(CAFE_FILE, '/__save-cafe-zones', 'café'),
+    saveInteriorZones('src/config/home.ts', '/__save-home-zones', 'home'),
+    saveShot()],
 })

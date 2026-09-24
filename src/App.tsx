@@ -13,6 +13,7 @@ import { useGame } from './state/store'
 import { useLighting } from './state/lighting'
 import { useCafeColliderEdit } from './state/cafeColliderEdit'
 import { useCafeZoneEdit } from './state/cafeZoneEdit'
+import { useHomeZoneEdit } from './state/homeZoneEdit'
 import { IS_MOBILE } from './systems/device'
 import { MOBILE_CANVAS_FILTER } from './three/PostFX'
 
@@ -33,11 +34,13 @@ export default function App() {
   // Which world's collision editor the ?edit toolbar drives — the café while
   // inside it, the town otherwise.
   const inCafe = useGame((s) => s.interior === 'cafe')
+  const inHome = useGame((s) => s.interior === 'home')
   const minigame = useGame((s) => s.minigame)
   const hazeKnob = useLighting((s) => s.haze)
   // The warm veil would tint the intro skydive's blue sky, so it waits for the town.
   const diving = useGame((s) => s.introPhase === 'boot' || s.introPhase === 'sky' || s.introPhase === 'cut')
-  const haze = inCafe || minigame || diving ? 0 : hazeKnob
+  const indoors = useGame((s) => s.interior !== null)
+  const haze = indoors || minigame || diving ? 0 : hazeKnob
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
     () => [
       { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
@@ -118,6 +121,14 @@ export default function App() {
             savedKey="solomiles.cafeZoneSavedAt"
             draftKey="solomiles.cafeInteractZones"
             title="Café zones"
+          />
+        ) : inHome ? (
+          <ZoneEditorPanel
+            store={useHomeZoneEdit}
+            saveUrl="/__save-home-zones"
+            savedKey="solomiles.homeZoneSavedAt"
+            draftKey="solomiles.homeInteractZones"
+            title="Home zones"
           />
         ) : (
           <ZoneEditorPanel />

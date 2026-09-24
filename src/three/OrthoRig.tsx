@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { CAMERA } from '../config/constants'
 import { CAFE } from '../config/cafe'
+import { HOME } from '../config/home'
+import type { InteriorId } from '../state/store'
 import { PACMAN } from '../config/arcade'
 import { RIDE } from '../config/ride'
 import { arcadeFocus } from '../systems/arcadeFocus'
@@ -50,7 +52,7 @@ function clampCentre(v: number, half: number, bound = GROUND_HALF): number {
 /** Vertical world-units in the ortho frustum. Town stays at a fixed zoom; the
  *  café / Pac-Man maze zoom out on tall viewports until the whole room fits. */
 function viewHeight(
-  interior: 'cafe' | null,
+  interior: InteriorId | null,
   minigame: 'pacman' | null,
   ride: boolean,
   aspect: number,
@@ -61,9 +63,10 @@ function viewHeight(
   // that's fine, the camera follows the player and pans, clamping to the board
   // edge (frameHalfX/Z) below.
   if (minigame === 'pacman' || ride) return CAMERA.worldViewHeight
-  if (interior !== 'cafe') return CAMERA.worldViewHeight
-  const hFitX = (2 * CAFE.frameHalfX) / Math.max(aspect, 0.05)
-  const hFitZ = 2 * CAFE.frameHalfZ * sinPitch
+  if (!interior) return CAMERA.worldViewHeight
+  const room = interior === 'home' ? HOME : CAFE
+  const hFitX = (2 * room.frameHalfX) / Math.max(aspect, 0.05)
+  const hFitZ = 2 * room.frameHalfZ * sinPitch
   return Math.max(CAMERA.worldViewHeight, hFitX, hFitZ)
 }
 
@@ -212,7 +215,9 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       : riding
         ? RIDE.cameraCentreZ // fixed shot: runners in the lower third, road ahead
         : interiorNow
-          ? -1.0
+          ? interiorNow === 'home'
+            ? HOME.cameraCentreZ
+            : -1.0
           : clampCentre(p.z + rig.groundOffZ, halfZ)
 
     // Convert the clamped ground centre back into a camera position. With no yaw,

@@ -10,6 +10,7 @@ import { useCafeColliderEdit } from '../state/cafeColliderEdit'
 import { TalkRangeEditor } from './TalkRangeEditor'
 import { ZoneEditor, ZoneEditorFor } from './ZoneEditor'
 import { useCafeZoneEdit } from '../state/cafeZoneEdit'
+import { useHomeZoneEdit } from '../state/homeZoneEdit'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
 // import { Bgm } from './Bgm' // BGM disabled for now — see Scene render below
@@ -18,6 +19,7 @@ import { TownModel } from './TownModel'
 import { TownRoad } from './TownRoad'
 import { TownDust } from './TownDust'
 import { CafeModel } from './CafeModel'
+import { HomeModel } from './HomeModel'
 import { CafeWorkers } from './actors/CafeWorker'
 import { Patrons } from './actors/Patron'
 import { CafeBgm } from './CafeBgm'
@@ -32,6 +34,7 @@ import { usePerf } from '../state/perf'
 import { useGame } from '../state/store'
 import { setActiveWorld } from '../systems/activeWorld'
 import { CAFE } from '../config/cafe'
+import { HOME } from '../config/home'
 import { PacmanWorld } from './arcade/PacmanWorld'
 import { RideWorld } from './ride/RideWorld'
 import { IntroDirector, TownReady } from './Intro'
@@ -178,14 +181,18 @@ function InteriorController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   // idempotent, so the double-invoke is a no-op.
   const prevInterior = useRef(interior)
   useEffect(() => {
-    if (prevInterior.current === interior) return
+    const left = prevInterior.current
+    if (left === interior) return
     prevInterior.current = interior
-    if (interior === 'cafe') {
-      setActiveWorld('cafe')
-      posRef.current.set(CAFE.spawn.x, 0, CAFE.spawn.z)
+    if (interior) {
+      const room = interior === 'home' ? HOME : CAFE
+      setActiveWorld(interior)
+      posRef.current.set(room.spawn.x, 0, room.spawn.z)
     } else {
+      // Back out the door of whichever interior was just left.
+      const back = left === 'home' ? HOME.townReturn : CAFE.townReturn
       setActiveWorld('town')
-      posRef.current.set(CAFE.townReturn.x, 0, CAFE.townReturn.z)
+      posRef.current.set(back.x, 0, back.z)
     }
   }, [interior, posRef])
   return null
@@ -250,6 +257,23 @@ function CafeLights() {
   )
 }
 
+/**
+ * Lighting for the home interior — bright, clean daylight for the white walls:
+ * a neutral ambient, a soft overhead fill, and a warm pool under the dining
+ * pendant (three-space: the table sits at x≈3, z≈0).
+ */
+function HomeLights() {
+  return (
+    <>
+      <ambientLight intensity={0.55} color={'#fff3e6'} />
+      <hemisphereLight args={[0xfff6ea, 0x8a6a4a, 0.5]} />
+      <pointLight position={[0, 6, 0.5]} color={'#fff0dc'} intensity={60} distance={24} decay={2} />
+      <pointLight position={[3.05, 1.4, 0]} color={'#ffcf8f'} intensity={2.5} distance={6} decay={2} />
+      <directionalLight position={[6, 9, 7]} intensity={0.8} color={0xfff1dd} castShadow />
+    </>
+  )
+}
+
 export function Scene() {
   // Shared player position: the controller writes it; the camera, the cyclist,
   // and the proximity system read it. Hot per-frame data stays out of React.
@@ -284,6 +308,12 @@ export function Scene() {
       if (r) useGame.setState({ ride: r })
       // Dev shortcut: `?cafe` boots straight into the café (skips the door) so
       // patrons/staff can be iterated on the same way `?ride=` skips Leonard.
+      // `?home` does the same for Leonard's home.
+      if (q.has('home')) {
+        useGame.setState({ interior: 'home', started: true, introPhase: 'done' })
+        setActiveWorld('home')
+        posRef.current.set(HOME.spawn.x, 0, HOME.spawn.z)
+      }
       if (q.has('cafe')) {
         useGame.setState({ interior: 'cafe', started: true, introPhase: 'done' })
         setActiveWorld('cafe')
@@ -337,11 +367,17 @@ export function Scene() {
         </>
       )}
       {interior === 'cafe' && !minigame && <CafeLights />}
+      {interior === 'home' && !minigame && <HomeLights />}
 
       {minigame === 'pacman' ? (
         <PacmanWorld />
       ) : ride ? (
         <RideWorld />
+      ) : interior === 'home' ? (
+        <>
+          <HomeModel />
+          {zonesEdit && <ZoneEditorFor store={useHomeZoneEdit} />}
+        </>
       ) : interior === 'cafe' ? (
         <>
           <CafeModel />

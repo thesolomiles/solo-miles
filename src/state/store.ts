@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { DialogueChoice, Interactable, InteractZone, SectionId } from '../config/town'
 import { CAFE } from '../config/cafe'
+import { HOME } from '../config/home'
+import { FOREST_SIGN } from '../config/town'
 import { ROUTES, routeScript } from '../config/worlds'
 import type { IntroPhase } from '../systems/intro'
 
@@ -13,6 +15,8 @@ function rideLineCount(routeId: string): number {
 }
 
 export type MinigameId = 'pacman'
+/** The enterable interiors: the café and Leonard's home (config/cafe.ts, config/home.ts). */
+export type InteriorId = 'cafe' | 'home'
 export type ArcadeHudStatus = 'play' | 'won' | 'lost' | 'dying'
 
 export interface ArcadeHud {
@@ -23,7 +27,7 @@ export interface ArcadeHud {
 }
 
 export type Transition =
-  | { kind: 'interior'; to: 'cafe' | null }
+  | { kind: 'interior'; to: InteriorId | null }
   | { kind: 'minigame'; to: MinigameId | null }
   | { kind: 'ride'; to: string | null }
 
@@ -69,7 +73,7 @@ interface GameState {
   /** Which interior "world" the player is inside, or null for the town. Set by
       pressing E on the town's café door; cleared by the café's exit zone. Drives
       the town↔café model + collision swap (config/cafe.ts, three/Scene.tsx). */
-  interior: 'cafe' | null
+  interior: InteriorId | null
   /** Full-screen minigame (Pac-Man) mounted over the café. Café interior stays
       set so exiting the maze returns to the same room. */
   minigame: MinigameId | null
@@ -110,7 +114,7 @@ interface GameState {
   setArcadePaused: (paused: boolean) => void
   /** Begin a town↔interior transition (fade out). No-op if one is already
       running. The overlay commits + ends it. */
-  requestInterior: (to: 'cafe' | null) => void
+  requestInterior: (to: InteriorId | null) => void
   /** Begin a café↔minigame fade. Closes the selector so SELECT doesn't sit
       on top of the black. */
   requestMinigame: (to: MinigameId | null) => void
@@ -175,8 +179,25 @@ export const useGame = create<GameState>((set, get) => ({
         get().requestInterior(null)
         return
       }
+      if (!interior && nearZone.id === HOME.enterZoneId) {
+        get().requestInterior('home')
+        return
+      }
+      if (interior === 'home' && nearZone.id === HOME.exitZoneId) {
+        get().requestInterior(null)
+        return
+      }
+      const look = interior === 'home' ? HOME.looks[nearZone.id] : undefined
+      if (look) {
+        set({ dialogue: look, line: 0, nearZone: null })
+        return
+      }
       if (interior === 'cafe' && nearZone.id === CAFE.playZoneId) {
         get().openGames()
+        return
+      }
+      if (!interior && nearZone.id === FOREST_SIGN.zoneId) {
+        set({ dialogue: FOREST_SIGN.interact, line: 0, nearZone: null })
         return
       }
       if (typeof window !== 'undefined') {

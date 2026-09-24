@@ -235,6 +235,21 @@ export const TRAIL = {
   } satisfies Interactable,
 } as const
 
+/** The "Forest roads ahead" sign — zone zbydnja (config/zones.data.ts). E reads
+ *  it: a single portrait-less speech-box line, then it closes. */
+export const FOREST_SIGN = {
+  zoneId: 'zbydnja',
+  interact: {
+    id: 'forest-sign',
+    name: 'Signpost',
+    role: 'forest roads',
+    verb: 'Read',
+    color: 0x54703a,
+    radius: 0,
+    lines: ['Forest roads ahead, cycling adventures with Leonard.'],
+  } satisfies Interactable,
+} as const
+
 /** Moving-actor definitions (positions are runtime state; see the components). */
 export const ACTORS = {
   mews: {

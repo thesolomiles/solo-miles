@@ -6,6 +6,7 @@ import { applyTalkDraft } from '../state/talkEdit'
 import { useGame } from '../state/store'
 import { zones } from './zones'
 import { cafeZones } from './cafeZones'
+import { homeZones } from './homeZones'
 
 /**
  * A tiny registry of everything interactable in the world. Buildings and the
@@ -97,8 +98,8 @@ export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector
       return
     }
     const p = playerPos.current
-    // Café: live café zone registry. Town: hand-authored town set.
-    const list = st.interior === 'cafe' ? cafeZones : zones
+    // Café / home: that room's live zone registry. Town: hand-authored town set.
+    const list = st.interior === 'cafe' ? cafeZones : st.interior === 'home' ? homeZones : zones
     let hit: (typeof list)[number] | null = null
     for (const z of list) {
       if (p.x >= z.minX && p.x <= z.maxX && p.z >= z.minZ && p.z <= z.maxZ) {
