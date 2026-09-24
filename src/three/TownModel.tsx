@@ -129,6 +129,72 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
 }
 
 /**
+ * Window glass. The Blender `Glass` material exports as a plain alpha-blended
+ * tint; we swap it for a pale see-through pane that reflects the same baked sky
+ * as the water (so it reads as glass, not a grey sheet) plus two soft diagonal
+ * sheen bands baked into a tiny texture — the classic stylized "this is glass"
+ * cue. Each pane is UV'd 0..1 in Blender so the bands sit across it. Behind every
+ * pane is a small modelled room, which is what you see through it.
+ */
+let glassMaterial: THREE.MeshStandardMaterial | null = null
+const GLASS_MAT_REV = 2
+let glassMaterialRev = 0
+
+/** Pane texture: `tint` fill with two diagonal sheen bands in `band`. */
+function makePaneTexture(tint: string, band: string, band2: string): THREE.Texture {
+  const s = 64
+  const c = document.createElement('canvas')
+  c.width = s
+  c.height = s
+  const g = c.getContext('2d')!
+  g.fillStyle = tint
+  g.fillRect(0, 0, s, s)
+  g.translate(s / 2, s / 2)
+  g.rotate(-Math.PI / 4)
+  g.fillStyle = band
+  g.fillRect(-s, -s * 0.24, s * 2, s * 0.1)
+  g.fillStyle = band2
+  g.fillRect(-s, -s * 0.06, s * 2, s * 0.04)
+  const t = new THREE.CanvasTexture(c)
+  t.minFilter = THREE.LinearFilter
+  return t
+}
+
+function getGlassMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
+  if (glassMaterial && glassMaterialRev === GLASS_MAT_REV) return glassMaterial
+  glassMaterial?.dispose()
+  skyEnv ??= makeSkyEnv(gl)
+  const map = makePaneTexture('#c4e0ee', '#ffffff', '#f4fbff')
+  map.colorSpace = THREE.SRGBColorSpace
+  // alphaMap reads the green channel: a ~12% tint over the room behind, with the
+  // sheen bands a little more opaque.
+  const alphaMap = makePaneTexture('#1f1f1f', '#5c5c5c', '#454545')
+  const mat = new THREE.MeshStandardMaterial({
+    map,
+    alphaMap,
+    roughness: 0.08,
+    metalness: 0.1,
+    envMap: skyEnv,
+    envMapIntensity: 0.5,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })
+  mat.name = 'Glass'
+  glassMaterial = mat
+  glassMaterialRev = GLASS_MAT_REV
+  return mat
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    glassMaterial?.dispose()
+    glassMaterial = null
+    glassMaterialRev = 0
+  })
+}
+
+/**
  * The real town, modelled in Blender (flat low-poly) and exported to glTF —
  * ground tile, river, bridge, path, forest, and the café. This is the Phase-3
  * art drop-in that replaces the procedural greybox `Environment`.
@@ -145,10 +211,9 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
   // multiplier on the real baked value, not an absolute overwrite.
   const baseGlow = useRef(new Map<string, number>())
 
-  // Scale each building's warm window emission by its own knob. The café glass
-  // is `Material.004` (baked strength ~5); the house windows are
-  // `HouseWindowsLit` (baked ~0.6). Only emissive materials are touched — walls
-  // and ground (black emissive) stay put.
+  // Scale the warm emission (lanterns, the little lamps inside the windows) by
+  // the glow knob. Everything lit is `Material.004` (baked strength ~5). Only
+  // emissive materials are touched — walls and ground (black emissive) stay put.
   useEffect(() => {
     scene.traverse((o) => {
       const m = o as THREE.Mesh
@@ -181,6 +246,7 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
   // the ripples to read across the surface.
   const gl = useThree((s) => s.gl)
   const waterMat = getWaterMaterial(gl)
+  const glassMat = getGlassMaterial(gl)
 
   // Drive the ripple clock. The uniform only exists once the material has
   // compiled (first render), so guard on the captured shader.
@@ -204,6 +270,13 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
         m.receiveShadow = false
         return
       }
+      // Window glass: see-through, so it neither casts nor catches shadows.
+      if (mat && (mat as THREE.Material).name === 'Glass') {
+        m.material = glassMat
+        m.castShadow = false
+        m.receiveShadow = false
+        return
+      }
       m.castShadow = true
       m.receiveShadow = true
     })
@@ -218,7 +291,7 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     // instanced meshes — runs after colliders so those still read the named
     // geometry. Turns ~600 draw calls into a handful; authoring stays per-object.
     instanceScatter(scene)
-  }, [scene, waterMat])
+  }, [scene, waterMat, glassMat])
 
   return <primitive object={scene} scale={scale} />
 }

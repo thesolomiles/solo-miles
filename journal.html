@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-09-25">2026-09-25</a>
       <a href="#2026-09-24">2026-09-24</a>
       <a href="#2026-09-23">2026-09-23</a>
       <a href="#2026-09-22">2026-09-22</a>
@@ -111,6 +112,15 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-09-25">
+        <h3><a class="perma" href="#2026-09-25">2026-09-25 · Friday</a></h3>
+        <ul>
+          <li><strong>Glowing windows replaced with real glass.</strong> Leonard found the flat yellow windows too bright in the daytime and not window-like. The house and café windows are now pale, see-through glass with a soft diagonal sheen and a faint sky reflection. Behind each pane is a small furnished room: a desk and bookshelf, a bench with a framed jersey and a plant, and a sofa downstairs at the house; a tatami room, a coffee-jar shelf, the counter through the door and pastry shelves at the café. The only glow left is a small lamp in some of the rooms. The house's glass balcony rail uses the same glass. In Blender these are new <code>House_Interior</code>/<code>House_Glass</code> and <code>TH_Interior</code>/<code>TH_Glass</code> objects, and the café wall has recesses cut behind its windows. The glass look itself is set in code (<code>TownModel.tsx</code>), not in Blender.</li>
+          <li><strong>Flower shrubs redone to match an English cottage-garden photo.</strong> The boxy green cubes with coloured squares are now rounded, lumpy mounds of mixed greens covered in clusters of flowers. There are six varieties (pink roses, lilac with lavender spikes, lime lady's mantle with yellow flowers, red roses, magenta, and foxgloves), mixed along the three borders so they spill into one another. They are still on the shared palette. The old cube meshes are kept in the .blend, so this can be undone.</li>
+          <li><strong>Collision and entrances updated for the teahouse.</strong> Leonard adjusted the café's collision boxes in <code>?edit</code> to fit the teahouse, the lantern and the vending machine. In <code>?zones</code> he made the "Enter cafe" zone deeper and moved the vending-machine zone to where the machine now stands, on the teahouse's right.</li>
+        </ul>
+      </article>
+
       <article id="2026-09-24">
         <h3><a class="perma" href="#2026-09-24">2026-09-24 · Thursday</a></h3>
         <ul>
@@ -144,6 +154,7 @@
           <li><strong>Café toned down and warmed, home warmed a little.</strong> Leonard found the brighter café too bright, so its base lights are about a third dimmer and every café light is a little warmer. The home's lights are nudged slightly warmer too, at the same brightness.</li>
           <li><strong>Table spotlights made visible.</strong> The table downlights were too weak to notice, partly because their range cut out just above the floor. They now leave a subtle warm pool on each tabletop and the floor around it.</li>
           <li><strong>The café game selector now looks like the ride world selector.</strong> The wood frame and 3×3 grid are gone. It now has a blurred backdrop of the highlighted game, a large title with Locked/Unlocked status, a row of cards you scroll sideways, key hints along the bottom, and the same menu sounds. ←/→ browse, Enter plays (it does nothing on locked games), and Esc goes back to the café.</li>
+          <li><strong>The town café is now a Japanese teahouse.</strong> Built from Leonard's reference: two storeys with a tiled gable roof, an ochre timber-framed front, navy side walls, lit lattice windows, a bamboo blind, a balcony rail, a tiled canopy with navy noren curtains, a lantern post, a vending machine and an AC unit. The sign reads COFFEE (and a standing board says CAFE), not kanji, so it isn't fully Japanese. It lives in a new <code>Cafe_Japanese</code> collection in <code>home-town.blend</code>. The old café is hidden, not deleted, and uses the shared palette material. Its entrance lines up with the existing "Enter cafe" door, so going inside still works. <code>town.glb</code> was re-exported and the café colliders updated to the new footprint.</li>
         </ul>
       </article>
 
