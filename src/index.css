@@ -104,6 +104,7 @@ canvas {
 }
 
 /* --- Proximity prompt --- */
+/* Styled to match the dialogue box: near-black panel, Space Mono, navy/cyan key. */
 .prompt {
   position: absolute;
   bottom: 132px;
@@ -111,23 +112,26 @@ canvas {
   transform: translateX(-50%) translateY(8px);
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   opacity: 0;
-  transition: opacity 0.16s ease, transform 0.16s ease;
-  background: var(--paper-80);
-  backdrop-filter: blur(6px);
-  padding: 8px 14px 8px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(43, 38, 32, 0.12);
-  box-shadow: 0 8px 22px rgba(43, 38, 32, 0.18);
-  font-size: 13.5px;
-  font-weight: 500;
+  transition: opacity 0.16s ease, transform 0.16s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  background: rgba(0, 0, 0, 0.9);
+  padding: 7px 16px 7px 7px;
+  border-radius: 12px;
+  border: 1px solid #353535;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 13px;
+  color: #fff;
+  white-space: nowrap;
   /* it's a <button> so tapping interacts on touch — reset UA chrome */
-  color: inherit;
-  font-family: inherit;
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
+}
+.prompt:hover {
+  border-color: #20cfff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28), 0 0 8px rgba(32, 207, 255, 0.32);
 }
 
 /* --- Touch movement stick (mobile only) --- */
@@ -160,14 +164,19 @@ canvas {
   transform: translateX(-50%) translateY(0);
 }
 .prompt__key {
-  font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 12px;
-  color: #fff;
-  background: var(--clay);
-  border-radius: 7px;
-  padding: 4px 9px;
-  box-shadow: 0 2px 0 var(--clay-deep);
+  line-height: 1;
+  color: #20cfff;
+  background: #03183d;
+  border: 1px solid #20cfff;
+  border-radius: 6px;
+  padding: 6px 9px;
+  box-shadow: 0 0 6px rgba(32, 207, 255, 0.3);
+}
+.prompt__name {
+  color: #20cfff;
+  font-weight: 700;
 }
 
 /* --- Dialogue --- */

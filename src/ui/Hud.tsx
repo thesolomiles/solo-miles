@@ -31,7 +31,10 @@ function Prompt({ near }: { near: Interactable }) {
   return (
     <button className="prompt prompt--show" onClick={() => useGame.getState().interact()}>
       <span className="prompt__key">{isTouch ? '›' : 'E'}</span>
-      <span>{(near.verb || 'Talk') + ' · ' + near.name}</span>
+      <span>
+        {(near.verb || 'Talk') + ' · '}
+        <span className="prompt__name">{near.name}</span>
+      </span>
     </button>
   )
 }

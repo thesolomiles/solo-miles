@@ -125,6 +125,8 @@
           <li><strong>Any click unlocks the sound.</strong> The wind used to be created only when the Start button was pressed, so clicking anywhere else did nothing. Now the wind starts (silently) as the freefall begins, and the first click, tap or key press anywhere switches the audio on, so the howl fades in while the player floats. If the browser already allows sound for the site, it plays straight away. Start just begins the fall.</li>
           <li><strong>Fewer, bassier flaps.</strong> The fabric layer was fluttering 9–18 times a second, which read as a buzz. It's now about 3–6 separate flaps a second (a little quicker on the exit). Each is a low "whump" around 320&nbsp;Hz with a sharp start and a quick fade, where before it was a hissy mid-range flutter.</li>
           <li>Dev: <code>?skipintro</code> skips the sequence; <code>window.__intro.hold = true</code> freezes it on a frame. pnpm build clean.</li>
+          <li><strong>Journal loads itself.</strong> New <code>journal</code> project skill plus a session-start hook: each new Claude session now starts with the latest 3 journal entries already loaded, so there's no need to ask for a catch-up.</li>
+          <li><strong>E prompts match the dialogue box.</strong> The "press E" chips (zones like "Forest roads ahead", and "Talk · name" near people) were the old cream pill with a clay key. They're now the dialogue look: a near-black panel, Space&nbsp;Mono, a navy/cyan key, the character's name in cyan, and a cyan border glow on hover.</li>
         </ul>
       </article>
 
