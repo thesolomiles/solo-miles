@@ -3,7 +3,7 @@ import { useGame } from '../state/store'
 import { SECTIONS, type Interactable, type InteractZone } from '../config/town'
 import { TouchControls } from './TouchControls'
 import { WorldSelector, useWorldSelectorSfx } from './WorldModal'
-import { GamesModal } from './GamesModal'
+import { GamesModal, useGamesSelectorSfx } from './GamesModal'
 import { RideDialogue } from './RideDialogue'
 import { RideHud } from './RideHud'
 import { RideRouteOverview } from './RideRouteOverview'
@@ -214,6 +214,7 @@ export function Hud() {
   const ride = useGame((s) => s.ride)
   const nearZone = useGame((s) => s.nearZone)
   useWorldSelectorSfx()
+  useGamesSelectorSfx()
 
   // The single interact key (mirrors the prototype's edge handling).
   useEffect(() => {

@@ -13,6 +13,8 @@ export interface ArcadeGame {
   /** Badge on the thumbnail. */
   badge?: 'current' | 'unlocked' | 'locked'
   thumb?: string
+  /** Hero subtitle under the title in the selector. */
+  tagline?: string
   thumbFrom?: string
   thumbTo?: string
 }
@@ -24,6 +26,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     locked: false,
     badge: 'unlocked',
     thumb: '/arcade-pacman.jpg',
+    tagline: 'Clear the maze · dodge the ghosts',
   },
   { id: 'locked-1', title: 'Space Raid', locked: true, badge: 'locked', thumbFrom: '#2a3344', thumbTo: '#0d1218' },
   { id: 'locked-2', title: 'Brick Drop', locked: true, badge: 'locked', thumbFrom: '#3a2a44', thumbTo: '#120d18' },
