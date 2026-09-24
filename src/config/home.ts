@@ -72,8 +72,7 @@ export const HOME = {
     { id: "zwift", verb: "Look", minX: -4.2, maxX: -2.3, minZ: -5.7, maxZ: -2.7 },
   ] as InteractZone[],
 
-  /** What pressing E in a zone says, by zone id: a portrait-less speech box.
-   *  (Placeholder copy — Leonard to rewrite.) */
+  /** What pressing E in a zone says, by zone id: a portrait-less speech box. */
   looks: {
     'jersey-sg': {
       id: 'jersey-sg',
@@ -82,7 +81,7 @@ export const HOME = {
       verb: 'Look',
       color: 0xc8342a,
       radius: 0,
-      lines: ['My Singapore Cycling jersey, framed on the wall.'],
+      lines: ["1st, 2024 Men's Masters Esport National Championship"],
     },
     'jersey-ocbc': {
       id: 'jersey-ocbc',
@@ -91,7 +90,7 @@ export const HOME = {
       verb: 'Look',
       color: 0xc8342a,
       radius: 0,
-      lines: ['My OCBC National Championships jersey, with the medal hung over it.'],
+      lines: ["1st, 2026 Men's Masters Individual Time Trial National Championship"],
     },
     zwift: {
       id: 'zwift',
@@ -100,10 +99,7 @@ export const HOME = {
       verb: 'Look',
       color: 0xf07a1a,
       radius: 0,
-      lines: [
-        'The bike on the trainer, pointed at the TV.',
-        'When the weather says no, the miles happen here on Zwift.',
-      ],
+      lines: ["This is the Cycplus T7 and it's connected to Zwift."],
     },
   } as Record<string, Interactable>,
 
