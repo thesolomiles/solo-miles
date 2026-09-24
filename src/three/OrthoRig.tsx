@@ -7,9 +7,11 @@ import { PACMAN } from '../config/arcade'
 import { RIDE } from '../config/ride'
 import { arcadeFocus } from '../systems/arcadeFocus'
 import { useGame } from '../state/store'
+import { intro } from '../systems/intro'
 
 const _desired = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
+const _intro = new THREE.Vector3()
 
 // Half-extent of the town.glb Ground square. The camera is clamped so its
 // visible footprint never reaches past this, i.e. the raw map edge / void beyond
@@ -17,17 +19,25 @@ const _up = new THREE.Vector3(0, 1, 0)
 // also stays just out of view.
 const GROUND_HALF = 27.5
 
-// Opening intro (replaces the old intro modal). Deliberately simple: NO camera
-// move and NO perspective — just the gameplay ortho camera starting zoomed in on
-// the character and easing its zoom out to normal. Pure ortho throughout, so
-// there's no jarring 3D→ortho switch and nothing to make you queasy. When the
-// zoom reaches 100% we start() the game; it's already the gameplay framing, so
-// the hand-off is seamless.
-const INTRO = {
-  startZoom: 1.5, // begin at 150% (zoomed in on the character)
-  dur: 1.4, // s to ease out to 100%
-}
-const easeOut = (t: number) => 1 - (1 - t) * (1 - t) // quick start → gentle settle
+// The opening skydive (systems/intro.ts, driven by three/Intro.tsx) owns the
+// zoom, an extra camera height for the sky shot, and the landing shake until
+// start(). Same fixed ortho camera throughout — it only translates and zooms.
+
+/**
+ * The one camera, created up front and handed to <Canvas camera={RIG_CAMERA}>
+ * so it's the camera from the very FIRST frame. Before, the Canvas rendered a
+ * frame or two with r3f's default perspective camera until OrthoRig swapped this
+ * one in — a wide, zoomed-out flash of the whole town on every load. Its
+ * position + frustum are set in OrthoRig's useFrame, which runs before render.
+ */
+export const RIG_CAMERA = (() => {
+  const c = new THREE.OrthographicCamera()
+  ;(c as unknown as { manual: boolean }).manual = true
+  c.near = CAMERA.near
+  c.far = CAMERA.far
+  c.position.set(0, -1000, 0) // nothing in view until the rig places it
+  return c
+})()
 
 /** Clamp a view-centre coord so the visible half-extent stays inside ±bound.
  *  If the view is wider than the map on this axis, centre it (nothing to clamp to). */
@@ -82,8 +92,8 @@ function applyFrustum(cam: THREE.OrthographicCamera, h: number, aspect: number) 
  * We own the camera fully (`manual = true`) so react-three-fiber doesn't reset
  * the ortho frustum on resize — we recompute it ourselves from worldViewHeight.
  *
- * The opening intro (see INTRO) is just this same camera with its zoom eased from
- * 125% to 100% — no separate camera, no perspective.
+ * The opening skydive is this same camera: raised into the sky, then zoomed in
+ * on the landing and eased out to 100% — no separate camera, no perspective.
  */
 export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const size = useThree((s) => s.size)
@@ -93,14 +103,8 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const prevInterior = useRef(useGame.getState().interior)
   const prevMinigame = useRef(useGame.getState().minigame)
   const prevRide = useRef(useGame.getState().ride)
-  // Opening intro: elapsed time in the zoom-out (see INTRO). Only runs pre-start.
-  const introT = useRef(0)
 
-  const cam = useMemo(() => {
-    const c = new THREE.OrthographicCamera()
-    ;(c as unknown as { manual: boolean }).manual = true
-    return c
-  }, [])
+  const cam = RIG_CAMERA
 
   // The one, constant orientation. Matrix4.lookAt(eye, target, up) with the
   // camera's relative offset as the eye yields the fixed tilt (~39° down).
@@ -143,7 +147,7 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     cam.quaternion.copy(fixedQuat)
     const aspect = size.width / Math.max(size.height, 1)
     // Start zoomed in if the intro is about to play, else the gameplay zoom.
-    const zoom = useGame.getState().started ? 1 : INTRO.startZoom
+    const zoom = useGame.getState().started ? 1 : intro.zoom
     applyFrustum(cam, CAMERA.worldViewHeight / zoom, aspect)
     set({ camera: cam })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,15 +168,10 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     const framed = interiorNow !== null || minigameNow !== null || riding
     const aspect = size.width / Math.max(size.height, 1)
 
-    // Opening intro: ease the zoom from 125% → 100% (pure ortho, no camera move),
-    // then start() the game. `zoom` divides the view height, so >1 = zoomed in.
-    let zoom = 1
-    if (!started && !framed) {
-      introT.current += dt
-      const t = Math.min(1, introT.current / INTRO.dur)
-      zoom = THREE.MathUtils.lerp(INTRO.startZoom, 1, easeOut(t))
-      if (t >= 1) useGame.getState().start()
-    }
+    // Opening skydive: zoomed in until its final ease-out. `zoom` divides the
+    // view height, so >1 = zoomed in.
+    const intro_ = !started && !framed
+    const zoom = intro_ ? intro.zoom : 1
 
     const h = viewHeight(interiorNow, minigameNow, riding, aspect, rig.sinPitch) / zoom
     if (h !== frustum.current.h || aspect !== frustum.current.aspect) {
@@ -220,8 +219,9 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // camera.x == ground-centre.x; camera.z is the ground centre minus the fixed
     // camera→ground z-offset.
     _desired.set(cgx, p.y + CAMERA.offset.y, cgz - rig.groundFromCamZ)
-    // While the intro plays the player is static, so SNAP the camera to its
-    // centred framing (the zoom does the rest). A world SWAP (café) or a big
+    if (intro_) _desired.add(_intro.set(intro.shakeX, intro.camY + intro.shakeY, 0))
+    // While the intro plays, SNAP the camera to its framing (the sky shot, the
+    // landing, the zoom) — it cuts, it never glides. A world SWAP (café) or a big
     // teleport also snaps; otherwise glide.
     if (!started || swapped || cam.position.distanceTo(_desired) > 12) cam.position.copy(_desired)
     else cam.position.lerp(_desired, 1 - Math.pow(CAMERA.followDamping, dt))

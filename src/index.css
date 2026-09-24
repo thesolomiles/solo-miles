@@ -1180,3 +1180,73 @@ canvas {
     padding: 7px 11px;
   }
 }
+
+/* ---- Intro Start button (Hud IntroStart): a thick white outline on the sky.
+   The sky is pale near the bottom, so the button carries a faint navy tint +
+   blur behind it and the text a soft navy shadow to keep white legible. */
+.intro-start {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 16vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 30;
+  /* backwards, not both: a held end-state would override the --gone fade. */
+  animation: fade-in 0.5s ease backwards;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.intro-start--gone {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.intro-start__btn {
+  pointer-events: auto;
+  font: 700 17px/1.2 'Space Mono', ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 6px rgba(8, 36, 84, 0.55);
+  background: rgba(10, 44, 100, 0.22);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border: 4px solid rgba(255, 255, 255, 0.55);
+  border-radius: 14px;
+  padding: 14px 28px;
+  cursor: default;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    transform 0.15s ease, text-shadow 0.15s ease;
+}
+.intro-start__btn--ready {
+  color: #fff;
+  border-color: #fff;
+  cursor: pointer;
+  animation: intro-start-glow 1.8s ease-in-out infinite;
+}
+@keyframes intro-start-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.25), 0 4px 18px rgba(8, 36, 84, 0.18); }
+  50% { box-shadow: 0 0 14px 2px rgba(255, 255, 255, 0.45), 0 4px 18px rgba(8, 36, 84, 0.18); }
+}
+/* Hover / keyboard focus: fill white, text flips to deep navy. */
+.intro-start__btn--ready:hover,
+.intro-start__btn--ready:focus-visible {
+  background: #fff;
+  color: #0b3a78;
+  text-shadow: none;
+  outline: none;
+}
+.intro-start__btn--ready:active {
+  transform: scale(0.97);
+}
+.intro-start__hint {
+  font: 700 11px/1 'Space Mono', ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(8, 36, 84, 0.6);
+}

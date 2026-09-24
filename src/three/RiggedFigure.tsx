@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useTownGLTF } from './gltf'
 import type { CharAnim } from './Figure'
+import { INTRO } from '../systems/intro'
 
 const MODEL = '/models/character.glb'
 // The Mixamo-merged char is ~2.0u tall; the town wants a ~1.8u human.
@@ -14,6 +15,7 @@ const FADE = 0.18
 // a clip at `speed / stride` so the feet plant instead of gliding, at any
 // movement speed. Measured from each clip's peak foot-plant velocity.
 const STRIDE: Record<string, number> = { walk: 1.5, run: 4.0, 'ninja-run': 5.5 }
+const LAND_SKIP = INTRO.landSkip
 
 /**
  * The rigged glTF player — the real character behind the `CharAnim` seam that
@@ -90,8 +92,31 @@ export function RiggedFigure({ anim }: { anim: RefObject<CharAnim> }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actions, mixer])
 
+  // Intro landing: a one-shot like the jumps, but entered a beat in (the clip's
+  // first frames are still mid-air) and with a quick fade so the impact lands.
+  const land = () => {
+    const clip = actions.land
+    if (!clip) return
+    actions[playing.current]?.fadeOut(0.08)
+    clip.reset()
+    clip.setLoop(THREE.LoopOnce, 1)
+    clip.clampWhenFinished = true
+    clip.time = LAND_SKIP
+    clip.fadeIn(0.08).play()
+    playing.current = 'land'
+  }
+
   useFrame(() => {
     const a = anim.current
+    // The opening skydive (systems/intro.ts) overrides everything else.
+    if (a.pose === 'fall') {
+      to('fall')
+      return
+    }
+    if (a.pose === 'land') {
+      if (playing.current !== 'land') land()
+      return
+    }
     // A bumped jumpSeq requests a one-shot jump; it overrides gaits until done.
     if (a.jumpSeq !== lastJump.current) {
       lastJump.current = a.jumpSeq

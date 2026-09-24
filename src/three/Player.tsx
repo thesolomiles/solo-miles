@@ -8,6 +8,7 @@ import { getActiveWorld } from '../systems/activeWorld'
 import { resolveCollisions } from '../systems/collision'
 import { touchMove, isTypingTarget } from '../systems/input'
 import { useGame } from '../state/store'
+import { intro } from '../systems/intro'
 import { type CharAnim } from './Figure'
 import { RiggedFigure } from './RiggedFigure'
 
@@ -147,8 +148,12 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     const world = getActiveWorld()
     resolveCollisions(posRef.current, world.colliders, world.boundary)
 
-    group.current.position.set(posRef.current.x, 0, posRef.current.z)
+    // Opening skydive: the intro director owns height + clip until start().
+    anim.current.pose = st.started ? null : intro.pose
+    group.current.position.set(posRef.current.x, st.started ? 0 : intro.y, posRef.current.z)
     group.current.rotation.y = yaw.current
+    group.current.rotation.x = st.started ? 0 : intro.tilt
+    group.current.rotation.z = st.started ? 0 : intro.roll
   })
 
   return (

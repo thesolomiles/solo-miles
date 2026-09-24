@@ -35,6 +35,11 @@ ROOT = os.path.dirname(HERE)
 SRC = os.path.join(ROOT, "assets/characters/playable character")
 OUT = os.path.join(ROOT, "public/models/character.glb")
 BASE = "idle.fbx"  # the one exported "With Skin"
+# Source files keep their Mixamo names; these map to the clip names the game
+# plays. Anything else becomes a clip named after its file.
+NAME_MAP = {"Falling": "fall", "Falling To Landing": "land"}
+# Kept in the folder for later but not shipped (the player never sits yet).
+SKIP = {"Stand To Sit"}
 
 def log(*a): print("[build-character]", *a)
 def span(act): r = act.frame_range; return r[1] - r[0]
@@ -157,6 +162,10 @@ for path in sorted(glob.glob(os.path.join(SRC, "*.fbx"))):
     if os.path.basename(path) == BASE:
         continue
     name = os.path.splitext(os.path.basename(path))[0]
+    if name in SKIP:
+        log("skip", name)
+        continue
+    name = NAME_MAP.get(name, name)
     objs, acts = import_fbx(path)
     clip_arm = next((o for o in objs if o.type == 'ARMATURE'), None)
     chosen = pick(acts)

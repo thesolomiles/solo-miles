@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { Suspense, useEffect, useRef, type RefObject } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { PLAYER } from '../config/constants'
@@ -34,17 +34,26 @@ import { setActiveWorld } from '../systems/activeWorld'
 import { CAFE } from '../config/cafe'
 import { PacmanWorld } from './arcade/PacmanWorld'
 import { RideWorld } from './ride/RideWorld'
+import { IntroDirector, TownReady } from './Intro'
 
 // Interiors sit in a dark surround (a single room floating in space would
 // otherwise show the bright town sky around it). A warm near-black frames the
 // café's wood + amber glow as "a room in the dark".
 const INTERIOR_BG = new THREE.Color('#171009')
 
-/** Scene background: the town's vertical gradient sky, or a dark surround while
- *  inside an interior (the café). */
-function SkyBackground({ interior }: { interior: string | null }) {
+/** Scene background: the town's vertical gradient sky, a dark surround while
+ *  inside an interior (the café), or none during the intro skydive — the canvas
+ *  clears transparent so index.html's CSS sky behind it is the sky. */
+function SkyBackground({ interior, dive }: { interior: string | null; dive: boolean }) {
   const scene = useThree((s) => s.scene)
   useEffect(() => {
+    if (dive) {
+      const prev = scene.background
+      scene.background = null
+      return () => {
+        scene.background = prev
+      }
+    }
     if (interior) {
       const prev = scene.background
       scene.background = INTERIOR_BG
@@ -70,7 +79,7 @@ function SkyBackground({ interior }: { interior: string | null }) {
       scene.background = prev
       tex.dispose()
     }
-  }, [scene, interior])
+  }, [scene, interior, dive])
   return null
 }
 
@@ -248,6 +257,9 @@ export function Scene() {
   const interior = useGame((s) => s.interior)
   const minigame = useGame((s) => s.minigame)
   const ride = useGame((s) => s.ride)
+  const started = useGame((s) => s.started)
+  const introPhase = useGame((s) => s.introPhase)
+  const dive = introPhase === 'boot' || introPhase === 'sky' || introPhase === 'cut'
   const enclosed = interior !== null || minigame !== null
   // Selected individually: a bare useThree() would re-render the whole scene on
   // any renderer-store change. Both of these are stable for the app's lifetime.
@@ -273,7 +285,7 @@ export function Scene() {
       // Dev shortcut: `?cafe` boots straight into the café (skips the door) so
       // patrons/staff can be iterated on the same way `?ride=` skips Leonard.
       if (q.has('cafe')) {
-        useGame.setState({ interior: 'cafe', started: true })
+        useGame.setState({ interior: 'cafe', started: true, introPhase: 'done' })
         setActiveWorld('cafe')
         posRef.current.set(CAFE.spawn.x, 0, CAFE.spawn.z)
       }
@@ -307,7 +319,7 @@ export function Scene() {
 
   return (
     <InteractablesProvider>
-      <SkyBackground interior={enclosed ? 'cafe' : null} />
+      <SkyBackground interior={enclosed ? 'cafe' : null} dive={dive} />
       {/* Town fog only: the ride mounts its own fog (RideWorld); interiors have none. */}
       {!enclosed && !ride && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
 
@@ -344,18 +356,23 @@ export function Scene() {
         <>
           {/* Phase 3: the real Blender-modelled town replaces the greybox
               Environment + Building meshes. */}
-          <TownModel />
+          {/* The town's models load in their own boundary so the intro skydive
+              (player only) can start while they stream in behind it. */}
+          <Suspense fallback={null}>
+            <TownModel />
+            <Cat />
+            {/* Cyclist Leonard — mid-road near the forest, facing south. Talk to
+                him (E) to open the world selector. */}
+            <Rider playerPos={posRef} />
+            <Workers />
+            <TownReady />
+          </Suspense>
           <TownRoad />
           <TownDust />
           {edit && <ColliderEditor />}
           {zonesEdit && <ZoneEditor />}
           {debug && !edit && <ColliderDebug boundary={WORLD.boundary} />}
           <Interactions />
-          <Cat />
-          {/* Cyclist Leonard — mid-road near the forest, facing south. Talk to
-              him (E) to open the world selector. */}
-          <Rider playerPos={posRef} />
-          <Workers />
         </>
       )}
       {(debug || edit) && <PerfProbe />}
@@ -365,6 +382,7 @@ export function Scene() {
       {!minigame && !ride && <Player posRef={posRef} />}
 
       <OrthoRig posRef={posRef} />
+      {!started && <IntroDirector posRef={posRef} />}
       <ProximitySystem playerPos={posRef} />
       <ZoneProximity playerPos={posRef} />
       {talkEdit && <TalkRangeEditor />}

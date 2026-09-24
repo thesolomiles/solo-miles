@@ -10,6 +10,7 @@ import { RideRouteOverview } from './RideRouteOverview'
 import { PacmanHud } from './PacmanHud'
 import { SpeechBox } from './SpeechBox'
 import { isTypingTarget } from '../systems/input'
+import { startWind } from '../systems/introSfx'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -134,6 +135,70 @@ function Transition() {
   )
 }
 
+/**
+ * Drives index.html's CSS sky (#boot-sky) through the intro. It paints from the
+ * first frame and sits BEHIND the canvas, which renders transparent during the
+ * freefall, so it is the sky the player falls through. At the cut it steps in
+ * front (the player has already left frame, so nothing visibly changes) while
+ * the camera swaps to the town, then fades out to reveal the landing.
+ */
+function SkySheet() {
+  const phase = useGame((s) => s.introPhase)
+  useEffect(() => {
+    const el = document.getElementById('boot-sky')
+    if (!el) return
+    if (phase === 'cut') el.classList.add('front')
+    if (phase === 'drop' || phase === 'zoom' || phase === 'done') {
+      el.classList.add('front', 'gone')
+      const t = setTimeout(() => el.remove(), 600)
+      return () => clearTimeout(t)
+    }
+  }, [phase])
+  return null
+}
+
+/**
+ * The intro's Start button, shown while the player floats in the sky. It reads
+ * "Loading" until the town is in and settled, then "Enter Leonard's World"
+ * (click / tap / Enter / Space / E). The press is the user gesture browsers need for audio, so the
+ * wind starts right here, inside the handler.
+ */
+function IntroStart() {
+  const phase = useGame((s) => s.introPhase)
+  const ready = useGame((s) => s.introReady)
+  const go = useGame((s) => s.introGo)
+  const start = () => {
+    if (!useGame.getState().introReady || useGame.getState().introGo) return
+    startWind()
+    useGame.getState().goIntro()
+  }
+  useEffect(() => {
+    if (!ready || go) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyE') {
+        e.preventDefault()
+        start()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ready, go])
+  if (phase !== 'sky') return null
+  return (
+    <div className={'intro-start' + (go ? ' intro-start--gone' : '')}>
+      <button
+        type="button"
+        className={'intro-start__btn' + (ready ? ' intro-start__btn--ready' : '')}
+        disabled={!ready || go}
+        onClick={start}
+      >
+        {ready ? "Enter Leonard's World" : 'Loading…'}
+      </button>
+      {ready && !isTouch && <div className="intro-start__hint">press Enter</div>}
+    </div>
+  )
+}
+
 export function Hud() {
   const started = useGame((s) => s.started)
   const near = useGame((s) => s.near)
@@ -186,8 +251,10 @@ export function Hud() {
 
   return (
     <div className="hud">
-      {/* No intro modal — the opening cinematic (OrthoRig) sweeps in from the
-          southern trees onto the character, then calls start() itself. */}
+      {/* No intro modal — the opening skydive (three/Intro.tsx) plays, then
+          calls start() itself. */}
+      <SkySheet />
+      <IntroStart />
       {started && <Hint />}
       {started && isTouch && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
         <TouchControls />

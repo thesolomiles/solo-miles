@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { DialogueChoice, Interactable, InteractZone, SectionId } from '../config/town'
 import { CAFE } from '../config/cafe'
 import { ROUTES, routeScript } from '../config/worlds'
+import type { IntroPhase } from '../systems/intro'
 
 /** Total lines Leonard says on a route: his chat + the appended closing line
  *  (RIDE_OUTRO_LINE, rendered by the HUD). */
@@ -38,6 +39,12 @@ export type Transition =
 
 interface GameState {
   started: boolean
+  /** Where the opening skydive is (systems/intro.ts). 'done' once started. */
+  introPhase: IntroPhase
+  /** The town is loaded + settled, so the intro's Start button is live. */
+  introReady: boolean
+  /** The player pressed Start: the freefall exits and the game begins. */
+  introGo: boolean
   /** Interactable currently in range (drives the E-prompt). null when none. */
   near: Interactable | null
   /** Named interaction zone the player is standing inside (drives its own
@@ -77,6 +84,9 @@ interface GameState {
   sendBack: boolean
 
   start: () => void
+  setIntroPhase: (p: IntroPhase) => void
+  setIntroReady: () => void
+  goIntro: () => void
   setNear: (i: Interactable | null) => void
   setNearZone: (z: InteractZone | null) => void
   /** The single "E / interact" action — mirrors the prototype's edge handling. */
@@ -112,6 +122,9 @@ interface GameState {
 
 export const useGame = create<GameState>((set, get) => ({
   started: false,
+  introPhase: 'boot',
+  introReady: false,
+  introGo: false,
   near: null,
   nearZone: null,
   dialogue: null,
@@ -127,7 +140,12 @@ export const useGame = create<GameState>((set, get) => ({
   transition: null,
   sendBack: false,
 
-  start: () => set({ started: true }),
+  start: () => set({ started: true, introPhase: 'done' }),
+  setIntroPhase: (p) => set({ introPhase: p }),
+  setIntroReady: () => set({ introReady: true }),
+  goIntro: () => {
+    if (get().introReady && !get().introGo) set({ introGo: true })
+  },
 
   setNear: (i) => {
     if (get().near?.id === i?.id) return

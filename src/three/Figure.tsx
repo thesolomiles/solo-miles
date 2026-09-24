@@ -25,6 +25,8 @@ export interface CharAnim {
   jumpKind: 'jump' | 'jump-run'
   /** Set by the model while a jump one-shot plays — locks re-triggering + gaits. */
   jumping: boolean
+  /** Intro-only override: the skydive's fall loop / landing one-shot. */
+  pose?: 'fall' | 'land' | null
 }
 
 const SKIN = 0xf0c9a4

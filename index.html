@@ -10,8 +10,78 @@
     <meta property="og:title" content="Solomiles" />
     <meta property="og:description" content="A little town in the countryside — wander in." />
     <meta name="twitter:card" content="summary" />
+    <style>
+      /* The intro skydive's sky (see src/systems/intro.ts): paints from the first
+         frame, before any JS, so the page is never blank, and stays as the sky
+         behind the transparent canvas through the freefall. Hud's SkySheet moves
+         it in front for the cut to town (.front) and fades it out (.gone). */
+      #root { position: relative; z-index: 1; }
+      #boot-sky {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+        background: linear-gradient(to bottom, #3d8fe6, #b8defc);
+        transition: opacity 450ms ease;
+      }
+      #boot-sky.front { z-index: 45; }
+      #boot-sky.gone { opacity: 0; }
+      #boot-sky i {
+        position: absolute;
+        bottom: -30%;
+        animation: boot-rise linear infinite;
+      }
+      #boot-sky .c {
+        width: 36vmin;
+        height: 20vmin;
+        background:
+          radial-gradient(circle at 50% 40%, #fff 0 21%, transparent 31%),
+          radial-gradient(circle at 32% 58%, #fff 0 17%, transparent 26%),
+          radial-gradient(circle at 68% 56%, #fff 0 18%, transparent 27%),
+          radial-gradient(ellipse 42% 24% at 50% 66%, #eaf4fe 0 70%, transparent 100%);
+        opacity: 0.9;
+      }
+      #boot-sky .s {
+        width: 2px;
+        height: 12vh;
+        background: linear-gradient(transparent, rgba(255, 255, 255, 0.8), transparent);
+      }
+      @keyframes boot-rise {
+        from { transform: translateY(0); }
+        to { transform: translateY(-170vh); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-sky i { animation: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="boot-sky" aria-hidden="true">
+      <i class="c" style="left:8%;animation-duration:4.5s;animation-delay:0s"></i>
+      <i class="c" style="left:58%;animation-duration:5.5s;animation-delay:-1.8s"></i>
+      <i class="c" style="left:30%;animation-duration:6.5s;animation-delay:-3.6s"></i>
+      <i class="c" style="left:72%;animation-duration:4.8s;animation-delay:-2.9s"></i>
+      <i class="c" style="left:-6%;animation-duration:6s;animation-delay:-4.7s"></i>
+      <i class="s" style="left:33.1%;animation-duration:1.01s;animation-delay:-1.04s"></i>
+      <i class="s" style="left:9.0%;animation-duration:1.28s;animation-delay:-0.59s"></i>
+      <i class="s" style="left:7.6%;animation-duration:1.26s;animation-delay:-0.06s"></i>
+      <i class="s" style="left:43.6%;animation-duration:0.95s;animation-delay:-0.15s"></i>
+      <i class="s" style="left:42.8%;animation-duration:1.48s;animation-delay:-0.20s"></i>
+      <i class="s" style="left:23.4%;animation-duration:1.34s;animation-delay:-1.52s"></i>
+      <i class="s" style="left:57.4%;animation-duration:1.18s;animation-delay:-1.56s"></i>
+      <i class="s" style="left:6.5%;animation-duration:1.50s;animation-delay:-0.46s"></i>
+      <i class="s" style="left:15.8%;animation-duration:0.98s;animation-delay:-0.49s"></i>
+      <i class="s" style="left:80.3%;animation-duration:1.03s;animation-delay:-0.93s"></i>
+      <i class="s" style="left:63.3%;animation-duration:1.16s;animation-delay:-0.88s"></i>
+      <i class="s" style="left:8.0%;animation-duration:0.94s;animation-delay:-0.33s"></i>
+      <i class="s" style="left:67.3%;animation-duration:1.20s;animation-delay:-0.50s"></i>
+      <i class="s" style="left:58.2%;animation-duration:1.22s;animation-delay:-0.48s"></i>
+      <i class="s" style="left:78.3%;animation-duration:1.39s;animation-delay:-0.39s"></i>
+      <i class="s" style="left:57.1%;animation-duration:1.27s;animation-delay:-1.40s"></i>
+      <i class="s" style="left:72.0%;animation-duration:1.10s;animation-delay:-1.57s"></i>
+      <i class="s" style="left:13.3%;animation-duration:1.19s;animation-delay:-1.21s"></i>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -3,6 +3,7 @@ import { KeyboardControls, type KeyboardControlsEntry } from '@react-three/drei'
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { Scene } from './three/Scene'
+import { RIG_CAMERA } from './three/OrthoRig'
 import { Hud } from './ui/Hud'
 import { LightingPanel } from './ui/LightingPanel'
 import { ColliderEditorPanel } from './ui/ColliderEditorPanel'
@@ -34,7 +35,9 @@ export default function App() {
   const inCafe = useGame((s) => s.interior === 'cafe')
   const minigame = useGame((s) => s.minigame)
   const hazeKnob = useLighting((s) => s.haze)
-  const haze = inCafe || minigame ? 0 : hazeKnob
+  // The warm veil would tint the intro skydive's blue sky, so it waits for the town.
+  const diving = useGame((s) => s.introPhase === 'boot' || s.introPhase === 'sky' || s.introPhase === 'cut')
+  const haze = inCafe || minigame || diving ? 0 : hazeKnob
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
     () => [
       { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
@@ -63,8 +66,8 @@ export default function App() {
           // the colour grade is re-applied here as a cheap CSS filter.
           gl={{ antialias: IS_MOBILE }}
           style={IS_MOBILE ? { filter: MOBILE_CANVAS_FILTER } : undefined}
-          // A default camera is created then immediately replaced by OrthoRig.
-          camera={{ position: [0, 16, 25] }}
+          // OrthoRig's camera from the first frame (no default-camera flash).
+          camera={RIG_CAMERA}
         >
           <Scene />
         </Canvas>
