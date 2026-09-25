@@ -9,8 +9,9 @@ import type { BoxCollider, Interactable, InteractZone } from './town'
  * soft bounds, colliders and an exit zone. Swapped in by `interior === 'home'`.
  *
  * Coordinate note: Blender (bx, by, bz) → three (bx, bz, −by). The room is
- * X[−7,7] × Z[−7,7] (the café's size): back wall (TV, jerseys, bookshelf) at −Z, stairs up the
- * left wall (−X), and the open cutaway front at +Z. The gap in the low front
+ * X[−7,7] × Z[−7,7] (the café's size): back wall (TV, work desk, jerseys, bookshelf) at −Z,
+ * stairs up the left wall (−X), and the cutaway front at +Z — a floor-to-ceiling
+ * glass wall on the lounge side (cut at 0.5 m so it doesn't hide the L-sofa). The gap in the low front
  * wall sits where the town house's front door is (right of centre), with the
  * doormat inside it — that's the way out. Plank tops are at y=0 (no floorDrop).
  */
@@ -45,22 +46,24 @@ export const HOME = {
     // Hand-drawn in ?edit inside the home (Leonard), saved from the editor.
     { minX: -7, maxX: -5, minZ: -7, maxZ: -0.9 },
     { minX: -3.6, maxX: -2.8, minZ: -5.4, maxZ: -3.2 },
-    { minX: -4.3, maxX: -2, minZ: -7, maxZ: -6.4 },
-    { minX: 1.2, maxX: 5.6, minZ: -7.5, maxZ: -5.9 },
+    { minX: -4.9, maxX: -1.7, minZ: -7.7, maxZ: -6 },
+    { minX: 0.2, maxX: 2.2, minZ: -7.7, maxZ: -5.7 },
+    { minX: 4.1, maxX: 7.2, minZ: -8.8, maxZ: -6.1 },
     { minX: 2.1, maxX: 5.4, minZ: -2.2, maxZ: 1 },
-    { minX: -7, maxX: -5.5, minZ: 1.8, maxZ: 5.1 },
-    { minX: -5.4, maxX: -4.2, minZ: 2.2, maxZ: 4 },
-    { minX: -3.7, maxX: -2.2, minZ: 2, maxZ: 4 },
-    { minX: -6.7, maxX: -6.1, minZ: 0.6, maxZ: 1.2 },
-    { minX: 5.7, maxX: 6.7, minZ: -7.3, maxZ: -5.8 },
-    { minX: -2.1, maxX: -0.5, minZ: -7.7, maxZ: -6 },
-    { minX: 2.2, maxX: 2.8, minZ: -6.7, maxZ: -6.1 },
-    { minX: 5.7, maxX: 7.2, minZ: -8, maxZ: -2.1 },
+    { minX: -7, maxX: -2.7, minZ: 5.5, maxZ: 7.2 },
+    { minX: -7.3, maxX: -5.6, minZ: 1.6, maxZ: 6.6 },
+    { minX: -6.8, maxX: -6.3, minZ: 2.8, maxZ: 3.2 },
+    { minX: -5.1, maxX: -3.9, minZ: 4, maxZ: 4.7 },
+    { minX: -5.7, maxX: -3.6, minZ: 1.5, maxZ: 3.1 },
+    { minX: -7.3, maxX: -5.7, minZ: -0.2, maxZ: 1.6 },
+    { minX: -1.5, maxX: 1.1, minZ: -7.2, maxZ: -6.1 },
+    { minX: -1.1, maxX: 0.6, minZ: -6.5, maxZ: -4.7 },
+    { minX: 5.6, maxX: 6.8, minZ: -2.1, maxZ: -0.4 },
     { minX: 6.1, maxX: 6.7, minZ: 6, maxZ: 6.6 },
     { minX: 1.8, maxX: 3.1, minZ: 5.7, maxZ: 7.1 },
-    { minX: 5.9, maxX: 6.5, minZ: -5.6, maxZ: -5 },
+    { minX: 5.8, maxX: 6.5, minZ: 4.4, maxZ: 5.1 },
     { minX: 4, maxX: 7.2, minZ: 4.9, maxZ: 7.4 },
-    { minX: -7.4, maxX: -4.8, minZ: 5.3, maxZ: 7.6 },
+    { minX: -2.7, maxX: -1.3, minZ: 5.6, maxZ: 7.5 },
   ] as BoxCollider[],
 
   /** Interaction boxes inside the room (three-space AABBs). `home-exit` covers
@@ -70,8 +73,8 @@ export const HOME = {
   zones: [
     // Hand-drawn in ?zones inside the home (Leonard), saved from the editor.
     { id: "home-exit", verb: "Exit to town", minX: 0.35, maxX: 1.85, minZ: 6.1, maxZ: 7.3 },
-    { id: "jersey-sg", verb: "Look", minX: -0.8, maxX: 0.1, minZ: -6.9, maxZ: -5.9 },
-    { id: "jersey-ocbc", verb: "Look", minX: 0.5, maxX: 1.4, minZ: -6.9, maxZ: -5.9 },
+    { id: "jersey-sg", verb: "Look", minX: 1.93, maxX: 2.83, minZ: -6.9, maxZ: -5.9 },
+    { id: "jersey-ocbc", verb: "Look", minX: 3.13, maxX: 4.03, minZ: -6.9, maxZ: -5.9 },
     { id: "zwift", verb: "Look", minX: -4.2, maxX: -2.3, minZ: -5.7, maxZ: -2.7 },
   ] as InteractZone[],
 
