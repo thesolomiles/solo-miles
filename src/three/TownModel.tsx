@@ -160,7 +160,7 @@ function makePaneTexture(tint: string, band: string, band2: string): THREE.Textu
   return t
 }
 
-function getGlassMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
+export function getGlassMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
   if (glassMaterial && glassMaterialRev === GLASS_MAT_REV) return glassMaterial
   glassMaterial?.dispose()
   skyEnv ??= makeSkyEnv(gl)

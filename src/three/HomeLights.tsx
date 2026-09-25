@@ -18,16 +18,25 @@ const SCONCES: V3[] = [
 
 /** Recessed downlights: [x, z] floor spots each pool of light lands on. */
 const DOWNLIGHTS: [number, number][] = [
-  [-4.3, 3.0], // lounge
+  [-4.6, 4.2], // lounge (L-sofa + coffee table)
   [-3.2, -4.3], // Zwift corner
-  [0.4, -4.4], // under the jerseys
+  [-0.25, -5.0], // work desk
   [0.8, 2.2], // entry / middle of the room
 ]
 /** On phones only the two that matter most (each light costs every pixel). */
 const DOWNLIGHTS_MOBILE = DOWNLIGHTS.slice(0, 2)
 
 /** Picture lights over the two framed jerseys (x). */
-const PICTURE_X = [-0.35, 0.95]
+const PICTURE_X = [2.375, 3.575]
+
+/** Daylight through the south glass wall (three x −7.2…0.4, z 7.1): cool sky
+ *  spots from just outside, aimed in and down across the lounge. */
+const DAYLIGHT: [number, number][] = [
+  [-5.2, 3.8],
+  [-1.6, 3.6],
+]
+const DAYLIGHT_MOBILE = DAYLIGHT.slice(0, 1)
+const SKY = '#e4f1ff'
 
 const WARM = '#ffc07a'
 
@@ -73,7 +82,8 @@ export function Spot({
  * Layered lighting for the home interior, so it reads as a lived-in room at
  * dusk rather than a flatly-lit box:
  *  1. base — a low ambient/hemisphere, a broad overhead main light, and a soft
- *     key from the front (the only shadow caster);
+ *     low sun from the south, in through the glass wall (the only shadow
+ *     caster), plus cool sky spots spilling through the glass;
  *  2. recessed downlights — soft pools on the floor (lounge, Zwift corner,
  *     under the jerseys, the entry);
  *  3. wall sconces — warm up/down washes on the side walls;
@@ -82,6 +92,7 @@ export function Spot({
  */
 export function HomeLights() {
   const downlights = IS_MOBILE ? DOWNLIGHTS_MOBILE : DOWNLIGHTS
+  const daylight = IS_MOBILE ? DAYLIGHT_MOBILE : DAYLIGHT
   return (
     <>
       {/* 1 · base */}
@@ -91,10 +102,12 @@ export function HomeLights() {
           room that lifts everything evenly, so the downlight pools read as
           accents on a lit floor instead of isolated spots in the dark. */}
       <pointLight position={[0, 9, 0]} color={'#ffe8d0'} intensity={110} distance={30} decay={2} />
+      {/* The sun: low from the south-west, in through the glass wall, so the
+          window's black frame throws long bars across the lounge floor. */}
       <directionalLight
-        position={[1, 12, 9]}
-        intensity={0.45}
-        color={0xffe8cc}
+        position={[-6, 9, 14]}
+        intensity={0.85}
+        color={0xfff1dc}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-11}
@@ -105,6 +118,11 @@ export function HomeLights() {
         shadow-bias={-0.0004}
         shadow-normalBias={0.02}
       />
+
+      {/* Sky light spilling in through the south glass. */}
+      {daylight.map(([x, z], i) => (
+        <Spot key={i} from={[x, 2.8, 8.4]} to={[x, 0, z]} angle={0.9} intensity={11} distance={11} color={SKY} />
+      ))}
 
       {/* 2 · recessed downlights */}
       {downlights.map(([x, z], i) => (
@@ -118,7 +136,9 @@ export function HomeLights() {
 
       {/* 4 · accents */}
       <pointLight position={[3.8, 1.35, -1.2]} color={'#ffc27a'} intensity={3.5} distance={5} decay={2} />
-      <pointLight position={[-6.6, 1.45, 4.35]} color={WARM} intensity={3} distance={4} decay={2} />
+      <pointLight position={[-6.55, 1.45, 2.95]} color={WARM} intensity={3} distance={4} decay={2} />
+      {/* Work desk: the warm LED strips under its shelves. */}
+      <pointLight position={[-0.25, 2.0, -6.5]} color={'#ffb36a'} intensity={3} distance={3.5} decay={2} />
       {!IS_MOBILE && (
         <>
           {PICTURE_X.map((x, i) => (
@@ -134,7 +154,10 @@ export function HomeLights() {
           ))}
           <pointLight position={[-3.2, 1.7, -6.5]} color={'#9fd0ff'} intensity={3} distance={4} decay={2} />
           <pointLight position={[-6.1, 1.2, -4.3]} color={WARM} intensity={2} distance={4} decay={2} />
-          <pointLight position={[4.0, 1.3, -6.0]} color={WARM} intensity={1} distance={2.5} decay={2} />
+          <pointLight position={[5.95, 1.3, -6.0]} color={WARM} intensity={1} distance={2.5} decay={2} />
+          {/* Desk monitors' cool spill + the speaker's orange glow. */}
+          <pointLight position={[-0.25, 1.2, -6.3]} color={'#bfe6c8'} intensity={1.5} distance={2.5} decay={2} />
+          <pointLight position={[0.82, 0.95, -6.4]} color={'#ff7a1a'} intensity={1.2} distance={1.8} decay={2} />
         </>
       )}
     </>
