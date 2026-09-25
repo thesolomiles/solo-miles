@@ -6,7 +6,7 @@ import { PLAYER } from '../config/constants'
 import { TRAIL } from '../config/town'
 import { getActiveWorld } from '../systems/activeWorld'
 import { resolveCollisions } from '../systems/collision'
-import { touchMove, isTypingTarget } from '../systems/input'
+import { touchMove, pointMove, cancelPointMove, isTypingTarget } from '../systems/input'
 import { useGame } from '../state/store'
 import { intro } from '../systems/intro'
 import { type CharAnim } from './Figure'
@@ -31,6 +31,10 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const moveTime = useRef(0) // seconds of continuous movement (drives walk → run)
   const speed = useRef(PLAYER.speed) // current pace, ramped between walk and run
   const jumpHeld = useRef(false) // edge-detect the jump key so a hold = one jump
+  // Point-and-go stuck check: best distance-to-target so far + when it last improved.
+  const pointBest = useRef(Infinity)
+  const pointStall = useRef(0)
+  const pointSeq = useRef(-1)
   const [, getKeys] = useKeyboardControls()
 
   useFrame((_, delta) => {
@@ -85,6 +89,7 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     const { forward, back, left, right, jump } = getKeys()
     let mx = 0
     let mz = 0
+    let maxStep = Infinity
     if (canMove) {
       // screen-relative: forward = -Z (up-screen), right = +X
       if (forward) mz -= 1
@@ -94,6 +99,39 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       // touch stick (mobile) feeds the same screen-relative vector
       mx += touchMove.x
       mz += touchMove.z
+    }
+
+    // Point-and-go (click / tap the ground — three/PointToMove). Direct input
+    // always wins and drops the target; otherwise walk straight at it.
+    if (!canMove || mx !== 0 || mz !== 0) {
+      if (pointMove.active) cancelPointMove()
+    } else if (pointMove.active) {
+      const dx = pointMove.x - posRef.current.x
+      const dz = pointMove.z - posRef.current.z
+      const dd = Math.hypot(dx, dz)
+      if (pointMove.seq !== pointSeq.current) {
+        pointSeq.current = pointMove.seq
+        pointBest.current = Infinity
+        pointStall.current = 0
+      }
+      // Stuck against a wall (no straight-line path — there's no pathfinding):
+      // give up after half a second without getting meaningfully closer. A held
+      // pointer never gives up — the player is actively steering.
+      if (dd < pointBest.current - 0.05) {
+        pointBest.current = dd
+        pointStall.current = 0
+      } else {
+        pointStall.current += dt
+      }
+      if (dd < 0.25) {
+        if (!pointMove.held) cancelPointMove()
+      } else if (!pointMove.held && pointStall.current > 0.5) {
+        cancelPointMove()
+      } else {
+        mx = dx / dd
+        mz = dz / dd
+        maxStep = dd // land on the target rather than overshoot and jitter
+      }
     }
 
     const moving = Math.hypot(mx, mz) > 0.001
@@ -109,8 +147,9 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       const len = Math.hypot(mx, mz)
       mx /= len
       mz /= len
-      posRef.current.x += mx * speed.current * dt
-      posRef.current.z += mz * speed.current * dt
+      const step = Math.min(speed.current * dt, maxStep)
+      posRef.current.x += mx * step
+      posRef.current.z += mz * step
 
       const targetYaw = Math.atan2(mx, mz)
       let d = ((targetYaw - yaw.current + Math.PI) % (Math.PI * 2)) - Math.PI

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useGame } from '../state/store'
 import { SECTIONS, type Interactable, type InteractZone } from '../config/town'
+// On-screen stick retired in favour of tap / drag-to-move (three/PointToMove).
+// Flip back on here if point-and-go doesn't feel right on phones.
 import { TouchControls } from './TouchControls'
+const SHOW_STICK = false
 import { WorldSelector, useWorldSelectorSfx } from './WorldModal'
 import { GamesModal, useGamesSelectorSfx } from './GamesModal'
 import { RideDialogue } from './RideDialogue'
@@ -21,8 +24,8 @@ function Hint() {
     return () => clearTimeout(t)
   }, [])
   const text = isTouch
-    ? 'Drag the stick to move · tap a prompt to interact'
-    : 'WASD / arrows to move · Space to jump · walk up to a door or a face and press E'
+    ? 'Tap to walk · hold and drag to steer · tap a prompt to interact'
+    : 'Click or WASD / arrows to move · Space to jump · walk up to a door or a face and press E'
   return <div className={'hint' + (show ? ' hint--show' : '')}>{text}</div>
 }
 
@@ -260,7 +263,7 @@ export function Hud() {
       <SkySheet />
       <IntroStart />
       {started && <Hint />}
-      {started && isTouch && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
+      {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
         <TouchControls />
       )}
       {started && near && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (

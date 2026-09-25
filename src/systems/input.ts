@@ -26,3 +26,19 @@ export function isTypingTarget(el: EventTarget | null): boolean {
   const tag = n.tagName
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || n.isContentEditable
 }
+
+/**
+ * Point-and-go target (Dota-style click / tap to move). Written by
+ * three/PointToMove on canvas pointer events, consumed by the player controller:
+ * it walks straight at (x, z) and clears `active` on arrival. `held` = the finger
+ * / mouse is still down, so the target tracks the pointer (drag-to-steer) and
+ * isn't abandoned on arrival or when blocked. Any keyboard / stick input cancels it.
+ * `seq` bumps on every fresh press so the marker can replay its pop-in.
+ */
+export const pointMove = { active: false, held: false, x: 0, z: 0, seq: 0 }
+
+/** Drop any point-and-go target (keyboard took over, a dialogue opened, etc.). */
+export function cancelPointMove() {
+  pointMove.active = false
+  pointMove.held = false
+}

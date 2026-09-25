@@ -14,6 +14,7 @@ import { useCafeZoneEdit } from '../state/cafeZoneEdit'
 import { useHomeZoneEdit } from '../state/homeZoneEdit'
 import { OrthoRig } from './OrthoRig'
 import { Player } from './Player'
+import { PointToMove } from './PointToMove'
 // import { Bgm } from './Bgm' // BGM disabled for now — see Scene render below
 import { AmbientSound } from './AmbientSound'
 import { TownModel } from './TownModel'
@@ -366,6 +367,7 @@ export function Scene() {
       <InteriorController posRef={posRef} />
       <RideController posRef={posRef} />
       {!minigame && !ride && <Player posRef={posRef} />}
+      {!minigame && !ride && <PointToMove />}
 
       <OrthoRig posRef={posRef} />
       {!started && <IntroDirector posRef={posRef} />}
