@@ -30,6 +30,21 @@ body,
 body {
   background: var(--sky-top);
   overscroll-behavior: none;
+  /* It's a game, not a document: a long press (hold-and-drag to steer) must not
+     start iOS text selection or pop the Copy / Search callout over the town. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ...but typing still works, and the section panels' prose stays copyable. */
+input,
+textarea,
+[contenteditable],
+.section__panel {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 .app {

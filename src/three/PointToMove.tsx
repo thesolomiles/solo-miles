@@ -76,12 +76,17 @@ export function PointToMove() {
       pointMove.held = false
     }
 
+    // A long press on the canvas is a steer, not a request for the context menu.
+    const noMenu = (e: Event) => e.preventDefault()
+
     el.addEventListener('pointerdown', down)
+    el.addEventListener('contextmenu', noMenu)
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', release)
     window.addEventListener('pointercancel', release)
     return () => {
       el.removeEventListener('pointerdown', down)
+      el.removeEventListener('contextmenu', noMenu)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', release)
       window.removeEventListener('pointercancel', release)
