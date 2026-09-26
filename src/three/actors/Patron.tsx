@@ -68,6 +68,7 @@ function PatronTalk({
       !st.dialogue &&
       !st.section &&
       !st.worldOpen &&
+      !st.siteOpen &&
       distToPlayer < interact.radius
     if (mark.current) {
       mark.current.visible = alert

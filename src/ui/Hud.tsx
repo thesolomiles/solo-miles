@@ -12,6 +12,7 @@ import { RideHud } from './RideHud'
 import { RideRouteOverview } from './RideRouteOverview'
 import { PacmanHud } from './PacmanHud'
 import { SpeechBox } from './SpeechBox'
+import { PersonalSite, usePersonalSiteSfx } from './PersonalSite'
 import { isTypingTarget } from '../systems/input'
 import { startWind } from '../systems/introSfx'
 
@@ -213,11 +214,13 @@ export function Hud() {
   const section = useGame((s) => s.section)
   const worldOpen = useGame((s) => s.worldOpen)
   const gamesOpen = useGame((s) => s.gamesOpen)
+  const siteOpen = useGame((s) => s.siteOpen)
   const minigame = useGame((s) => s.minigame)
   const ride = useGame((s) => s.ride)
   const nearZone = useGame((s) => s.nearZone)
   useWorldSelectorSfx()
   useGamesSelectorSfx()
+  usePersonalSiteSfx()
 
   // The single interact key (mirrors the prototype's edge handling).
   useEffect(() => {
@@ -247,6 +250,7 @@ export function Hud() {
           if (st.arcade?.status === 'won' || st.arcade?.status === 'lost') st.requestMinigame(null)
           else st.setArcadePaused(!st.arcade?.paused)
         } else if (st.gamesOpen) st.closeGames()
+        else if (st.siteOpen) st.closeSite()
         else if (st.worldOpen) st.closeWorld()
         else if (st.section) st.closeSection()
         else if (st.dialogue) st.closeDialogue()
@@ -263,19 +267,20 @@ export function Hud() {
       <SkySheet />
       <IntroStart />
       {started && <Hint />}
-      {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
+      {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !minigame && !ride && (
         <TouchControls />
       )}
-      {started && near && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
+      {started && near && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !minigame && !ride && (
         <Prompt near={near} />
       )}
-      {started && !near && nearZone && !dialogue && !section && !worldOpen && !gamesOpen && !minigame && !ride && (
+      {started && !near && nearZone && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !minigame && !ride && (
         <ZonePrompt zone={nearZone} />
       )}
       {dialogue && <Dialogue item={dialogue} line={line} />}
       {section && <SectionOverlay id={section} />}
       {worldOpen && <WorldSelector />}
       {gamesOpen && <GamesModal />}
+      {siteOpen && <PersonalSite />}
       {ride && <RideDialogue />}
       {ride && <RideHud />}
       {ride && <RideRouteOverview />}

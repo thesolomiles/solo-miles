@@ -76,6 +76,7 @@ export const HOME = {
     { id: "jersey-sg", verb: "Look", minX: 1.93, maxX: 2.83, minZ: -6.9, maxZ: -5.9 },
     { id: "jersey-ocbc", verb: "Look", minX: 3.13, maxX: 4.03, minZ: -6.9, maxZ: -5.9 },
     { id: "zwift", verb: "Look", minX: -4.2, maxX: -2.3, minZ: -5.7, maxZ: -2.7 },
+    { id: "desk", verb: "Use", minX: -1.7, maxX: 1.3, minZ: -6.1, maxZ: -3.8 },
   ] as InteractZone[],
 
   /** What pressing E in a zone says, by zone id: a portrait-less speech box. */
@@ -106,6 +107,21 @@ export const HOME = {
       color: 0xf07a1a,
       radius: 0,
       lines: ["This is the Cycplus T7 and it's connected to Zwift."],
+    },
+    // The work desk: Yes opens Leonard's personal site in the fake browser
+    // (ui/PersonalSite.tsx, content in config/site.ts).
+    desk: {
+      id: 'desk',
+      name: 'Work desk',
+      role: 'three monitors',
+      verb: 'Use',
+      color: 0x20cfff,
+      radius: 0,
+      lines: ["Leo's personal site. Take a look?"],
+      choices: [
+        { label: 'Yes', outcome: 'openSite' },
+        { label: 'No', outcome: 'dismiss' },
+      ],
     },
   } as Record<string, Interactable>,
 

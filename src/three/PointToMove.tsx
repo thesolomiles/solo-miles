@@ -24,7 +24,7 @@ function canPoint(): boolean {
   const st = useGame.getState()
   return (
     st.started && !st.sendBack && !st.dialogue && !st.section && !st.worldOpen &&
-    !st.gamesOpen && !st.minigame && !st.ride && !st.transition
+    !st.gamesOpen && !st.siteOpen && !st.minigame && !st.ride && !st.transition
   )
 }
 

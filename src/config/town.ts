@@ -17,8 +17,9 @@ export type SectionId = 'about' | 'cycling' | 'travel' | 'contact' | 'story'
  * - `dismiss`   — just close the dialogue.
  * - `sendBack`  — close, then walk the player back toward town, facing town.
  * - `openWorld` — close, then open Leonard's world selector (country → route).
+ * - `openSite`  — close, then open Leonard's personal site in the fake browser.
  */
-export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openWorld'
+export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openWorld' | 'openSite'
 
 /** A branch offered at the end of a dialogue (Leonard's "go for a ride?"). */
 export interface DialogueChoice {
