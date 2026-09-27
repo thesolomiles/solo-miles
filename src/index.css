@@ -1412,12 +1412,13 @@ canvas {
   z-index: 1;
   left: var(--pad);
   top: calc(var(--pad) + var(--n) * var(--step) + 14px);
-  max-width: min(360px, 34%);
+  max-width: min(360px, 34%, var(--desc-max, 100%));
   color: #fff;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
   animation: site-content-in 0.35s ease both;
 }
 .site__philoDesc p { margin: 0; font: 300 12px/1.65 var(--site-mono); }
+.site__philoDesc p + p { margin-top: 0.9em; }
 .site__philoDesc ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
 .site__philoDesc li { font: 600 15px/1.25 var(--site-sans); letter-spacing: -0.01em; }
 .site__philoDesc li span {
@@ -1431,7 +1432,7 @@ canvas {
 /* narrow: the boxes fill the space under the links — description sits above
    the quote instead */
 @media (max-width: 640px) {
-  .site__philoDesc { top: auto; bottom: calc(var(--pad) + 86px); max-width: 64%; }
+  .site__philoDesc { top: auto; bottom: calc(var(--pad) + 86px); max-width: min(64%, var(--desc-max, 100%)); }
   .site__philoDesc li { font-size: 13px; }
 }
 .site__annotLabel span { color: var(--site-accent); }

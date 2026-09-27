@@ -79,20 +79,48 @@ function PhiloAnnots({
       const widest = chars * (narrow ? 6.3 : 7.2) + 20
       setG({ pts, col: Math.max(faceLeft - 48, 18 + widest) })
     }
-    const onEnd = (e: TransitionEvent) => {
-      if (e.target === fig && e.propertyName === 'transform') measure()
+    // Nothing shows until the zoom has settled — the ResizeObserver fires once
+    // on observe, which would pin the callouts mid-zoom and then jump.
+    let settled = false
+    const settle = () => {
+      settled = true
+      measure()
     }
+    const isZoom = (e: TransitionEvent) => e.target === fig && e.propertyName === 'transform'
+    const onEnd = (e: TransitionEvent) => isZoom(e) && settle()
+    // the fallback covers "no zoom ran"; once one starts, wait for its end
+    const onRun = (e: TransitionEvent) => isZoom(e) && window.clearTimeout(fallback)
     fig.addEventListener('transitionend', onEnd)
-    const fallback = window.setTimeout(measure, 1000)
-    const ro = new ResizeObserver(() => window.setTimeout(measure, 50))
+    fig.addEventListener('transitioncancel', onEnd)
+    fig.addEventListener('transitionrun', onRun)
+    const fallback = window.setTimeout(settle, 1000)
+    const ro = new ResizeObserver(() => settled && window.setTimeout(measure, 50))
     ro.observe(page)
     return () => {
       fig.removeEventListener('transitionend', onEnd)
+      fig.removeEventListener('transitioncancel', onEnd)
+      fig.removeEventListener('transitionrun', onRun)
       window.clearTimeout(fallback)
       ro.disconnect()
     }
   }, [pageRef, figRef])
   const [sel, setSel] = useState(0)
+  // The description stops a gap short of the leftmost callout box level with
+  // it, so the two never touch. Offsets ignore the boxes' -50% translate, so
+  // a box spans offsetTop ± half its height.
+  const descRef = useRef<HTMLDivElement>(null)
+  const [descMax, setDescMax] = useState<number>()
+  useLayoutEffect(() => {
+    const page = pageRef.current
+    const desc = descRef.current
+    if (!g || !page || !desc) return
+    const top = desc.offsetTop - 12
+    const bottom = desc.offsetTop + desc.offsetHeight + 12
+    const lefts = Array.from(page.querySelectorAll<HTMLElement>('.site__annotLabel'))
+      .filter((b) => b.offsetTop + b.offsetHeight / 2 > top && b.offsetTop - b.offsetHeight / 2 < bottom)
+      .map((b) => b.offsetLeft)
+    setDescMax(lefts.length ? Math.max(Math.min(...lefts) - desc.offsetLeft - 32, 160) : undefined)
+  }, [g, sel, pageRef])
   if (!g) return null
   const A = SITE.philosophy.annotations
   const cur = A[sel]
@@ -121,8 +149,8 @@ function PhiloAnnots({
         </button>
       ))}
       {/* the selected callout's description, under the links */}
-      <div className="site__philoDesc" key={sel}>
-        {cur.desc && <p>{cur.desc}</p>}
+      <div className="site__philoDesc" key={sel} ref={descRef} style={{ '--desc-max': descMax && `${descMax}px` } as CSSProperties}>
+        {cur.desc?.split('\n\n').map((p, i) => <p key={i}>{p}</p>)}
         {cur.items && (
           <ul>
             {cur.items.map(([title, by]) => (

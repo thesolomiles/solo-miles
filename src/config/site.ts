@@ -83,24 +83,27 @@ export const SITE = {
   /** Design philosophy page: annotations on the zoomed head + the prime directive. */
   philosophy: {
     /** Clickable callouts on the zoomed-in head; the selected one's `desc`
-     *  (or `items`) shows under the links. `at` = where the line starts on
-     *  the FRONT figure image (fractions of its width/height); the lines run
-     *  behind him, so only the y really shows. */
+     *  (or `items`) shows under the links; a blank line in `desc` starts a
+     *  new paragraph. `at` = where the line starts on the FRONT figure image
+     *  (fractions of its width/height); the lines run behind him, so only the
+     *  y really shows. */
     annotations: [
       {
         text: 'Rooted in architecture',
         at: [0.5, 0.1],
-        desc: 'Placeholder: a line or two on how architecture shaped the way Leonard designs.',
+        desc: 'Form follows function. A big part of how I practice design lies in my education in architecture. Core design principles are domain-agnostic.',
       },
       {
         text: 'Room for mistakes',
         at: [0.5, 0.145],
-        desc: 'Placeholder: a line or two on why he leaves room for mistakes.',
+        desc: 'I switched my focus to digital design in 2012 because it gave me the freedom to build things with very few limitations. I found it very forgiving, which lets me make mistakes and learn from them.',
       },
       {
         text: 'Knows how things work',
         at: [0.5, 0.19],
-        desc: 'Placeholder: a line or two on knowing how things work.',
+        desc:
+          'A core part of architecture is feasibility: the design has to actually be buildable, so architects are required to learn the foundational principles of structural engineering.\n\n' +
+          'A digital designer needs to know how things are built in the digital space. This is non-negotiable.',
       },
       {
         text: 'Key influences',
