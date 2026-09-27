@@ -11,6 +11,11 @@ export interface SiteRole {
   when: string
   desc: string
 }
+/** A page intro paragraph: a boxed title + text. */
+export interface SiteLogEntry {
+  tag: string
+  text: string
+}
 export interface SiteJob {
   company: string
   /** Newest first; a company with a promotion has more than one. */
@@ -25,6 +30,10 @@ export const SITE = {
     name: 'Leonard Goh',
     line: 'Outcome and result‑driven design practitioner', // non-breaking hyphen
   },
+
+  /** About: Ex Machina-style boxed labels stacked in the bottom-right corner,
+   *  summarising Leonard. */
+  summary: ['Success-driven', 'INTP', 'Hands-on', 'Self-aware'],
 
   /** Dimension annotations drawn on the hologram while About is open. */
   measurements: { height: '182 cm', weight: '80 kg' },
@@ -43,39 +52,67 @@ export const SITE = {
    *  isn't rendered right now.) */
   placeholders: {
     about: {
+      // Each paragraph gets a boxed title (Ex Machina style). Written in the
+      // third person, as if Leonard is being analysed.
       intro: [
-        'Trained in architecture, then graduated with a degree in communication design.',
-        "I've only ever worked at startups. Most of them failed; this one has a fighting chance.",
-        'Off the clock, I ride a lot, and now and then I make cycling videos for YouTube.',
-      ],
+        { tag: 'Education', text: 'Trained in architecture, then completed a degree in communication design.' },
+        { tag: 'Start-ups', text: 'Worked exclusively at startups. Fast-paced, high execution rate, hands-on.' },
+        { tag: 'Hobbies', text: 'Cycles frequently. Periodically produces cycling content for YouTube.' },
+      ] as SiteLogEntry[],
       fields: [
         ['Name', 'Leonard Goh'],
         // Born 1989: worked out from the current year, so it never needs
         // updating (may read one high before his birthday in a given year).
         ['Age', String(new Date().getFullYear() - 1989)],
         ['Sex', 'Male'],
-        ['Title', 'Head of Design'],
+        ['Current position', 'Head of Design'],
       ],
     },
     career: {
       // The job list (SITE.jobs) is the page; no intro or fields.
-      intro: [] as string[],
+      intro: [] as SiteLogEntry[],
       fields: [] as [string, string][],
     },
     philosophy: {
-      intro: ['Placeholder intro. One line on how Leonard approaches design goes here.'],
-      fields: [
-        ['01', 'Placeholder principle'],
-        ['02', 'Placeholder principle'],
-        ['03', 'Placeholder principle'],
-      ],
+      intro: [] as SiteLogEntry[],
+      // (Key influences are callout 04 on the zoomed head.)
+      fields: [] as [string, string][],
     },
   },
 
-  /** Design philosophy page: the big line, then the smaller one(s). */
+  /** Design philosophy page: annotations on the zoomed head + the prime directive. */
   philosophy: {
-    quote: "People don't want the drill, they want the hole.",
-    lines: ['Output and results-oriented. The rest are just noise.'],
+    /** Clickable callouts on the zoomed-in head; the selected one's `desc`
+     *  (or `items`) shows under the links. `at` = where the line starts on
+     *  the FRONT figure image (fractions of its width/height); the lines run
+     *  behind him, so only the y really shows. */
+    annotations: [
+      {
+        text: 'Rooted in architecture',
+        at: [0.5, 0.1],
+        desc: 'Placeholder: a line or two on how architecture shaped the way Leonard designs.',
+      },
+      {
+        text: 'Room for mistakes',
+        at: [0.5, 0.145],
+        desc: 'Placeholder: a line or two on why he leaves room for mistakes.',
+      },
+      {
+        text: 'Knows how things work',
+        at: [0.5, 0.19],
+        desc: 'Placeholder: a line or two on knowing how things work.',
+      },
+      {
+        text: 'Key influences',
+        at: [0.5, 0.235],
+        items: [
+          ['The Design of Everyday Things', 'Don Norman'],
+          ['Competing Against Luck', 'Clayton M. Christensen'],
+          ['Just Enough Research', 'Erika Hall'],
+        ],
+      },
+    ] as { text: string; at: [number, number]; desc?: string; items?: [string, string][] }[],
+    prime: "My work contributes to the business. If it doesn't, it's just theatrics.", // shown in quotes, bottom left
   },
 
   /** About page: boxed traits, each with a one-line note. */
