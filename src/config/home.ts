@@ -77,14 +77,15 @@ export const HOME = {
     { id: "jersey-ocbc", verb: "Look", minX: 3.13, maxX: 4.03, minZ: -6.9, maxZ: -5.9 },
     { id: "zwift", verb: "Look", minX: -4.2, maxX: -2.3, minZ: -5.7, maxZ: -2.7 },
     { id: "desk", verb: "Use", minX: -1.7, maxX: 1.3, minZ: -6.1, maxZ: -3.8 },
+    { id: "bookshelf", verb: "Look", minX: 4.3, maxX: 7, minZ: -6.1, maxZ: -4.6 },
   ] as InteractZone[],
 
   /** What pressing E in a zone says, by zone id: a portrait-less speech box. */
   looks: {
     'jersey-sg': {
       id: 'jersey-sg',
-      name: 'Singapore jersey',
-      role: 'framed on the wall',
+      name: "Domestic Champion's Jersey",
+      role: '',
       verb: 'Look',
       color: 0xc8342a,
       radius: 0,
@@ -92,8 +93,8 @@ export const HOME = {
     },
     'jersey-ocbc': {
       id: 'jersey-ocbc',
-      name: 'Nationals jersey',
-      role: 'framed on the wall',
+      name: "Domestic Champion's Jersey",
+      role: '',
       verb: 'Look',
       color: 0xc8342a,
       radius: 0,
@@ -107,6 +108,18 @@ export const HOME = {
       color: 0xf07a1a,
       radius: 0,
       lines: ["This is the Cycplus T7 and it's connected to Zwift."],
+    },
+    bookshelf: {
+      id: 'bookshelf',
+      name: 'Bookshelf',
+      role: '',
+      verb: 'Look',
+      color: 0x8a5a3c,
+      radius: 0,
+      lines: [
+        "There's a good mix of fiction and non-fiction here.",
+        'The Design of Everyday Things, S,M,L,XL, World Without End, The Elevation Game.',
+      ],
     },
     // The work desk: Yes opens Leonard's personal site in the fake browser
     // (ui/PersonalSite.tsx, content in config/site.ts).
