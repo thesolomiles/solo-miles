@@ -974,6 +974,28 @@ function RideLights() {
  * Own lighting + fog; mounted by three/Scene.tsx when `ride` is set, with the
  * town unmounted.
  */
+/**
+ * Publishes where the riders sit on screen as `--ride-riders-y` (px, just below
+ * their front wheels) on <html>, so the HUD's photo hologram can centre itself
+ * in the road between them and the speech box at any window size.
+ */
+function RidersScreenAnchor() {
+  const last = useRef(-1)
+  const v = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera, size }) => {
+    v.set(0, RIDE.roadHeight, RIDE.runnerZ + 0.9).project(camera)
+    const y = Math.round(((1 - v.y) / 2) * size.height)
+    if (y !== last.current) {
+      last.current = y
+      document.documentElement.style.setProperty('--ride-riders-y', `${y}px`)
+    }
+  })
+  useEffect(() => () => {
+    document.documentElement.style.removeProperty('--ride-riders-y')
+  }, [])
+  return null
+}
+
 export function RideWorld() {
   const scene = useThree((s) => s.scene)
   // The scene spec for this route (which kits, which sides). Set the forest side
@@ -1019,6 +1041,7 @@ export function RideWorld() {
       <RideCyclist x={RIDE.playerX} kit={PLAYER_KIT} />
       <RideCyclist x={RIDE.leonardX} phase={0.37} rate={1.06} />
       <Motes />
+      <RidersScreenAnchor />
     </group>
   )
 }

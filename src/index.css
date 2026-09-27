@@ -1038,6 +1038,118 @@ canvas {
   .ride-blog { padding: 9px; }
 }
 
+/* Ride photo hologram (ui/RidePhoto.tsx) — the photo Leonard is talking about,
+   centred in the road between the riders and the speech box, in the personal
+   site's glass: iridescent rim (shares --site-rim / site-rim), scanlines and a
+   slow float. --ride-riders-y is the riders' screen y, set by RideWorld. */
+.ride-photo {
+  position: absolute;
+  top: calc(var(--ride-riders-y, 35vh) + 14px);
+  left: 16px;
+  right: 16px;
+  bottom: 150px;
+  z-index: 6;
+  pointer-events: none;
+  container-type: size; /* the photo sizes itself to fit this band (cq units) */
+}
+.ride-photo__card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  translate: -50% -50%;
+  animation: ride-photo-in 0.6s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.ride-photo__card.is-out { animation: ride-photo-out 0.35s ease-in forwards; }
+@keyframes ride-photo-in {
+  from { opacity: 0; transform: perspective(900px) translateY(18px) rotateX(14deg) scale(0.94); filter: blur(6px) brightness(1.8); }
+  55% { opacity: 1; }
+  62% { opacity: 0.55; }
+  70% { opacity: 1; }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes ride-photo-out {
+  to { opacity: 0; transform: translateY(-10px) scale(0.97); filter: blur(8px) brightness(1.4); }
+}
+.ride-photo__float {
+  position: relative;
+  padding: 7px;
+  border-radius: 20px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.12)),
+    rgba(120, 130, 150, 0.18);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 30px 70px rgba(0, 0, 0, 0.35),
+    0 0 50px rgba(127, 231, 255, 0.16);
+  animation: site-float 5s ease-in-out infinite;
+}
+/* Iridescent rim, slowly rotating — same as the site window's. */
+.ride-photo__float::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--site-rim, 0deg),
+    rgba(127, 231, 255, 0.8), rgba(255, 255, 255, 0.1) 18%, rgba(196, 150, 255, 0.65) 35%,
+    rgba(255, 255, 255, 0.08) 52%, rgba(255, 170, 214, 0.55) 70%, rgba(255, 255, 255, 0.1) 85%,
+    rgba(127, 231, 255, 0.8));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: site-rim 9s linear infinite;
+}
+/* Scanlines + a faint cyan/violet sheen over the photo — the "projected" feel. */
+.ride-photo__float::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  z-index: 1;
+  border-radius: 14px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 3px),
+    linear-gradient(160deg, rgba(127, 231, 255, 0.16), transparent 40%, transparent 65%, rgba(196, 150, 255, 0.14));
+  mix-blend-mode: screen;
+}
+.ride-photo__float img {
+  display: block;
+  max-width: min(560px, calc(100cqw - 14px));
+  max-height: min(420px, calc(100cqh - 40px));
+  width: auto;
+  height: auto;
+  border-radius: 14px;
+  opacity: 0.94;
+  user-select: none;
+}
+.ride-photo__float figcaption {
+  /* never wider than the photo (width 0 + min-width 100% = no intrinsic width) */
+  width: 0;
+  min-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  padding: 8px 6px 2px;
+  font: 400 10px/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7fe7ff;
+  text-shadow: 0 0 8px rgba(127, 231, 255, 0.6);
+}
+@media (max-width: 560px) {
+  /* Phones: the speech box (with its name tag) stands taller. */
+  .ride-photo { bottom: 215px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* (.is-out keeps its fade: its animationend is what removes the card) */
+  .ride-photo__card:not(.is-out), .ride-photo__float, .ride-photo__float::before { animation: none; }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
