@@ -37,7 +37,8 @@ order, IS the ride's sequence. The mapping is mechanical, done by
    python3 tools/sync-ride.py <route-id>
    ```
    It writes `src/config/rideScripts/<route-id>.ts` (GENERATED), regenerates
-   `public/blog/<route-id>/index.html`, downloads missing photos (≤1600px, EXIF/GPS
+   `public/blog/<route-id>/index.html` (plain content — the /blog/ page, `src/blog/`,
+   shows it as the route's mini blog at `/blog/index.html#<route-id>`; don't hand-edit), downloads missing photos (≤1600px, EXIF/GPS
    stripped), deletes photos no longer on the page, then scrubs the signed-URL
    parts (s3query/signatures carry an AWS session token) from the snapshot so only
    stable file paths get committed.

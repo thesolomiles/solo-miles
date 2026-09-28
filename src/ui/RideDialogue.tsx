@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGame } from '../state/store'
 import { ACTORS } from '../config/town'
-import { ROUTES, routeScript } from '../config/worlds'
+import { ROUTES, SHOW_BLOG, routeScript } from '../config/worlds'
 import { RIDE_OUTRO_LINE } from '../config/ride'
 import { SpeechBox } from './SpeechBox'
 import { RidePhoto } from './RidePhoto'
@@ -62,7 +62,7 @@ export function RideDialogue() {
       {/* Open the ride's blog post in a new tab (same-origin static file under
           public/blog/). Only shown when this route has a post; kept out of the
           speech box so its click doesn't advance the dialogue. */}
-      {route?.blogPath && (
+      {SHOW_BLOG && route?.blogPath && (
         <button
           className="ride-blog"
           type="button"

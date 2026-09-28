@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useGame } from '../state/store'
 import { ARCADE_GAMES, type ArcadeGame } from '../config/arcade'
 import { playWorldSfx } from './worldSfx'
+import './worldSelector.css'
 
 function Thumb({ game }: { game: ArcadeGame }) {
   if (game.thumb) return <img className="wsel__photo" src={game.thumb} alt="" draggable={false} />

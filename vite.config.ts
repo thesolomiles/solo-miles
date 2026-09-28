@@ -347,4 +347,13 @@ export default defineConfig({
     saveInteriorZones(CAFE_FILE, '/__save-cafe-zones', 'café'),
     saveInteriorZones('src/config/home.ts', '/__save-home-zones', 'home'),
     saveShot()],
+  // The game only. The ride-log page (/blog/index.html, src/blog/) is a WIP —
+  // the dev server still serves it, but it's left out of the build so it isn't
+  // live. To ship it, add `blog: 'blog/index.html'` back and set SHOW_BLOG in
+  // src/config/worlds.ts.
+  build: {
+    rollupOptions: {
+      input: { main: 'index.html' },
+    },
+  },
 })
