@@ -25,24 +25,24 @@ export function RideDialogue() {
   const rideLine = useGame((s) => s.rideLine)
   const route = ride ? ROUTES[ride] : null
   const lines = useMemo(
-    () => (route ? [...routeScript(route), { say: RIDE_OUTRO_LINE, photo: null }] : []),
+    () => (route ? [...routeScript(route), { say: RIDE_OUTRO_LINE, photos: null }] : []),
     [route],
   )
   const line = lines[rideLine]
 
-  // The photo up now: the latest one brought up at or before this line (a
-  // photo holds until the next; null takes it down).
+  // The photos up now: the latest brought up at or before this line (they hold
+  // until the next; null takes them down).
   const shot = useMemo(() => {
     for (let i = rideLine; i >= 0; i--) {
       const l = lines[i]
-      if (l && l.photo !== undefined) return l.photo ? l : null
+      if (l && l.photos !== undefined) return l.photos?.length ? l : null
     }
     return null
   }, [lines, rideLine])
 
-  // Image first, then text: a line that brings up a photo holds its words back
-  // until the photo has tilted in.
-  const leadsWithPhoto = !!line?.photo
+  // Image first, then text: a line that brings up photos holds its words back
+  // until they've tilted in.
+  const leadsWithPhoto = !!line?.photos?.length
   const [readyLine, setReadyLine] = useState(-1)
   const ready = !leadsWithPhoto || readyLine === rideLine
   useEffect(() => {
@@ -54,7 +54,7 @@ export function RideDialogue() {
 
   // Warm the cache so each photo is ready the moment he mentions it.
   useEffect(() => {
-    for (const l of lines) if (l.photo) new Image().src = l.photo
+    for (const l of lines) for (const src of l.photos ?? []) new Image().src = src
   }, [lines])
 
   return (
@@ -73,7 +73,7 @@ export function RideDialogue() {
           <span className="ride-blog__label">Read the log</span>
         </button>
       )}
-      <RidePhoto src={shot?.photo ?? undefined} caption={shot?.caption} />
+      <RidePhoto srcs={shot?.photos ?? undefined} caption={shot?.caption} />
       <SpeechBox
         name={leonard.name}
         role={leonard.role || undefined}

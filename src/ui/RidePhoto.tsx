@@ -1,23 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 
-type Shot = { id: number; src: string; caption?: string; out: boolean }
+type Shot = { id: number; srcs: string[]; caption?: string; out: boolean }
 
 /**
- * The photo Leonard is talking about on a ride, projected as a hologram beside
- * the speech box — the personal site's glass (iridescent rim, scanlines, float).
- * A new photo tilts in while the old one dissolves; a line without one clears it.
+ * The photo Leonard is talking about on a ride, projected as a hologram in the
+ * road between the riders and the speech box — the personal site's glass
+ * (iridescent rim, scanlines, float).
+ * New photos tilt in while the old ones dissolve; photos brought up together
+ * sit side by side in one frame. No photos clears it.
  */
-export function RidePhoto({ src, caption }: { src?: string; caption?: string }) {
+export function RidePhoto({ srcs, caption }: { srcs?: string[]; caption?: string }) {
+  const key = srcs?.join('|') ?? ''
   const [shots, setShots] = useState<Shot[]>([])
   const seq = useRef(0)
 
   useEffect(() => {
     setShots((s) => {
-      if (s.find((x) => !x.out)?.src === src) return s
+      if ((s.find((x) => !x.out)?.srcs.join('|') ?? '') === key) return s
       const leaving = s.map((x) => ({ ...x, out: true }))
-      return src ? [...leaving, { id: ++seq.current, src, caption, out: false }] : leaving
+      return key ? [...leaving, { id: ++seq.current, srcs: key.split('|'), caption, out: false }] : leaving
     })
-  }, [src, caption])
+  }, [key, caption])
 
   const drop = (id: number) => setShots((s) => s.filter((x) => x.id !== id))
 
@@ -31,8 +34,12 @@ export function RidePhoto({ src, caption }: { src?: string; caption?: string }) 
             if (shot.out && e.target === e.currentTarget) drop(shot.id)
           }}
         >
-          <div className="ride-photo__float">
-            <img src={shot.src} alt={shot.caption ?? ''} draggable={false} />
+          <div className="ride-photo__float" style={{ '--n': shot.srcs.length } as CSSProperties}>
+            <div className="ride-photo__row">
+              {shot.srcs.map((src) => (
+                <img key={src} src={src} alt={shot.caption ?? ''} draggable={false} />
+              ))}
+            </div>
             {shot.caption && <figcaption>{shot.caption}</figcaption>}
           </div>
         </figure>

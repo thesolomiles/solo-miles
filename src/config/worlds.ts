@@ -10,6 +10,10 @@
  * Countries Leonard hasn't ridden yet (Singapore, Malaysia, Indonesia) are kept
  * as empty shelves so the map of where he's been reads honestly.
  */
+import { script as namsanBugaksan } from './rideScripts/namsan-bugaksan'
+import { script as namhansanseong } from './rideScripts/namhansanseong'
+import { script as taiMoShan } from './rideScripts/tai-mo-shan'
+
 export interface Route {
   id: string
   place: string
@@ -41,14 +45,14 @@ export interface Route {
   blogPath?: string
 }
 
-/** One line of a ride script, optionally bringing up the photo he's talking
-    about. A photo stays up through the following lines until the next one. */
+/** One line of a ride script, optionally bringing up the photo(s) he's talking
+    about. Photos stay up through the following lines until the next ones. */
 export interface ScriptLine {
   say: string
-  /** Web path of a photo to bring up (usually from the route's blog images/
-      folder); null takes the current one down. */
-  photo?: string | null
-  /** Short label under the photo. */
+  /** Web paths of photos to bring up together, side by side (usually from the
+      route's blog images/ folder); null takes the current ones down. */
+  photos?: string[] | null
+  /** Short label under the photos. */
   caption?: string
 }
 
@@ -70,9 +74,6 @@ const G = {
   hongkong: { from: '#8fc3c9', to: '#3d6b76' },
 } as const
 
-/** A photo from the Namsan × Bugaksan blog post (public/blog/namsan-bugaksan/images/). */
-const NAMSAN = (name: string) => `/blog/namsan-bugaksan/images/${name}.jpg`
-
 export const WORLDS: Country[] = [
   {
     id: 'korea',
@@ -82,33 +83,11 @@ export const WORLDS: Country[] = [
       {
         id: 'namsan-bugaksan', place: 'Namsan × Bugaksan', region: 'Seoul', distanceKm: 30.6, elevationM: 611, difficulty: 1, map: '/routes/namsan-bugaksan.svg', strava: 'https://www.strava.com/activities/6967634149', photo: '/thumbs/namsan-bugaksan.jpg', thumb: { ...G.korea, glyph: '🏙️' },
         blogPath: '/blog/namsan-bugaksan/index.html',
-        // Leonard's own words, from the Notion blog for this climb (lightly trimmed for the speech box).
-        // Follows the blog's order: a photo appears, he talks through it, and it
-        // stays up until the next photo (null = the blog's Korea section break).
-        script: [
-          { say: '10 April, 2022. Right at the end of COVID-19.', photo: NAMSAN('departure'), caption: 'Singapore · April 2022' },
-          'Travel restrictions were easing, and countries were finally opening up their borders.',
-          'It was intense back then as a Singaporean. The island city paradise became an island prison. During the lockdown, we were all trapped.',
-          { say: 'Towards the end of 2021, I picked up cycling.', photo: NAMSAN('singapore-sunset'), caption: 'Singapore · 2021' },
-          'I immediately knew this was my next sport. It had everything.',
-          'I could train, compete, and the thing that excites me the most — I could explore.',
-          { say: 'I cycled with a few colleagues in those early days and we explored Singapore.', photo: NAMSAN('singapore-colleagues'), caption: 'The early days' },
-          { say: 'There’s so much more to see, and I can do so much with my bike.', photo: NAMSAN('singapore-group-ride'), caption: 'Singapore' },
-          'That was the start of everything.',
-          { say: 'Korea was one of the few countries that opened up first. My wife and I had never been, so, why not?', photo: null },
-          'Looking back, I wasn’t sure what I was getting myself into. I just dived in head first.',
-          'I created a few routes on Strava, and that was it.',
-          { say: 'I brought my Elves Vanyar with me. It’s a Chinese rim brake bike. I built it myself — that’s also how I became independent when it comes to bike maintenance.', photo: NAMSAN('elves-vanyar'), caption: 'Elves Vanyar' },
-          { say: 'I think I was one of the earliest adopters of a 360 camera on a bike.', photo: NAMSAN('insta360-selfie'), caption: 'Insta360 X2 · Seoul' },
-          { say: 'This was back in 2022. The Insta360 X2 was held by a clamp on the handlebar. This photo was taken at the end of this ride — at the top of Bugaksan.', photo: NAMSAN('bugaksan-summit'), caption: 'Top of Bugaksan' },
-          { say: 'This route is a short ride in Seoul.', photo: NAMSAN('blossom-road'), caption: 'Seoul · Spring' },
-          { say: 'It takes you first to Namsan, which is crazy beautiful in spring when the cherry blossoms are in full bloom.', photo: NAMSAN('namsan-locks'), caption: 'Namsan' },
-          { say: 'The route then takes us towards Bugaksan, just behind the historic Gyeongbokgung Palace.', photo: NAMSAN('gwanghwamun'), caption: 'Gyeongbokgung' },
-          { say: 'I don’t recall the Bugaksan climb being visually spectacular.', photo: NAMSAN('bugaksan-road'), caption: 'Bugaksan' },
-          { say: 'Skip it if you want, but if you want a quick ride around Seoul, you can consider adding it into your plan.', photo: NAMSAN('bugaksan-deck'), caption: 'Bugaksan' },
-        ],
+        // Generated from his Notion page (content/rides → tools/sync-ride.py): the
+        // page's order of text and photos is the ride's sequence.
+        script: namsanBugaksan,
       },
-      { id: 'namhansanseong', place: 'Namhansanseong', region: 'Gyeonggi', distanceKm: 96, elevationM: 952, difficulty: 2, map: '/routes/namhansanseong.svg', strava: 'https://www.strava.com/activities/6983386124', photo: '/thumbs/namhansanseong.jpg', thumb: { ...G.korea, glyph: '🏯' } },
+      { id: 'namhansanseong', place: 'Namhansanseong', region: 'Gyeonggi', distanceKm: 96, elevationM: 952, difficulty: 2, map: '/routes/namhansanseong.svg', strava: 'https://www.strava.com/activities/6983386124', photo: '/thumbs/namhansanseong.jpg', thumb: { ...G.korea, glyph: '🏯' }, blogPath: '/blog/namhansanseong/index.html', script: namhansanseong },
       { id: 'jirisan', place: 'Jirisan', region: 'Jirisan National Park', distanceKm: 82.5, elevationM: 2133, difficulty: 4, map: '/routes/jirisan.svg', strava: 'https://www.strava.com/activities/10065502447', photo: '/thumbs/jirisan.jpg', thumb: { ...G.korea, glyph: '🏔️' } },
       { id: 'suncheon-bay', place: 'Suncheon Bay Loop', region: 'Suncheon', distanceKm: 153.4, elevationM: 1420, difficulty: 3, map: '/routes/suncheon-bay.svg', strava: 'https://www.strava.com/activities/10071353489', photo: '/thumbs/suncheon-bay.jpg', thumb: { ...G.korea, glyph: '🌾' } },
       { id: 'jeju-round', place: 'Jeju Round Island', region: 'Jeju-do', distanceKm: 225.7, elevationM: 1406, difficulty: 3, map: '/routes/jeju-round.svg', strava: 'https://www.strava.com/activities/10082940987', photo: '/thumbs/jeju-round.jpg', thumb: { ...G.korea, glyph: '🌊' } },
@@ -169,7 +148,7 @@ export const WORLDS: Country[] = [
     name: 'Hong Kong',
     flag: '🇭🇰',
     routes: [
-      { id: 'tai-mo-shan', place: 'Tai Mo Shan', region: 'New Territories', distanceKm: 48.3, elevationM: 1226, difficulty: 2, map: '/routes/tai-mo-shan.svg', strava: 'https://www.strava.com/activities/12505353236', photo: '/thumbs/tai-mo-shan.jpg', thumb: { ...G.hongkong, glyph: '🌫️' } },
+      { id: 'tai-mo-shan', place: 'Tai Mo Shan', region: 'New Territories', distanceKm: 48.3, elevationM: 1226, difficulty: 2, map: '/routes/tai-mo-shan.svg', strava: 'https://www.strava.com/activities/12505353236', photo: '/thumbs/tai-mo-shan.jpg', thumb: { ...G.hongkong, glyph: '🌫️' }, blogPath: '/blog/tai-mo-shan/index.html', script: taiMoShan },
       { id: 'lantau-island', place: 'Lantau Island', region: 'Lantau', distanceKm: 44.2, elevationM: 1115, difficulty: 2, map: '/routes/lantau-island.svg', strava: 'https://www.strava.com/activities/12519843808', photo: '/thumbs/lantau-island.jpg', thumb: { ...G.hongkong, glyph: '⛰️' } },
     ],
   },

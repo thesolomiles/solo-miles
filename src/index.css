@@ -1116,9 +1116,11 @@ canvas {
     linear-gradient(160deg, rgba(127, 231, 255, 0.16), transparent 40%, transparent 65%, rgba(196, 150, 255, 0.14));
   mix-blend-mode: screen;
 }
+.ride-photo__row { display: flex; gap: 7px; align-items: center; }
+/* Photos brought up together share the band's width (--n of them, 7px apart). */
 .ride-photo__float img {
   display: block;
-  max-width: min(560px, calc(100cqw - 14px));
+  max-width: min(560px, calc((100cqw - 14px - (var(--n, 1) - 1) * 7px) / var(--n, 1)));
   max-height: min(420px, calc(100cqh - 40px));
   width: auto;
   height: auto;
