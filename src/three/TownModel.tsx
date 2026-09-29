@@ -4,11 +4,13 @@ import * as THREE from 'three'
 import { captureDerivedColliders } from '../systems/colliders'
 import { densifyForest } from '../systems/forest'
 import { instanceScatter } from '../systems/instancing'
-import { bakeRiverDepth } from '../systems/riverDepth'
+import { bakeRiverDepth, getRiverGrid } from '../systems/riverDepth'
+import { buildRiverFoam } from '../systems/riverRocks'
 import { capturePineAsset } from './ride/pineAsset'
 import { useTownGLTF } from './gltf'
 import { useLighting } from '../state/lighting'
 import { WORLD } from '../config/town'
+import { Koi } from './Koi'
 
 const URL = '/models/town.glb'
 
@@ -64,7 +66,7 @@ let waterMaterial: THREE.MeshStandardMaterial | null = null
 let waterShader: THREE.WebGLProgramParametersWithUniforms | null = null
 // Bump when material params change so HMR can't keep a stale (e.g. Physical /
 // HDR) instance alive in the module-scope cache.
-const WATER_MAT_REV = 4
+const WATER_MAT_REV = 6
 
 /**
  * Water look, shaded by the baked riverbed depth (systems/riverDepth.ts). The
@@ -85,6 +87,17 @@ const WATER = {
   foam: new THREE.Color('#cfe9e6'),
   foamWidth: 0.03,
   foamAmount: 0.3,
+  // Rock foam (systems/riverRocks.ts mask): collar + west-trailing wake, broken
+  // up by noise that drifts downstream at `flowSpeed` (units/s, toward −X).
+  rockFoam: new THREE.Color('#bcdcdf'),
+  rockFoamCut: 0.58, // mask×noise threshold — lower = more foam
+  flowSpeed: 0.9,
+}
+
+/** Shared with the shader so the mount pass can hand in the foam mask later. */
+const FOAM_UNIFORMS = {
+  uFoamMap: { value: null as THREE.Texture | null },
+  uFoamBounds: { value: new THREE.Vector4(0, 0, 1, 1) },
 }
 let waterMaterialRev = 0
 
@@ -112,6 +125,9 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
     envMapIntensity: 1.15,
     flatShading: true,
     transparent: true,
+    // No depth write: the koi draw AFTER the water (so their colours stay
+    // readable) and must only be hidden by solid things — bridge, rocks, roofs.
+    depthWrite: false,
     // The water mesh's faces are wound downward (it exported doubleSided), so
     // rendering both sides is what keeps the top surface visible from above.
     side: THREE.DoubleSide,
@@ -124,6 +140,9 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
     shader.uniforms.uShallow = { value: WATER.shallow }
     shader.uniforms.uDeep = { value: WATER.deep }
     shader.uniforms.uFoam = { value: WATER.foam }
+    shader.uniforms.uRockFoam = { value: WATER.rockFoam }
+    shader.uniforms.uFoamMap = FOAM_UNIFORMS.uFoamMap
+    shader.uniforms.uFoamBounds = FOAM_UNIFORMS.uFoamBounds
     // Scalars go through getters so live edits to WATER land without a recompile.
     for (const [name, key] of [
       ['uDeepAt', 'deepAt'],
@@ -132,6 +151,8 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
       ['uReflAlpha', 'reflAlpha'],
       ['uFoamWidth', 'foamWidth'],
       ['uFoamAmount', 'foamAmount'],
+      ['uRockFoamCut', 'rockFoamCut'],
+      ['uFlowSpeed', 'flowSpeed'],
     ] as const) {
       shader.uniforms[name] = {
         get value() {
@@ -144,7 +165,7 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
     // a slower cross-chop along Z so it doesn't look like a moving corrugation.
     // A notch livelier than the first pass — still a calm channel, not an ocean.
     shader.vertexShader =
-      'uniform float uTime;\nattribute float aDepth;\nvarying float vDepth;\n' +
+      'uniform float uTime;\nattribute float aDepth;\nvarying float vDepth;\nvarying vec3 vRiverPos;\n' +
       shader.vertexShader.replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
@@ -154,13 +175,29 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
                       + sin(transformed.z * 1.55 + uTime * 0.42) * 0.024
                       + sin(transformed.x * 2.6 + transformed.z * 1.9 + uTime * 1.05) * 0.014
                       + sin(transformed.x * 3.9 + transformed.z * 2.3 + uTime * 1.35) * 0.008;
-           transformed.y += wave;`,
+           transformed.y += wave;
+           vRiverPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
       )
     // Depth shading: shallow → deep colour and opacity, a pale lip at the bank,
-    // then let bright sky reflection pull alpha back up so the glint survives
-    // over the see-through water.
+    // rock foam on top, then let bright sky reflection pull alpha back up so the
+    // glint survives over the see-through water.
     shader.fragmentShader =
-      `uniform vec3 uShallow;
+      `uniform float uTime;
+       uniform vec3 uRockFoam;
+       uniform sampler2D uFoamMap;
+       uniform vec4 uFoamBounds;
+       uniform float uRockFoamCut;
+       uniform float uFlowSpeed;
+       varying vec3 vRiverPos;
+       float rvHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+       float rvNoise(vec2 p) {
+         vec2 i = floor(p);
+         vec2 f = fract(p);
+         f = f * f * (3.0 - 2.0 * f);
+         return mix(mix(rvHash(i), rvHash(i + vec2(1.0, 0.0)), f.x),
+                    mix(rvHash(i + vec2(0.0, 1.0)), rvHash(i + vec2(1.0, 1.0)), f.x), f.y);
+       }
+       uniform vec3 uShallow;
        uniform vec3 uDeep;
        uniform vec3 uFoam;
        uniform float uDeepAt;
@@ -179,7 +216,25 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
            diffuseColor.a = mix(uAlphaShallow, uAlphaDeep, dk);
            float lip = (1.0 - smoothstep(0.0, uFoamWidth, vDepth)) * uFoamAmount;
            diffuseColor.rgb = mix(diffuseColor.rgb, uFoam, lip);
-           diffuseColor.a = mix(diffuseColor.a, 0.95, lip);`,
+           diffuseColor.a = mix(diffuseColor.a, 0.95, lip);
+           // Rock foam: the painted mask, thresholded against two octaves of
+           // noise scrolling west with the current — solid at the rock, flecks
+           // drifting off down the wake. Crisp edges to stay low-poly.
+           vec2 fuv = (vRiverPos.xz - uFoamBounds.xy) / uFoamBounds.zw;
+           float fm = texture2D(uFoamMap, fuv).r;
+           float fx = vRiverPos.x + uTime * uFlowSpeed;
+           float fn = rvNoise(vec2(fx * 2.2, vRiverPos.z * 3.4)) * 0.65
+                    + rvNoise(vec2(fx * 5.3 + 7.0, vRiverPos.z * 7.1)) * 0.35;
+           float rockFoam = smoothstep(uRockFoamCut, uRockFoamCut + 0.06, fm * (0.45 + 0.85 * fn));
+           diffuseColor.rgb = mix(diffuseColor.rgb, uRockFoam, rockFoam);
+           diffuseColor.a = mix(diffuseColor.a, 0.96, rockFoam);`,
+        )
+        .replace(
+          '#include <metalnessmap_fragment>',
+          `#include <metalnessmap_fragment>
+           // Foam is matte: no metallic sky mirror on it (it'd bloom white).
+           metalnessFactor = mix(metalnessFactor, 0.0, rockFoam);
+           roughnessFactor = mix(roughnessFactor, 0.85, rockFoam);`,
         )
         .replace(
           '#include <opaque_fragment>',
@@ -331,7 +386,14 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     // Bake the water depth over the riverbed for the depth-shaded water.
     const river = scene.getObjectByName('River') as THREE.Mesh | undefined
     const ground = scene.getObjectByName('Ground') as THREE.Mesh | undefined
-    if (river?.isMesh && ground?.isMesh) bakeRiverDepth(river, ground)
+    if (river?.isMesh && ground?.isMesh) {
+      bakeRiverDepth(river, ground)
+      getRiverGrid(river) // depth lookup for the koi
+      // Foam where the current hits the rocks — before instancing detaches them.
+      const foam = buildRiverFoam(scene, river)
+      FOAM_UNIFORMS.uFoamMap.value = foam.mask
+      FOAM_UNIFORMS.uFoamBounds.value.copy(foam.bounds)
+    }
     scene.traverse((o) => {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
@@ -366,7 +428,12 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     instanceScatter(scene)
   }, [scene, waterMat, glassMat])
 
-  return <primitive object={scene} scale={scale} />
+  return (
+    <>
+      <primitive object={scene} scale={scale} />
+      <Koi />
+    </>
+  )
 }
 
 useTownGLTF.preload(URL)
