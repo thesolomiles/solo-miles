@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { useGame } from '../state/store'
-import { SITE } from '../config/site'
+import { SITE, type SiteQA } from '../config/site'
 import { playWorldSfx } from './worldSfx'
+import { playSiteSfx } from './siteSfx'
 
 /** Open / close stings (the world selector's), mounted for the HUD's life so
  *  the close still plays as the window unmounts. */
@@ -18,7 +19,7 @@ type PageId = keyof typeof SITE.placeholders
 
 /** A page laid straight over the hologram, Ex Machina style: a short intro. (Its fields sit top right — see PageFields.) No
  *  panels — the character stays fully visible behind the text. */
-function Page({ id }: { id: PageId }) {
+function Page({ id, onMore }: { id: PageId; onMore: (job: number) => void }) {
   const p = SITE.placeholders[id]
   return (
     <div className="site__ph">
@@ -29,16 +30,16 @@ function Page({ id }: { id: PageId }) {
           ))}
         </div>
       )}
-      {id === 'career' && <Jobs />}
+      {id === 'career' && <Jobs onMore={onMore} />}
     </div>
   )
 }
 
-/** One intro paragraph: an Ex Machina boxed title, then the text. */
+/** One intro paragraph: a bold mono title, then the text. */
 function LogEntry({ tag, text, delay }: { tag: string; text: string; delay: number }) {
   return (
     <section className="site__logEntry" style={{ animationDelay: `${delay}ms` }}>
-      <span className="site__logBox">{tag}</span>
+      <span className="site__logTitle">{tag}</span>
       <p>{text}</p>
     </section>
   )
@@ -56,7 +57,10 @@ function PhiloAnnots({
   pageRef: React.RefObject<HTMLDivElement | null>
   figRef: React.RefObject<HTMLDivElement | null>
 }) {
-  const [g, setG] = useState<{ pts: { x: number; y: number }[]; col: number } | null>(null)
+  const [g, setG] = useState<{
+    pts: { x: number; y: number }[]
+    col: number
+  } | null>(null)
   useLayoutEffect(() => {
     const page = pageRef.current
     const fig = figRef.current
@@ -141,8 +145,16 @@ function PhiloAnnots({
         <button
           key={i}
           className={'site__annotLabel' + (i === sel ? ' is-sel' : '')}
-          style={{ top: q.y, right: `calc(100% - ${g.col}px)`, animationDelay: `${0.4 + i * 0.12}s` }}
-          onClick={() => setSel(i)}
+          style={{
+            top: q.y,
+            right: `calc(100% - ${g.col}px)`,
+            animationDelay: `${0.4 + i * 0.12}s`,
+          }}
+          onClick={() => {
+            if (i !== sel) playSiteSfx('open')
+            setSel(i)
+          }}
+          onPointerEnter={() => i !== sel && playSiteSfx('hover')}
           aria-pressed={i === sel}
         >
           {A[i].text}
@@ -166,19 +178,46 @@ function PhiloAnnots({
   )
 }
 
+/** Accordion rows low in a scrolling area open past its bottom (hiding, e.g.,
+ *  "Find out more"): once row `open` of `list` has expanded, scroll the
+ *  nearest `scroller` just enough to show its bottom, without pushing its
+ *  heading off the top. */
+function useRevealRow(list: React.RefObject<HTMLElement | null>, open: number | null, scroller: string) {
+  useEffect(() => {
+    if (open === null) return
+    const id = window.setTimeout(() => {
+      const row = list.current?.children[open] as HTMLElement | undefined
+      const sc = list.current?.closest<HTMLElement>(scroller)
+      if (!row || !sc) return
+      const r = row.getBoundingClientRect()
+      const c = sc.getBoundingClientRect()
+      const by = Math.min(r.bottom + 20 - c.bottom, r.top - c.top - 20)
+      if (by > 0) sc.scrollBy({ top: by, behavior: 'smooth' })
+    }, 380) // the row's expand (.site__jobBody, 0.35s)
+    return () => window.clearTimeout(id)
+  }, [list, open, scroller])
+}
+
 /** Career: one row per company. Click to expand its years, title and
- *  description; opening one closes the others. */
-function Jobs() {
+ *  description; opening one closes the others. "Find out more", under the
+ *  company's last role, opens the company in its own tab. */
+function Jobs({ onMore }: { onMore: (job: number) => void }) {
   const [open, setOpen] = useState<number | null>(null)
+  const listRef = useRef<HTMLOListElement>(null)
+  useRevealRow(listRef, open, '.site__content')
   return (
-    <ol className="site__jobs">
+    <ol className="site__jobs" ref={listRef}>
       {SITE.jobs.map((j, i) => {
         const isOpen = open === i
         return (
           <li key={j.company} className={'site__jobRow' + (isOpen ? ' is-open' : '')}>
             <button
               className="site__jobName"
-              onClick={() => setOpen(isOpen ? null : i)}
+              onClick={() => {
+                playSiteSfx(isOpen ? 'shut' : 'open')
+                setOpen(isOpen ? null : i)
+              }}
+              onPointerEnter={() => playSiteSfx('hover')}
               aria-expanded={isOpen}
             >
               <span className="site__jobIdx">{String(i + 1).padStart(2, '0')}</span>
@@ -195,12 +234,102 @@ function Jobs() {
                     <p className="site__jobDesc">{r.desc}</p>
                   </div>
                 ))}
+                <button
+                  className="site__jobMore"
+                  onClick={() => onMore(i)}
+                  onPointerEnter={() => playSiteSfx('hover')}
+                  tabIndex={isOpen ? 0 : -1}
+                >
+                  Find out more
+                  <span aria-hidden>↗</span>
+                </button>
               </div>
             </div>
           </li>
         )
       })}
     </ol>
+  )
+}
+
+/** A company's Q&A as an accordion — the Career rows' pattern (+ / −, the
+ *  grid-rows expand); opening one question closes the others. */
+function QAList({ qa }: { qa: SiteQA[] }) {
+  const [open, setOpen] = useState<number | null>(null)
+  const listRef = useRef<HTMLOListElement>(null)
+  useRevealRow(listRef, open, '.site__roleScroll')
+  return (
+    <ol className="site__qaList" ref={listRef}>
+      {qa.map(({ q, a }, i) => {
+        const isOpen = open === i
+        return (
+          <li key={q} className={'site__jobRow' + (isOpen ? ' is-open' : '')}>
+            <button
+              className="site__jobName site__qaQ"
+              onClick={() => {
+                playSiteSfx(isOpen ? 'shut' : 'open')
+                setOpen(isOpen ? null : i)
+              }}
+              onPointerEnter={() => playSiteSfx('hover')}
+              aria-expanded={isOpen}
+            >
+              <span className="site__jobIdx">{String(i + 1).padStart(2, '0')}</span>
+              {q}
+              <span className="site__jobSign" aria-hidden />
+            </button>
+            <div className="site__jobBody">
+              <div>
+                <div className="site__qaA">
+                  {a.map((p, j) => (
+                    <p key={j}>{p}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** A company's tab (from "Find out more"; `at` indexes SITE.jobs): name
+ *  (scrambling in), the whole stint (first start — latest end), the latest
+ *  title and every role's summary, newest first; then the Q&A (answered
+ *  questions only), or a "coming soon" line until there are any. */
+function CompanyPage({ at }: { at: number }) {
+  const job = SITE.jobs[at]
+  const name = useScramble(job.company, 1)
+  const latest = job.roles[0]
+  const qa = (job.qa ?? []).filter((x) => x.a.length)
+  // `when` is "Mon YYYY — Mon YYYY"; roles are newest first
+  const span = `${job.roles[job.roles.length - 1].when.split(' — ')[0]} — ${latest.when.split(' — ')[1]}`
+  return (
+    <div className="site__role">
+      {FRAME.flatMap((y, r) =>
+        FRAME.map((x, c) =>
+          r !== 1 && c !== 1 ? <i key={r + '-' + c} className="site__plus" style={{ left: x, top: y }} aria-hidden /> : null,
+        ),
+      )}
+      <div className="site__roleScroll">
+        <div className="site__roleCol">
+          <h2 className="site__roleCo" aria-label={job.company}>
+            <span aria-hidden>{name}</span>
+          </h2>
+          <div className="site__jobWhen">{span}</div>
+          <div className="site__roleTitle">{latest.title}</div>
+          {job.roles.map((role) => (
+            <p key={role.title + role.when} className="site__roleLead">
+              {role.desc}
+            </p>
+          ))}
+          <section className="site__roleTopics">
+            <span className="site__logTitle">Q&amp;A</span>
+            {qa.length ? <QAList qa={qa} /> : <p className="site__roleSoon">Coming soon.</p>}
+          </section>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -246,7 +375,14 @@ function BioLeader({
   figRef: React.RefObject<HTMLDivElement | null>
   fieldsRef: React.RefObject<HTMLDListElement | null>
 }) {
-  const [g, setG] = useState<{ x0: number; y0: number; ex: number; bx: number; by0: number; by1: number } | null>(null)
+  const [g, setG] = useState<{
+    x0: number
+    y0: number
+    ex: number
+    bx: number
+    by0: number
+    by1: number
+  } | null>(null)
   useLayoutEffect(() => {
     const page = pageRef.current
     const measure = () => {
@@ -398,9 +534,13 @@ function SiteLink({
       style={style}
       onClick={() => {
         setRun((r) => r + 1)
+        playSiteSfx('click')
         onClick()
       }}
-      onPointerEnter={() => setRun((r) => r + 1)}
+      onPointerEnter={() => {
+        setRun((r) => r + 1)
+        playSiteSfx('hover')
+      }}
       aria-label={label}
       aria-current={active ? 'page' : undefined}
     >
@@ -416,7 +556,8 @@ const MBLUR_PX = 16 // peak horizontal blur
 /**
  * Leonard's personal site in a fake browser window — opened from the home's
  * work desk (HOME.looks.desk → outcome 'openSite'). Holographic glass over the
- * room, one tab, no address bar. Only the red dot does anything (closes); Esc
+ * room, no address bar; a career company's "Find out more" opens it in a new
+ * tab (CompanyPage). Of the dots only the red one does anything (closes); Esc
  * (Hud) and clicking outside close it too. Nothing links out of the game.
  *
  * Home is just the low-poly Leonard hologram and the section links, stacked
@@ -427,6 +568,30 @@ const MBLUR_PX = 16 // peak horizontal blur
  */
 export function PersonalSite() {
   const close = useGame((s) => s.closeSite)
+  // Browser tabs: the site itself, plus one per company opened with "Find
+  // out more" (SITE.jobs indexes). `tab` is the active company, or null for
+  // the site, which stays mounted (hidden) under a company tab so its state
+  // survives.
+  const [tabs, setTabs] = useState<number[]>([])
+  const [tab, setTab] = useState<number | null>(null)
+  const openCompany = (job: number) => {
+    playSiteSfx('click')
+    setTabs((t) => (t.includes(job) ? t : [...t, job]))
+    setTab(job)
+  }
+  const switchTab = (job: number | null) => {
+    if (job === tab) return
+    playSiteSfx('open')
+    setTab(job)
+  }
+  const closeTab = (job: number) => {
+    playSiteSfx('shut')
+    const i = tabs.indexOf(job)
+    const rest = tabs.filter((x) => x !== job)
+    setTabs(rest)
+    // closing the active tab falls back to its left neighbour
+    if (tab === job) setTab(i > 0 ? rest[i - 1] : null)
+  }
   // Index of the open section, or -1 for home.
   const [k, setK] = useState(-1)
   const prevK = useRef(-1)
@@ -508,27 +673,56 @@ export function PersonalSite() {
             <span className="site__dot site__dot--yellow" />
             <span className="site__dot site__dot--green" />
           </div>
-          <div className="site__tab">
-            <span className="site__favicon">L</span>
-            <span className="site__tabtitle">
-              {current ? `${current.label} · ${SITE.tabTitle}` : SITE.tabTitle}
-            </span>
+          <div className="site__tabs" role="tablist">
+            <button
+              className={'site__tab' + (tab === null ? ' is-active' : '')}
+              role="tab"
+              aria-selected={tab === null}
+              onClick={() => switchTab(null)}
+            >
+              <span className="site__favicon">L</span>
+              <span className="site__tabtitle">
+                {current ? `${current.label} · ${SITE.tabTitle}` : SITE.tabTitle}
+              </span>
+            </button>
+            {tabs.map((at) => {
+              const { company } = SITE.jobs[at]
+              return (
+                <div key={at} className={'site__tab site__tab--role' + (tab === at ? ' is-active' : '')}>
+                  <button
+                    className="site__tabHit"
+                    role="tab"
+                    aria-selected={tab === at}
+                    onClick={() => switchTab(at)}
+                  >
+                    <span className="site__favicon site__favicon--role">{company[0]}</span>
+                    <span className="site__tabtitle">{company}</span>
+                  </button>
+                  <button className="site__tabX" onClick={() => closeTab(at)} aria-label={`Close ${company} tab`} />
+                </div>
+              )
+            })}
           </div>
         </div>
 
         <div
           ref={pageRef}
-          className={'site__page' + (current ? ' is-open' : '') + (measure ? ' is-measure' : '')}
+          className={'site__page' + (current ? ' is-open' : '') + (measure ? ' is-measure' : '') + (tab !== null ? ' is-behind' : '')}
           data-page={current?.id}
           style={{ '--n': N, '--k': Math.max(k, 0) } as CSSProperties}
           onPointerMove={(e) => {
             if (!about || e.pointerType !== 'mouse') return
             const over = overFigure(e.clientX, e.clientY)
-            if (over !== measure) setMeasure(over)
+            if (over === measure) return
+            if (over) playSiteSfx('hover')
+            setMeasure(over)
           }}
           onPointerLeave={() => setMeasure(false)}
           onPointerUp={(e) => {
-            if (about && e.pointerType !== 'mouse' && overFigure(e.clientX, e.clientY)) setMeasure((m) => !m)
+            if (about && e.pointerType !== 'mouse' && overFigure(e.clientX, e.clientY)) {
+              playSiteSfx(measure ? 'shut' : 'open')
+              setMeasure((m) => !m)
+            }
           }}
         >
           {/* x-only blur for the fake turn (stdDeviation animated in JS) */}
@@ -541,7 +735,13 @@ export function PersonalSite() {
             <div className="site__pad" />
             <div className="site__body" ref={bodyRef}>
               <img src={fig.src} alt="Low-poly Leonard" draggable={false} style={{ aspectRatio: `${fig.w} / ${fig.h}` }} />
-              <div className="site__scan" style={{ WebkitMaskImage: `url(${fig.src})`, maskImage: `url(${fig.src})` }} />
+              <div
+                className="site__scan"
+                style={{
+                  WebkitMaskImage: `url(${fig.src})`,
+                  maskImage: `url(${fig.src})`,
+                }}
+              />
             </div>
             {/* Height + weight: a dimension line that draws in on hover (About). */}
             <div className="site__annot" aria-hidden>
@@ -559,7 +759,10 @@ export function PersonalSite() {
               <i
                 key={x + '-' + y}
                 className={'site__plus' + (r === 1 || c === 1 ? ' is-mid' : '')}
-                style={{ left: current ? FRAME[c] : `${x}%`, top: current ? FRAME[r] : `${y}%` }}
+                style={{
+                  left: current ? FRAME[c] : `${x}%`,
+                  top: current ? FRAME[r] : `${y}%`,
+                }}
                 aria-hidden
               />
             )),
@@ -586,7 +789,12 @@ export function PersonalSite() {
                 key={s.id}
                 label={s.label}
                 className={'site__link' + (i <= k ? ' is-up' : '') + (i === k ? ' is-active' : '')}
-                style={{ '--i': i, '--delay': `${Math.max(delay, 0)}s` } as CSSProperties}
+                style={
+                  {
+                    '--i': i,
+                    '--delay': `${Math.max(delay, 0)}s`,
+                  } as CSSProperties
+                }
                 onClick={() => open(i)}
                 active={i === k}
               />
@@ -595,7 +803,7 @@ export function PersonalSite() {
 
           {current && (
             <div className="site__content" key={current.id}>
-              <Page id={current.id} />
+              <Page id={current.id} onMore={openCompany} />
             </div>
           )}
           {current && <PageFields key={'f-' + current.id} id={current.id} ref={fieldsRef} />}
@@ -606,6 +814,7 @@ export function PersonalSite() {
           )}
           {about && <BioLeader key="leader" pageRef={pageRef} figRef={figRef} fieldsRef={fieldsRef} />}
         </div>
+        {tab !== null && <CompanyPage key={tab} at={tab} />}
       </div>
     </div>
   )

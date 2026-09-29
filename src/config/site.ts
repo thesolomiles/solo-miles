@@ -11,7 +11,13 @@ export interface SiteRole {
   when: string
   desc: string
 }
-/** A page intro paragraph: a boxed title + text. */
+/** One question on a company's tab, with the answer one string per
+ *  paragraph. Unanswered questions (a: []) are kept here but not shown. */
+export interface SiteQA {
+  q: string
+  a: string[]
+}
+/** A page intro paragraph: a bold title + text. */
 export interface SiteLogEntry {
   tag: string
   text: string
@@ -20,6 +26,9 @@ export interface SiteJob {
   company: string
   /** Newest first; a company with a promotion has more than one. */
   roles: SiteRole[]
+  /** The company tab's Q&A ("Find out more"), from Leonard's Notion
+   *  "Portfolio" page. No answered question → "Coming soon". */
+  qa?: SiteQA[]
 }
 
 export const SITE = {
@@ -52,7 +61,7 @@ export const SITE = {
    *  isn't rendered right now.) */
   placeholders: {
     about: {
-      // Each paragraph gets a boxed title (Ex Machina style). Written in the
+      // Each paragraph gets a bold mono title. Written in the
       // third person, as if Leonard is being analysed.
       intro: [
         { tag: 'Education', text: 'Trained in architecture, then completed a degree in communication design.' },
@@ -149,6 +158,28 @@ export const SITE = {
           desc: 'I lead a small product design team, working closely with the founder and leads across multiple teams. The bar for craft is very high: I turn demanding expectations into clear direction and consistently high-quality execution, and step into product management when delivery needs it.',
         },
       ],
+      qa: [
+        {
+          q: 'What made you join watchTowr?',
+          a: [
+            "I had 2 offers back and a final round interview back then. It was an employee's market.",
+            'I chose watchTowr because of Ben.',
+            'I read about him before going into the interview. I could feel his energy.',
+            'I also thought that whatever he was trying to build has far more potential than the other 2.',
+          ],
+        },
+        {
+          q: 'What were the early days like?',
+          a: [
+            "I was employee number 6. I'm very proud of that. Finally, a single digit hire.",
+            "I'm still very proud of that. People come and go. A lot involuntarily.",
+            'Ben trusted me, but I had to earn it though.',
+          ],
+        },
+        { q: 'What are some of the biggest challenges you faced at watchTowr?', a: [] },
+        { q: "What's your greatest achievement so far?", a: [] },
+        { q: 'Favorite project?', a: [] },
+      ],
     },
     {
       company: 'SWAT Mobility',
@@ -164,6 +195,12 @@ export const SITE = {
           desc: "Designed the first wave of products for the company's shift from B2C to B2B, partnering with PMs and engineers on internal and customer-facing apps.",
         },
       ],
+      qa: [
+        { q: "What is SWAT Mobility and what's your role?", a: [] },
+        { q: 'What did you work on?', a: [] },
+        { q: 'How was it like? Leading.', a: [] },
+        { q: 'Why did you leave?', a: [] },
+      ],
     },
     {
       company: 'GoBear',
@@ -173,6 +210,13 @@ export const SITE = {
           when: 'Jun 2016 — Oct 2018',
           desc: "Worked on Asia's leading finance and insurance comparison platform, focused on Banking and Loans, across discovery, interaction design and iteration to make complex financial journeys clearer.",
         },
+      ],
+      qa: [
+        { q: "What is GoBear and what's your role?", a: [] },
+        { q: 'What made you join GoBear?', a: [] },
+        { q: 'Fresh from school, what was it like for you?', a: [] },
+        { q: "What are some of the fun projects you've worked on?", a: [] },
+        { q: 'Why did you leave?', a: [] },
       ],
     },
     {
