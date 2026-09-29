@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { captureDerivedColliders } from '../systems/colliders'
 import { densifyForest } from '../systems/forest'
 import { instanceScatter } from '../systems/instancing'
+import { bakeRiverDepth } from '../systems/riverDepth'
 import { capturePineAsset } from './ride/pineAsset'
 import { useTownGLTF } from './gltf'
 import { useLighting } from '../state/lighting'
@@ -63,7 +64,28 @@ let waterMaterial: THREE.MeshStandardMaterial | null = null
 let waterShader: THREE.WebGLProgramParametersWithUniforms | null = null
 // Bump when material params change so HMR can't keep a stale (e.g. Physical /
 // HDR) instance alive in the module-scope cache.
-const WATER_MAT_REV = 3
+const WATER_MAT_REV = 4
+
+/**
+ * Water look, shaded by the baked riverbed depth (systems/riverDepth.ts). The
+ * channel is shallow — ~0.35 at its deepest — so `deepAt` is where the colour
+ * and opacity top out. Live-tunable in dev via `window.__water` (the uniforms
+ * read these objects directly).
+ */
+const WATER = {
+  shallow: new THREE.Color('#3fb5d8'), // clear turquoise over the banks
+  deep: new THREE.Color('#1a55a0'), // denser blue down the middle
+  deepAt: 0.28,
+  alphaShallow: 0.28,
+  alphaDeep: 0.72,
+  // Sky reflection keeps its punch over see-through water: bright reflected
+  // light pushes the fragment back toward opaque, like a real surface glint.
+  reflAlpha: 0.6,
+  // A thin pale lip where the water meets the bank.
+  foam: new THREE.Color('#cfe9e6'),
+  foamWidth: 0.03,
+  foamAmount: 0.3,
+}
 let waterMaterialRev = 0
 
 if (import.meta.hot) {
@@ -82,18 +104,14 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
   waterMaterial?.dispose()
   skyEnv ??= makeSkyEnv(gl)
   const mat = new THREE.MeshStandardMaterial({
-    // Deep enough that sky reflections read as luminous blue, not bloom-white
-    // when the golden-hour env hits metalness. Near-opaque: full transparency
-    // used to show the shadowed riverbed and kill the shine; a whisper of alpha
-    // keeps a hint of depth without the matte look.
-    color: new THREE.Color(0x2f6f8c),
+    // Colour + opacity come from the depth-shading below; metalness tints the
+    // sky reflection by that colour so glints read blue, not bloom-white.
     roughness: 0.22,
     metalness: 0.4,
     envMap: skyEnv,
     envMapIntensity: 1.15,
     flatShading: true,
     transparent: true,
-    opacity: 0.97,
     // The water mesh's faces are wound downward (it exported doubleSided), so
     // rendering both sides is what keeps the top surface visible from above.
     side: THREE.DoubleSide,
@@ -103,15 +121,34 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
   mat.name = 'Water'
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = { value: 0 }
+    shader.uniforms.uShallow = { value: WATER.shallow }
+    shader.uniforms.uDeep = { value: WATER.deep }
+    shader.uniforms.uFoam = { value: WATER.foam }
+    // Scalars go through getters so live edits to WATER land without a recompile.
+    for (const [name, key] of [
+      ['uDeepAt', 'deepAt'],
+      ['uAlphaShallow', 'alphaShallow'],
+      ['uAlphaDeep', 'alphaDeep'],
+      ['uReflAlpha', 'reflAlpha'],
+      ['uFoamWidth', 'foamWidth'],
+      ['uFoamAmount', 'foamAmount'],
+    ] as const) {
+      shader.uniforms[name] = {
+        get value() {
+          return WATER[key]
+        },
+      }
+    }
     waterShader = shader
     // Layered sines: two scrolling along +X (the flow) at different scales, plus
     // a slower cross-chop along Z so it doesn't look like a moving corrugation.
     // A notch livelier than the first pass — still a calm channel, not an ocean.
     shader.vertexShader =
-      'uniform float uTime;\n' +
+      'uniform float uTime;\nattribute float aDepth;\nvarying float vDepth;\n' +
       shader.vertexShader.replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
+           vDepth = aDepth;
            float wave = sin(transformed.x * 0.5 + uTime * 0.62) * 0.055
                       + sin(transformed.x * 1.15 - uTime * 0.88) * 0.022
                       + sin(transformed.z * 1.55 + uTime * 0.42) * 0.024
@@ -119,11 +156,43 @@ function getWaterMaterial(gl: THREE.WebGLRenderer): THREE.MeshStandardMaterial {
                       + sin(transformed.x * 3.9 + transformed.z * 2.3 + uTime * 1.35) * 0.008;
            transformed.y += wave;`,
       )
+    // Depth shading: shallow → deep colour and opacity, a pale lip at the bank,
+    // then let bright sky reflection pull alpha back up so the glint survives
+    // over the see-through water.
+    shader.fragmentShader =
+      `uniform vec3 uShallow;
+       uniform vec3 uDeep;
+       uniform vec3 uFoam;
+       uniform float uDeepAt;
+       uniform float uAlphaShallow;
+       uniform float uAlphaDeep;
+       uniform float uReflAlpha;
+       uniform float uFoamWidth;
+       uniform float uFoamAmount;
+       varying float vDepth;\n` +
+      shader.fragmentShader
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+           float dk = smoothstep(0.0, uDeepAt, vDepth);
+           diffuseColor.rgb = mix(uShallow, uDeep, dk);
+           diffuseColor.a = mix(uAlphaShallow, uAlphaDeep, dk);
+           float lip = (1.0 - smoothstep(0.0, uFoamWidth, vDepth)) * uFoamAmount;
+           diffuseColor.rgb = mix(diffuseColor.rgb, uFoam, lip);
+           diffuseColor.a = mix(diffuseColor.a, 0.95, lip);`,
+        )
+        .replace(
+          '#include <opaque_fragment>',
+          `#include <opaque_fragment>
+           float refl = dot(reflectedLight.indirectSpecular + reflectedLight.directSpecular, vec3(0.299, 0.587, 0.114));
+           gl_FragColor.a = clamp(gl_FragColor.a + refl * uReflAlpha, 0.0, 1.0);`,
+        )
   }
   waterMaterial = mat
   waterMaterialRev = WATER_MAT_REV
   if (import.meta.env?.DEV) {
     ;(window as unknown as { __waterMat?: THREE.MeshStandardMaterial }).__waterMat = mat
+    ;(window as unknown as { __water?: typeof WATER }).__water = WATER
   }
   return mat
 }
@@ -259,6 +328,10 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     // and canopy colliders (they keep the Pine_/Round_ names the collider and
     // shadow passes key off).
     densifyForest(scene)
+    // Bake the water depth over the riverbed for the depth-shaded water.
+    const river = scene.getObjectByName('River') as THREE.Mesh | undefined
+    const ground = scene.getObjectByName('Ground') as THREE.Mesh | undefined
+    if (river?.isMesh && ground?.isMesh) bakeRiverDepth(river, ground)
     scene.traverse((o) => {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
