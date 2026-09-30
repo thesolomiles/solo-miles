@@ -81,6 +81,7 @@ function Runner({ state }: { state: RefObject<NinjaState> }) {
   }
 
   const wasGrounded = useRef(true)
+  const lastAirJumps = useRef(0)
   const lastStatus = useRef('')
   useFrame(() => {
     const s = state.current
@@ -94,9 +95,12 @@ function Runner({ state }: { state: RefObject<NinjaState> }) {
     }
 
     if (s.status === 'play') {
-      if (!s.grounded && wasGrounded.current) {
-        // Stretch the leap clip over the real air time so the landing lines up.
-        const air = (2 * Math.sqrt(2 * N.jumpHeight * N.gravity)) / N.gravity
+      if (!s.grounded && (wasGrounded.current || s.airJumpsUsed > lastAirJumps.current)) {
+        // Stretch the leap clip over the real air time so the landing lines up
+        // (restarted for a double jump, over what's left of the flight).
+        const h = wasGrounded.current ? N.jumpHeight : N.doubleJumpHeight
+        const v0 = Math.sqrt(2 * h * N.gravity)
+        const air = (v0 + Math.sqrt(v0 * v0 + 2 * N.gravity * s.y)) / N.gravity
         const clip = actions[AIR_CLIP]
         const dur = clip?.getClip().duration ?? air
         to(AIR_CLIP, true, dur / air)
@@ -106,6 +110,7 @@ function Runner({ state }: { state: RefObject<NinjaState> }) {
         if (clip) clip.timeScale = s.speed / STRIDE_NINJA
       }
       wasGrounded.current = s.grounded
+      lastAirJumps.current = s.airJumpsUsed
       root.current.rotation.z = 0
     } else {
       to('fall')
@@ -472,6 +477,157 @@ function Sparks({ state }: { state: RefObject<NinjaState> }) {
   )
 }
 
+// --- Air step (double jump) -------------------------------------------------------
+
+const STEP_POOL = 3
+const STEP_PUFFS = 14
+const MIST = new THREE.Color('#a9c6cf')
+
+/** A feathered ring (soft both sides), for the flat "ledge" of air he pushes off. */
+function stepRingTexture() {
+  const S = 128
+  const c = document.createElement('canvas')
+  c.width = c.height = S
+  const g = c.getContext('2d')!
+  const grd = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2)
+  grd.addColorStop(0, 'rgba(255,255,255,0)')
+  grd.addColorStop(0.5, 'rgba(255,255,255,0.12)')
+  grd.addColorStop(0.8, 'rgba(255,255,255,0.8)')
+  grd.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grd
+  g.fillRect(0, 0, S, S)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+
+/**
+ * The double jump's footprint in the air — like the intro's landing dust, but
+ * made of mist: soft puffs kicked out sideways from under his feet (as if he'd
+ * stamped on an invisible ledge), dragging to a stop, swelling and sinking a
+ * touch as they fade, over a faint flat ring where the "ledge" was. It hangs
+ * where he stepped (the sim scrolls it with the ground) and he rises out of it.
+ * Positions are closed-form in the step's age (drag integrated), with each
+ * puff's direction hashed from the step id, so nothing is simulated here.
+ */
+function AirSteps({ state }: { state: RefObject<NinjaState> }) {
+  const puffs = useRef<THREE.InstancedMesh>(null!)
+  const rings = useRef<(THREE.Mesh | null)[]>([])
+  const assets = useMemo(() => {
+    const halo = haloTexture()
+    const ringTex = stepRingTexture()
+    const ringMat = () =>
+      new THREE.MeshBasicMaterial({
+        map: ringTex,
+        color: MIST,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      })
+    return {
+      halo,
+      ringTex,
+      card: new THREE.PlaneGeometry(1, 1),
+      flat: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      puffMat: new THREE.MeshBasicMaterial({
+        map: halo,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+      ringMats: Array.from({ length: STEP_POOL }, ringMat),
+    }
+  }, [])
+  useEffect(
+    () => () => {
+      assets.halo.dispose()
+      assets.ringTex.dispose()
+      assets.card.dispose()
+      assets.flat.dispose()
+      assets.puffMat.dispose()
+      assets.ringMats.forEach((m) => m.dispose())
+    },
+    [assets],
+  )
+  const m = useMemo(() => new THREE.Matrix4(), [])
+  const q = useMemo(() => new THREE.Quaternion(), [])
+  const p = useMemo(() => new THREE.Vector3(), [])
+  const sc = useMemo(() => new THREE.Vector3(), [])
+  const col = useMemo(() => new THREE.Color(), [])
+  useFrame(() => {
+    const steps = state.current.airSteps
+    let n = 0
+    for (let i = 0; i < STEP_POOL; i++) {
+      const st = steps[i]
+      const ring = rings.current[i]
+      if (!st) {
+        if (ring) ring.visible = false
+        for (let j = 0; j < STEP_PUFFS; j++) {
+          m.makeScale(0, 0, 0)
+          puffs.current.setMatrixAt(n++, m)
+        }
+        continue
+      }
+      const t = st.age
+      const k = Math.min(1, t / N.airStepSecs)
+      const fade = (1 - k) * (1 - k)
+      for (let j = 0; j < STEP_PUFFS; j++) {
+        // Kicked out flat around his feet; drag brings each to a stop.
+        const a = (j / STEP_PUFFS) * Math.PI * 2 + sparkRand(st.id, j, 3) * 0.5
+        const sp = 1.4 + sparkRand(st.id, j, 4) * 2.4
+        const out = (sp * (1 - Math.exp(-5 * t))) / 5
+        const sink = -0.25 * (1 - Math.exp(-2.5 * t)) - sparkRand(st.id, j, 5) * 0.12
+        p.set(st.x + Math.cos(a) * (0.2 + out), st.y + 0.05 + sink, Math.sin(a) * (0.2 + out) * 0.8)
+        const size = (0.42 + sparkRand(st.id, j, 6) * 0.4) * (0.7 + 1.3 * (1 - Math.exp(-4 * t)))
+        m.compose(p, q.identity(), sc.set(size, size * 0.8, size))
+        puffs.current.setMatrixAt(n, m)
+        puffs.current.setColorAt(n, col.copy(MIST).multiplyScalar(0.75 * fade))
+        n++
+      }
+      if (ring) {
+        ring.visible = true
+        ring.position.set(st.x, st.y + 0.02, 0)
+        const rk = Math.min(1, t / 0.35)
+        ring.scale.setScalar(0.5 + (1 - (1 - rk) * (1 - rk)) * 2.2)
+        assets.ringMats[i].opacity = 0.7 * (1 - rk) * (1 - rk)
+      }
+    }
+    puffs.current.instanceMatrix.needsUpdate = true
+    if (puffs.current.instanceColor) puffs.current.instanceColor.needsUpdate = true
+  })
+  return (
+    <>
+      <instancedMesh
+        ref={(im) => {
+          if (!im) return
+          puffs.current = im
+          // allocate instanceColor up front so the material compiles with it
+          if (!im.instanceColor) for (let i = 0; i < im.count; i++) im.setColorAt(i, MIST)
+        }}
+        args={[assets.card, assets.puffMat, STEP_POOL * STEP_PUFFS]}
+        frustumCulled={false}
+      />
+      {assets.ringMats.map((mat, i) => (
+        <mesh
+          key={i}
+          geometry={assets.flat}
+          material={mat}
+          visible={false}
+          // tipped toward the near-level camera so the ledge reads as a disc
+          rotation={[0.45, 0, 0]}
+          ref={(r) => {
+            rings.current[i] = r
+          }}
+        />
+      ))}
+    </>
+  )
+}
+
 /** Dev autopilot: jump obstacles, knock their stars out of the air (or jump
  *  them when empty-handed), and shoot each ninja with one aimed star. */
 function autopilot(s: NinjaState) {
@@ -594,6 +750,7 @@ export function NinjaRunWorld() {
       <ThingPool state={state} kind="enemy" render={() => <Enemy />} />
       <Stars state={state} />
       <Sparks state={state} />
+      <AirSteps state={state} />
       <Runner state={state} />
     </group>
   )

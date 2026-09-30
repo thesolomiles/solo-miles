@@ -135,6 +135,11 @@ export const NINJA_RUN = {
   gravity: 34,
   /** A press this close before landing still jumps on touchdown. */
   jumpBuffer: 0.12,
+  /** Double jump: he steps on the air and jumps again, gaining this much
+   *  height from wherever he is — leaving a puff of misty air where he stepped. */
+  airJumps: 1,
+  doubleJumpHeight: 1.4,
+  airStepSecs: 0.7,
   /** Runner hitbox (feet at y, centred on x = 0), a touch smaller than the figure. */
   runnerHalfW: 0.28,
   runnerH: 1.55,

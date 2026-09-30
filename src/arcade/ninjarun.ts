@@ -13,7 +13,7 @@ import {
  */
 
 export type NinjaStatus = 'play' | 'dying' | 'lost'
-export type NinjaSfx = 'jump' | 'throw' | 'empty' | 'hit' | 'clink' | 'windup' | 'foeThrow' | 'parry' | 'die'
+export type NinjaSfx = 'jump' | 'doubleJump' | 'throw' | 'empty' | 'hit' | 'clink' | 'windup' | 'foeThrow' | 'parry' | 'die'
 
 export interface NinjaThing {
   id: number
@@ -35,6 +35,14 @@ export interface FoeStar {
   id: number
   x: number
   y: number
+}
+
+/** The puff of air left where he stepped on it to double-jump. */
+export interface AirStep {
+  id: number
+  x: number
+  y: number
+  age: number
 }
 
 /** A burst of sparks: `big` for star-on-star, small for a clink. */
@@ -69,6 +77,8 @@ export interface NinjaState {
   grounded: boolean
   /** Seconds left on a buffered jump press. */
   jumpBuffer: number
+  /** Mid-air jumps used since leaving the ground. */
+  airJumpsUsed: number
   cooldown: number
   /** Stars in hand (0…shurikenMax), and seconds into refilling the next one. */
   ammo: number
@@ -79,6 +89,7 @@ export interface NinjaState {
   shuriken: Shuriken[]
   foeStars: FoeStar[]
   sparks: Spark[]
+  airSteps: AirStep[]
   /** Distance at which the next thing spawns. */
   nextSpawn: number
   /** Seconds into the death stumble. */
@@ -112,6 +123,7 @@ export function createNinjaRun(seed = (Math.random() * 2 ** 32) >>> 0): NinjaSta
     vy: 0,
     grounded: true,
     jumpBuffer: 0,
+    airJumpsUsed: 0,
     cooldown: 0,
     ammo: N.shurikenMax,
     reload: 0,
@@ -120,6 +132,7 @@ export function createNinjaRun(seed = (Math.random() * 2 ** 32) >>> 0): NinjaSta
     shuriken: [],
     foeStars: [],
     sparks: [],
+    airSteps: [],
     // A clear stretch to get going before the first rock.
     nextSpawn: N.spawnX * 0.6,
     dieT: 0,
@@ -170,13 +183,18 @@ function addSpark(s: NinjaState, x: number, y: number, big: boolean) {
   s.sparks.push({ id: s.nextId++, x, y, age: 0, big })
 }
 
-/** Sparks hang where they burst (riding the scroll) and fade. */
+/** Sparks and air-step puffs hang where they burst (riding the scroll) and fade. */
 function ageSparks(s: NinjaState, dt: number, dx: number) {
   for (const k of s.sparks) {
     k.age += dt
     k.x -= dx
   }
   s.sparks = s.sparks.filter((k) => k.age < N.sparkSecs)
+  for (const a of s.airSteps) {
+    a.age += dt
+    a.x -= dx
+  }
+  s.airSteps = s.airSteps.filter((a) => a.age < N.airStepSecs)
 }
 
 function overlaps(ax0: number, ax1: number, ay0: number, ay1: number, t: NinjaThing) {
@@ -206,7 +224,15 @@ export function stepNinjaRun(s: NinjaState, dt: number, jump: boolean, fire: boo
   s.distance += dx
 
   // --- jump --------------------------------------------------------------------
-  if (jump) s.jumpBuffer = N.jumpBuffer
+  if (jump && !s.grounded && s.airJumpsUsed < N.airJumps) {
+    // Double jump: he steps on the air and kicks off again from wherever he
+    // is, leaving a puff of misty air under his feet where he stepped.
+    s.vy = Math.sqrt(2 * N.gravity * N.doubleJumpHeight)
+    s.airJumpsUsed++
+    s.jumpBuffer = 0
+    s.airSteps.push({ id: s.nextId++, x: 0, y: s.y, age: 0 })
+    events.push('doubleJump')
+  } else if (jump) s.jumpBuffer = N.jumpBuffer
   else s.jumpBuffer = Math.max(0, s.jumpBuffer - dt)
   if (s.grounded && s.jumpBuffer > 0) {
     s.vy = Math.sqrt(2 * N.gravity * N.jumpHeight)
@@ -221,6 +247,7 @@ export function stepNinjaRun(s: NinjaState, dt: number, jump: boolean, fire: boo
       s.y = 0
       s.vy = 0
       s.grounded = true
+      s.airJumpsUsed = 0
     }
   }
 
