@@ -468,6 +468,362 @@ export function NinjaScenery({ state }: { state: RefObject<NinjaState> }) {
   )
 }
 
+// --- The eye -------------------------------------------------------------------------
+
+/** How much bigger the eye's card is than the eye itself (room for tilt + soft edges). */
+const EYE_CARD = 1.4
+
+const EYE_VERT = /* glsl */ `
+  #include <fog_pars_vertex>
+  varying vec2 vP;
+  void main() {
+    vP = (uv - 0.5) * ${EYE_CARD.toFixed(1)} * 2.0;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    #include <fog_vertex>
+  }
+`
+
+// vP is in eye units: corner to corner is x ∈ [-1, 1]. An animal's eye — no
+// white, the iris fills it: fibrous amber round a slit pupil, rusting toward a
+// dark rim, hooded by a heavy upper lid. It gives off no light of its own: what
+// shows is only what the two nearest lanterns / mushrooms (uLight*) reach, through a
+// drifting veil of mist.
+const EYE_FRAG = /* glsl */ `
+  #include <fog_pars_fragment>
+  uniform vec3 uColor;
+  uniform vec3 uRim;
+  uniform vec3 uDark;
+  uniform vec3 uLight[2];
+  uniform vec3 uLightColor[2];
+  uniform float uLightRange[2];
+  uniform float uHalf;
+  uniform float uGain;
+  uniform float uMist;
+  uniform float uVeil;
+  uniform float uTime;
+  uniform vec2 uSeed;
+  uniform float uFade;
+  uniform float uOpen;
+  uniform float uSlit;
+  uniform float uTilt;
+  uniform vec2 uLook;
+  varying vec2 vP;
+
+  float hash(float n) { return fract(sin(n) * 43758.5453); }
+  // Value noise that repeats every \`p\` (so it wraps cleanly round the iris).
+  float noise(float x, float p) {
+    float i = floor(x);
+    float f = fract(x);
+    return mix(hash(mod(i, p)), hash(mod(i + 1.0, p)), f * f * (3.0 - 2.0 * f));
+  }
+  float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float noise2(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), f.x), mix(hash2(i + vec2(0.0, 1.0)), hash2(i + 1.0), f.x), f.y);
+  }
+
+  void main() {
+    float cs = cos(uTilt), sn = sin(uTilt);
+    vec2 q = vec2(cs * vP.x - sn * vP.y, sn * vP.x + cs * vP.y);
+
+    // Lids: a flat lower one, and a heavier upper one that comes down to meet
+    // it. Soft-edged — it's seen through mist, never crisply.
+    float span = max(1.0 - q.x * q.x, 0.0);
+    float bot = 0.3 * span;
+    float top = mix(-bot, 0.44 * pow(span, 0.8), uOpen);
+    float d = max(q.y - top, -bot - q.y);
+    float inside = (1.0 - smoothstep(-0.13, 0.03, d)) * (1.0 - smoothstep(0.8, 1.0, abs(q.x)));
+
+    // Iris.
+    vec2 c = q - uLook;
+    float r = length(c) / 0.64;
+    float turn = atan(c.y, c.x) / 6.2831853 + 0.5;
+    float fibre = noise(turn * 90.0, 90.0) * 0.6 + noise(turn * 290.0, 290.0) * 0.4;
+    vec3 iris = mix(uColor, uRim, smoothstep(0.2, 0.95, r));
+    iris *= mix(1.0, 0.6 + 0.5 * fibre, smoothstep(0.12, 0.5, r));
+    iris *= 1.0 - 0.85 * smoothstep(0.7, 1.0, r);
+
+    // Slit pupil; the collar round it is what catches light best (eyeshine).
+    float slitW = uSlit * (1.0 - (c.y * c.y) / 0.27);
+    float pd = abs(c.x) - slitW;
+    float pupil = 1.0 - smoothstep(-0.03, 0.05, pd);
+    float shine = 1.0 + 0.9 * exp(-max(pd, 0.0) * 9.0) * step(0.0, slitW);
+    vec3 col = mix(iris * shine, uDark, pupil);
+
+    // The upper lid's shadow across the top of the eye.
+    col *= mix(0.25, 1.0, smoothstep(0.0, 0.26, top - q.y));
+
+    // Light from the forest: falls off with distance from its source, so the
+    // side toward the lantern shows and the rest is lost. Flickers a little.
+    vec3 at = vec3(vP * uHalf, 0.0);
+    float flicker = 0.82 + 0.18 * noise(uTime * 6.0 + uSeed.x, 1000.0);
+    float litA = (1.0 - smoothstep(0.0, uLightRange[0], length(at - uLight[0]))) * flicker;
+    float litB = (1.0 - smoothstep(0.0, uLightRange[1], length(at - uLight[1]))) * flicker;
+    float lit = max(litA, litB);
+    col *= (uLightColor[0] * litA + uLightColor[1] * litB) * uGain;
+
+    // Mist drifting across it, veiling it in patches.
+    vec2 w = vP * uHalf * 0.55 + uSeed;
+    float mist = noise2(w + vec2(uTime * 0.35, 0.0)) * 0.65 + noise2(w * 2.3 - vec2(uTime * 0.2, uTime * 0.07)) * 0.35;
+    float veil = 1.0 - uVeil * smoothstep(0.3, 0.75, mist);
+
+    gl_FragColor = vec4(col, inside * smoothstep(0.0, 0.22, lit) * veil * uFade);
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+    // …and a standing share of fog on top of what its depth gives it.
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, uMist);
+  }
+`
+
+const between = ([a, b]: readonly [number, number]) => a + Math.random() * (b - a)
+
+/** Seconds for the lids to part when it appears, and to shut when it goes. */
+const EYE_OPEN = 0.5
+const EYE_SHUT = 0.12
+const BLINK_SHUT = 0.06
+const BLINK_OPEN = 0.13
+
+const tintScratch = new THREE.Color()
+
+/** The forest's lights within one tile: where they are and what they throw. */
+function eyeLights() {
+  const E = K.eye
+  const lamps = LANTERNS.map((l) => ({
+    x: l.x,
+    y: LANTERN_LIGHT_Y,
+    z: l.z,
+    color: K.lantern.light as string,
+    range: E.lanternRange as number,
+  }))
+  const mush = layout()
+    .mush.filter((m) => m.x >= 0 && m.x < SCROLL_W && m.z < 0)
+    .map((m) => ({ x: m.x, y: 0.2, z: m.z, color: K.mushroom.color as string, range: E.mushroomRange as number }))
+  return [...lamps, ...mush]
+}
+
+/**
+ * The eye in the grove (config: NINJA_NIGHT.eye). Something big, far back among
+ * the bamboo, watching him and trying not to be seen. It gives off no light: it
+ * only shows where a lantern or a glow-mushroom cluster happens to reach it —
+ * lit from below, in that light's colour, falling off into nothing — behind a
+ * drifting veil of mist. It stays put in the grove (it scrolls by with the
+ * trees, never with him), wherever it happens to be standing: often a stalk or
+ * a crown of leaves is in front of part of it. Each time it's a glimpse: the
+ * lids part beside some light ahead, hold a moment (the pupil narrowing on
+ * him), then shut.
+ */
+export function NinjaEye({ state }: { state: RefObject<NinjaState> }) {
+  const E = K.eye
+  const mesh = useRef<THREE.Mesh>(null!)
+  const size = useThree((s) => s.size)
+  const lights = useMemo(eyeLights, [])
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: EYE_VERT,
+        fragmentShader: EYE_FRAG,
+        uniforms: THREE.UniformsUtils.merge([
+          THREE.UniformsLib.fog,
+          {
+            uColor: { value: new THREE.Color(E.color) },
+            uRim: { value: new THREE.Color(E.rim) },
+            uDark: { value: new THREE.Color(E.dark) },
+            uLight: { value: [new THREE.Vector3(), new THREE.Vector3()] },
+            uLightColor: { value: [new THREE.Color(), new THREE.Color()] },
+            uLightRange: { value: [1, 1] },
+            uHalf: { value: E.width / 2 },
+            uGain: { value: E.gain },
+            uMist: { value: E.mist },
+            uVeil: { value: E.veil },
+            uTime: { value: 0 },
+            uSeed: { value: new THREE.Vector2() },
+            uFade: { value: 0 },
+            uOpen: { value: 0 },
+            uSlit: { value: E.slit[0] },
+            uTilt: { value: 0 },
+            uLook: { value: new THREE.Vector2() },
+          },
+        ]),
+        fog: true,
+        transparent: true,
+        depthWrite: false,
+      }),
+    [E],
+  )
+  useEffect(() => () => material.dispose(), [material])
+
+  const sim = useRef({
+    shown: false,
+    /** Seconds to the next glimpse (while hidden). */
+    wait: E.first as number,
+    /** Seconds into this glimpse, and how long it stays open. */
+    t: 0,
+    hold: 0,
+    /** Seconds into a blink (-1 = none) and when (in `t`) this glimpse blinks, if it does. */
+    blinkT: -1,
+    blinkAt: -1,
+    /** Where the pupil is flicking to, and seconds until it flicks again. */
+    lookX: 0,
+    lookY: 0,
+    nextLook: 0,
+    lastDistance: 0,
+  })
+
+  // Dev handle: `__eye.show()` opens one now; `__eye.hold = true` keeps it open and still.
+  const dev = useRef({ hold: false })
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as Record<string, unknown>
+    w.__eye = Object.assign(dev.current, {
+      show: () => {
+        sim.current.shown = false
+        sim.current.wait = 0
+      },
+      sim: () => sim.current,
+      mesh: () => mesh.current,
+    })
+    return () => {
+      delete w.__eye
+    }
+  }, [])
+
+  useFrame(({ clock }, delta) => {
+    const dt = Math.min(delta, 0.05)
+    const e = sim.current
+    const u = material.uniforms
+    const view = ninjaView(size.width / Math.max(size.height, 1))
+    const m = mesh.current
+    const held = import.meta.env.DEV && dev.current.hold
+    u.uTime.value = clock.elapsedTime
+
+    // It stands in the grove, so it scrolls by with it (a retry resets distance:
+    // ignore the jump back).
+    const run = Math.max(0, state.current.distance - e.lastDistance)
+    e.lastDistance = state.current.distance
+
+    if (!e.shown) {
+      e.wait -= dt
+      m.visible = false
+      if (e.wait > 0) return
+      // It can only be seen by a light: take one that's ahead of him now (none
+      // there → try again next frame).
+      const off = state.current.distance % SCROLL_W
+      const [a0, a1] = E.ahead
+      const ahead = lights
+        .map((l) => nearestCopy(l.x, off, view.lead + ((a0 + a1) / 2) * view.halfX))
+        .filter((x) => x > view.lead + a0 * view.halfX && x < view.lead + a1 * view.halfX)
+      if (!ahead.length) return
+      const lightX = ahead[Math.floor(Math.random() * ahead.length)]
+
+      e.shown = true
+      e.t = 0
+      e.hold = between(E.glimpse)
+      e.blinkT = -1
+      e.blinkAt = Math.random() < E.blinkChance ? EYE_OPEN + Math.random() * e.hold * 0.6 : -1
+      e.nextLook = 0
+      // Far back among the bamboo and high up (it's a big animal), a little to
+      // one side of the light. A new size and slant each time.
+      const s = between(E.scale)
+      m.position.set(lightX + (Math.random() < 0.5 ? -1 : 1) * between(E.lag), between(E.y), between(E.z))
+      m.scale.setScalar(s)
+      u.uHalf.value = (E.width / 2) * s
+      u.uSeed.value.set(Math.random() * 50, Math.random() * 50)
+      u.uTilt.value = (Math.random() - 0.5) * 2 * E.tilt
+      u.uSlit.value = E.slit[0]
+      u.uLook.value.set(0, 0)
+    }
+
+    if (held) e.t = Math.min(e.t + dt, EYE_OPEN + e.hold)
+    else {
+      e.t += dt
+      // It stays where it is in the grove, so it scrolls by with the trees.
+      m.position.x -= run
+    }
+    const shutAt = EYE_OPEN + e.hold
+    const edge = view.halfX + (E.width * m.scale.x) / 2
+    if (e.t > shutAt + EYE_SHUT || m.position.x < view.lead - edge) {
+      e.shown = false
+      e.wait = Math.random() < E.again ? between(E.againGap) : between(E.gap)
+      m.visible = false
+      return
+    }
+    m.visible = true
+
+    // Lids: part slowly, snap shut; maybe one blink in between.
+    let open =
+      e.t < EYE_OPEN ? THREE.MathUtils.smoothstep(e.t / EYE_OPEN, 0, 1)
+      : e.t > shutAt ? 1 - (e.t - shutAt) / EYE_SHUT
+      : 1
+    if (e.blinkT < 0 && e.blinkAt >= 0 && e.t >= e.blinkAt && e.t < shutAt) {
+      e.blinkT = 0
+      e.blinkAt = -1
+    }
+    if (e.blinkT >= 0) {
+      e.blinkT += dt
+      const b = e.blinkT
+      open *= b < BLINK_SHUT ? 1 - b / BLINK_SHUT : THREE.MathUtils.smoothstep((b - BLINK_SHUT) / BLINK_OPEN, 0, 1)
+      if (b > BLINK_SHUT + BLINK_OPEN) e.blinkT = -1
+    }
+    u.uOpen.value = open
+    // Gone at the screen's edges.
+    const fromEdge = (edge - Math.abs(m.position.x - view.lead)) / (2 * edge)
+    u.uFade.value =
+      E.opacity * THREE.MathUtils.smoothstep(e.t, 0, EYE_OPEN * 0.6) * THREE.MathUtils.smoothstep(fromEdge, 0.03, 0.14)
+
+    // What reaches it right now: the two lights that light it most. (Depth
+    // counts for less — the light carries back through the stalks.)
+    const off = state.current.distance % SCROLL_W
+    let best = [-1, -1]
+    let bestLit = [0, 0]
+    lights.forEach((l, i) => {
+      const dx = nearestCopy(l.x, off, m.position.x) - m.position.x
+      const lit = 1 - Math.hypot(dx, l.y - m.position.y, (l.z - m.position.z) * E.depthFade) / l.range
+      if (lit > bestLit[0]) {
+        best = [i, best[0]]
+        bestLit = [lit, bestLit[0]]
+      } else if (lit > bestLit[1]) {
+        best[1] = i
+        bestLit[1] = lit
+      }
+    })
+    best.forEach((i, slot) => {
+      if (i < 0) {
+        u.uLightRange.value[slot] = 0.0001
+        return
+      }
+      const l = lights[i]
+      const x = nearestCopy(l.x, off, m.position.x)
+      u.uLight.value[slot].set(x - m.position.x, l.y - m.position.y, (l.z - m.position.z) * E.depthFade)
+      u.uLightColor.value[slot].set('#ffffff').lerp(tintScratch.set(l.color), E.tint)
+      u.uLightRange.value[slot] = l.range
+    })
+
+    // The pupil narrows as it fixes on him (x = 0, down on the path), and
+    // flicks about in small jumps round that.
+    u.uSlit.value += (E.slit[1] - u.uSlit.value) * Math.min(1, dt * 4)
+    e.nextLook -= dt
+    if (e.nextLook <= 0) {
+      e.nextLook = 0.25 + Math.random() * 0.7
+      const toward = THREE.MathUtils.clamp(-m.position.x / 10, -1, 1)
+      e.lookX = toward * E.gaze + (Math.random() - 0.5) * 2 * E.dart
+      e.lookY = -E.gaze * 0.25 + (Math.random() - 0.5) * E.dart * 0.4
+    }
+    const k = Math.min(1, dt * 28)
+    u.uLook.value.x += (e.lookX - u.uLook.value.x) * k
+    u.uLook.value.y += (e.lookY - u.uLook.value.y) * k
+  })
+
+  const w = E.width * EYE_CARD
+  return (
+    <mesh ref={mesh} material={material} visible={false} renderOrder={1}>
+      <planeGeometry args={[w, w]} />
+    </mesh>
+  )
+}
+
 /** Far backdrop: near-black teal at the top, fading to the fog colour at the horizon. */
 export function NinjaSky() {
   const geom = useMemo(() => {

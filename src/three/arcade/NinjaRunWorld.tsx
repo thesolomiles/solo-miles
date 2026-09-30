@@ -14,7 +14,8 @@ import {
 } from '../../arcade/ninjarun'
 import { ninjaInput } from '../../systems/input'
 import { useGame } from '../../state/store'
-import { haloTexture, NinjaNight, NinjaScenery, NinjaSky } from './ninjaScenery'
+import { haloTexture, NinjaEye, NinjaNight, NinjaScenery, NinjaSky } from './ninjaScenery'
+import { playNinjaSfx, setNinjaAmbiencePaused, startNinjaAmbience, type NinjaSound } from './ninjaSfx'
 import { hullGeometry, outlineMaterial, withRim } from './rimMaterial'
 
 /**
@@ -30,6 +31,8 @@ const STRIDE_NINJA = 5.5
 const AIR_CLIP = 'jump-run'
 const BEST_KEY = 'solomiles.ninjarun.best'
 const POOL = 8
+// Metres of path per footfall (the run clip's stride, two steps to the cycle).
+const STEP_EVERY = 1.7
 const STAR_POOL = 10
 const FOE_POOL = 6
 
@@ -656,6 +659,7 @@ export function NinjaRunWorld() {
   const run = useGame((s) => s.arcadeRun)
   const best = useRef(readBest())
   const lastHud = useRef('')
+  const strideRun = useRef(0)
 
   // Retry: a fresh run (the first mount already has one).
   const firstRun = useRef(run)
@@ -669,6 +673,8 @@ export function NinjaRunWorld() {
   useEffect(() => {
     ninjaInput.jump = false
     ninjaInput.throw = false
+    // The night-forest bed plays for as long as the game is up.
+    return startNinjaAmbience()
   }, [])
 
   // Dev handle: inspect the run, `__ninja.auto = true` for an autopilot that
@@ -701,10 +707,28 @@ export function NinjaRunWorld() {
     const s = state.current
     const paused = !!st.arcade?.paused || !!st.transition
 
+    setNinjaAmbiencePaused(!!st.arcade?.paused)
     if (import.meta.env.DEV && dev.current.auto) autopilot(s)
     // (`__ninja.freeze` holds the frame for screenshots, dev only.)
     if (!paused && !(import.meta.env.DEV && dev.current.freeze)) {
-      stepNinjaRun(s, dt, ninjaInput.jump, ninjaInput.throw)
+      const wasGrounded = s.grounded
+      const from = s.distance
+      const sounds: NinjaSound[] = stepNinjaRun(s, dt, ninjaInput.jump, ninjaInput.throw)
+      // Footfalls come off the distance run, so they quicken with him; a
+      // landing is its own thud and restarts the count.
+      if (s.status === 'play' && s.grounded) {
+        if (!wasGrounded) {
+          sounds.push('land')
+          strideRun.current = 0
+        } else {
+          strideRun.current += Math.max(0, s.distance - from)
+          if (strideRun.current >= STEP_EVERY) {
+            strideRun.current %= STEP_EVERY
+            sounds.push('step')
+          }
+        }
+      }
+      playNinjaSfx(sounds)
     }
     ninjaInput.jump = false
     ninjaInput.throw = false
@@ -744,6 +768,7 @@ export function NinjaRunWorld() {
       </mesh>
 
       <NinjaScenery state={state} />
+      <NinjaEye state={state} />
       <ThingPool state={state} kind="rock" render={(i) => <Rock i={i} />} />
       <ThingPool state={state} kind="log" render={() => <Log />} />
       <ThingPool state={state} kind="stump" render={() => <Stump />} />

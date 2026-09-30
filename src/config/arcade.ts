@@ -264,6 +264,61 @@ export const NINJA_NIGHT = {
   /** Drifting fog wisps (u/s, on top of the scroll). */
   wispDrift: 0.35,
   wispColor: '#58767d',
+
+  /** The thing watching from back in the grove (as on the thumbnail): one big
+   *  amber animal eye with a slit pupil, high up and far back among the bamboo
+   *  — a creature much bigger than him, watching and trying not to be seen. It
+   *  gives off no light: it only shows where a lantern or a glow-mushroom
+   *  cluster reaches it, in that light's colour, through drifting mist. It's
+   *  only ever a glimpse: the lids part, it holds a moment, shuts and is gone. */
+  eye: {
+    /** Iris round the pupil → toward its rim; the dark of the pupil. */
+    color: '#ffd24a',
+    rim: '#a8521a',
+    dark: '#0b0d0a',
+    /** How far a lantern / a mushroom cluster can light it (u), and how strongly. */
+    lanternRange: 10.5,
+    mushroomRange: 7.5,
+    gain: 1.6,
+    /** How much its depth behind a light counts toward that distance (< 1: the
+     *  light carries back through the stalks). */
+    depthFade: 0.3,
+    /** How much of the light's own colour it takes on (0 = stays amber, 1 = fully tinted). */
+    tint: 0.4,
+    /** Overall opacity; the share of fog colour always mixed in (on top of the
+     *  fog its depth gives it); and how much the drifting mist patches hide. */
+    opacity: 0.85,
+    mist: 0.15,
+    veil: 0.7,
+    /** Eye width corner to corner (u) at scale 1, and the scale range it picks from. */
+    width: 3.2,
+    scale: [0.7, 1.1] as const,
+    /** Height of the eye (he's ~1u tall — this is a big animal), and how deep
+     *  in the grove it stands: behind the first rows of bamboo, which pass in
+     *  front of it; deeper = foggier. */
+    y: [3.6, 5.6] as const,
+    z: [-8, -15] as const,
+    /** The light it opens by must be this far ahead of the view's centre
+     *  (shares of the half-width); it stands this far to one side of that light (u). */
+    ahead: [0.2, 0.95] as const,
+    lag: [0.5, 3.5] as const,
+    /** Most it slants either way (rad). */
+    tilt: 0.16,
+    /** Seconds before the first one, between glimpses, and held open. */
+    first: 7,
+    gap: [7, 20] as const,
+    glimpse: [0.7, 1.6] as const,
+    /** Chance it shows again moments later (after `againGap` s) by another light. */
+    again: 0.3,
+    againGap: [0.5, 1.4] as const,
+    /** Chance a glimpse includes a blink. */
+    blinkChance: 0.4,
+    /** Pupil half-width: as the lids part → once it's narrowed. */
+    slit: [0.17, 0.06] as const,
+    /** How far the pupil turns toward him, and how far it flicks about (eye units). */
+    gaze: 0.16,
+    dart: 0.06,
+  },
 } as const
 
 /**
