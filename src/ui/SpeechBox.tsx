@@ -23,6 +23,7 @@ export function SpeechBox({
   hint,
   onEscape,
   yieldToRide = false,
+  paused = false,
 }: {
   name: string
   /** Appended as ", role" on the name tag. Omit it and the tag is just the name. */
@@ -38,6 +39,8 @@ export function SpeechBox({
   onEscape?: () => void
   /** Town talk steps aside while a ride's box owns the keys. */
   yieldToRide?: boolean
+  /** Something over the box (the ride's expanded photo) has the keys — even Esc. */
+  paused?: boolean
 }) {
   const hasChoices = !!choices?.length
   const label = role ? `${name}, ${role}` : name
@@ -64,6 +67,7 @@ export function SpeechBox({
   const onContinueRef = useRef(onContinue)
   const onEscapeRef = useRef(onEscape)
   const yieldRef = useRef(yieldToRide)
+  const pausedRef = useRef(paused)
   const chunk = pages?.[page] ?? ''
   const more = !!pages && page < pages.length - 1
   textPropRef.current = text
@@ -77,6 +81,7 @@ export function SpeechBox({
   onContinueRef.current = onContinue
   onEscapeRef.current = onEscape
   yieldRef.current = yieldToRide
+  pausedRef.current = paused
 
   const choicesReady = done && hasChoices && !more
 
@@ -173,6 +178,7 @@ export function SpeechBox({
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return
       if (yieldRef.current && useGame.getState().ride) return
+      if (pausedRef.current) return
       if (advanceKey(e)) {
         // Swallow the press so no other listener (and no click it would
         // synthesize) can also advance or confirm.

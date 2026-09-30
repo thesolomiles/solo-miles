@@ -52,9 +52,17 @@ export function RideDialogue() {
   }, [leadsWithPhoto, rideLine])
   const full = ready ? (line?.say ?? '') : ''
 
+  // One photo at a time: a line with several shows its first.
+  const photo = shot?.photos?.[0]
+
+  // The photo blown up to fill the screen. The chat holds while it's open, and
+  // a different photo (or none) always comes back in at normal size.
+  const [zoomed, setZoomed] = useState<string | null>(null)
+  const expanded = !!photo && zoomed === photo
+
   // Warm the cache so each photo is ready the moment he mentions it.
   useEffect(() => {
-    for (const l of lines) for (const src of l.photos ?? []) new Image().src = src
+    for (const l of lines) if (l.photos?.[0]) new Image().src = l.photos[0]
   }, [lines])
 
   return (
@@ -73,12 +81,19 @@ export function RideDialogue() {
           <span className="ride-blog__label">Read the log</span>
         </button>
       )}
-      <RidePhoto srcs={shot?.photos ?? undefined} caption={shot?.caption} />
+      <RidePhoto
+        src={photo}
+        caption={shot?.caption}
+        expanded={expanded}
+        onExpand={() => setZoomed(photo ?? null)}
+        onCollapse={() => setZoomed(null)}
+      />
       <SpeechBox
         name={leonard.name}
         role={leonard.role || undefined}
         portrait={leonard.portrait}
         text={full}
+        paused={expanded}
         onContinue={() => ready && useGame.getState().advanceRide()}
         onEscape={() => useGame.getState().requestRide(null)}
         hint={isTouch ? 'Tap to continue' : 'E / Space to continue · Esc to leave'}

@@ -68,8 +68,8 @@ export const BLURB_PLACEHOLDER =
     about. Photos stay up through the following lines until the next ones. */
 export interface ScriptLine {
   say: string
-  /** Web paths of photos to bring up together, side by side (usually from the
-      route's blog images/ folder); null takes the current ones down. */
+  /** Web paths of the photo to bring up (usually from the route's blog images/
+      folder). The ride shows only the first; null takes it down. */
   photos?: string[] | null
   /** Short label under the photos. */
   caption?: string

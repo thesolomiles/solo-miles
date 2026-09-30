@@ -804,12 +804,11 @@ canvas {
     linear-gradient(160deg, rgba(127, 231, 255, 0.16), transparent 40%, transparent 65%, rgba(196, 150, 255, 0.14));
   mix-blend-mode: screen;
 }
-.ride-photo__row { display: flex; gap: 7px; align-items: center; }
-/* Photos brought up together share the band's width (--n of them, 7px apart). */
 .ride-photo__float img {
   display: block;
-  max-width: min(560px, calc((100cqw - 14px - (var(--n, 1) - 1) * 7px) / var(--n, 1)));
-  max-height: min(420px, calc(100cqh - 40px));
+  /* --ride-photo-gap: room for the expanded view's + marks on each side */
+  max-width: min(var(--ride-photo-w, 560px), calc(100cqw - 14px - var(--ride-photo-gap, 0px)));
+  max-height: min(var(--ride-photo-h, 420px), calc(100cqh - 40px - var(--ride-photo-gap, 0px)));
   width: auto;
   height: auto;
   border-radius: 14px;
@@ -831,13 +830,93 @@ canvas {
   color: #7fe7ff;
   text-shadow: 0 0 8px rgba(127, 231, 255, 0.6);
 }
+/* Click to blow it up: the band grows to the whole screen (cq units re-fit the
+   photo, the size caps lift) above a dim scrim. It's all overlay — the ride
+   canvas under it, riders included, doesn't move. */
+.ride-photo__card:not(.is-out) { pointer-events: auto; cursor: zoom-in; }
+.ride-photo.is-expanded {
+  top: 28px;
+  bottom: 28px;
+  left: 28px;
+  right: 28px;
+  z-index: 13;
+  /* roomy, not wall-to-wall: the ride still frames it */
+  --ride-photo-w: 68vw;
+  --ride-photo-h: 66vh;
+  --ride-photo-gap: 64px; /* the + marks sit 14px off each corner */
+}
+.ride-photo.is-expanded .ride-photo__card { cursor: default; }
+.ride-photo-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  background:
+    repeating-linear-gradient(0deg, rgba(127, 231, 255, 0.035) 0 1px, transparent 1px 4px),
+    rgba(4, 10, 20, 0.62);
+  animation: fade-in 0.25s ease-out;
+  cursor: zoom-out;
+  pointer-events: auto; /* .hud is pointer-events: none */
+}
+/* The resize: a quick smooth zoom from the old size, with a light tear on
+   top — two slice jumps and a faint red/cyan split that settle by 60%. */
+.ride-photo__glitch.is-open {
+  animation: ride-photo-zoom-open 0.28s cubic-bezier(0.2, 0.9, 0.25, 1), ride-photo-tear 0.28s steps(1, end);
+}
+.ride-photo__glitch.is-close {
+  animation: ride-photo-zoom-close 0.22s cubic-bezier(0.2, 0.9, 0.25, 1), ride-photo-tear 0.22s steps(1, end);
+}
+@keyframes ride-photo-zoom-open {
+  from { scale: 0.62; opacity: 0.4; }
+}
+@keyframes ride-photo-zoom-close {
+  from { scale: 1.35; opacity: 0.5; }
+}
+@keyframes ride-photo-tear {
+  0% { clip-path: inset(0 0 38% 0); translate: -3px 0;
+    filter: drop-shadow(-2px 0 0 rgba(255, 50, 130, 0.55)) drop-shadow(2px 0 0 rgba(0, 235, 255, 0.55)); }
+  25% { clip-path: inset(52% 0 0 0); translate: 3px 0; }
+  45% { clip-path: inset(0); translate: 0;
+    filter: drop-shadow(1px 0 0 rgba(255, 50, 130, 0.4)) drop-shadow(-1px 0 0 rgba(0, 235, 255, 0.4)); }
+  60%, 100% { clip-path: inset(0); translate: 0; filter: none; }
+}
+/* Blown up: + marks just off the four corners — the personal site's thin
+   white marks (.site__plus). Hovering any one turns all four 45° into ×s;
+   clicking one closes it. */
+.ride-photo__corner {
+  position: absolute;
+  z-index: 3;
+  width: 34px; /* hit area; the mark itself is 22px */
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  translate: -50% -50%;
+  background:
+    linear-gradient(#fff, #fff) center / 1.5px 22px no-repeat,
+    linear-gradient(#fff, #fff) center / 22px 1.5px no-repeat;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+  opacity: 0.85;
+  cursor: pointer;
+  transition: rotate 0.45s cubic-bezier(0.7, 0, 0.2, 1), opacity 0.2s ease;
+}
+.ride-photo__corner--tl { top: -14px; left: -14px; }
+.ride-photo__corner--tr { top: -14px; left: calc(100% + 14px); }
+.ride-photo__corner--bl { top: calc(100% + 14px); left: -14px; }
+.ride-photo__corner--br { top: calc(100% + 14px); left: calc(100% + 14px); }
+.ride-photo__float:has(.ride-photo__corner:is(:hover, :focus-visible, :active)) .ride-photo__corner {
+  rotate: 45deg;
+  opacity: 1;
+}
+.ride-photo__corner:focus-visible { outline: none; }
 @media (max-width: 560px) {
   /* Phones: the speech box (with its name tag) stands taller. */
   .ride-photo { bottom: 215px; }
+  .ride-photo.is-expanded { top: 24px; bottom: 24px; left: 20px; right: 20px; --ride-photo-w: 100vw; }
 }
 @media (prefers-reduced-motion: reduce) {
   /* (.is-out keeps its fade: its animationend is what removes the card) */
   .ride-photo__card:not(.is-out), .ride-photo__float, .ride-photo__float::before { animation: none; }
+  .ride-photo__glitch.is-open, .ride-photo__glitch.is-close { animation: fade-in 0.2s ease-out; }
 }
 
 @keyframes fade-in {

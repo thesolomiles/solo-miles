@@ -5,7 +5,7 @@ place: Namsan × Bugaksan
 country: Korea
 region: Seoul
 date: 10 April 2022
-synced: 2026-09-28
+synced: 2026-09-30
 ---
 Strava: https://www.strava.com/activities/6967634149
 Distance: 30.6 km
@@ -20,11 +20,12 @@ Towards the end of 2021, I picked up cycling.
 I immediately knew this was my next sport. It had everything.
 I could train, compete, and the thing that excites the most – I could explore.
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/042e3481-60af-493d-bf2a-d84de26f07fb/IMG_0325.jpg)
-![](ef2e34df-57ac-814d-9504-0003b069c2e8/f0adb61c-2591-4658-9ed4-c743865819d2/VID_20220528_074007_00_009_2022-05-28_20-23-37_screenshot.jpg)
 I cycled with a few colleagues in those early days and we explored Singapore.
 There’s so much more to see and I can do so much with my bike.
+![](ef2e34df-57ac-814d-9504-0003b069c2e8/f0adb61c-2591-4658-9ed4-c743865819d2/VID_20220528_074007_00_009_2022-05-28_20-23-37_screenshot.jpg)
 That was the start of everything.
 # Korea
+![](ef2e34df-57ac-814d-9504-0003b069c2e8/bc519b8f-6a8f-426b-9665-175c5e3161de/IMG_1138.jpg)
 Korea was one of the few countries that opened up first. My wife and I have never been there, so, why not?
 Looking back, I wasn’t sure what I was getting myself into. I just dived in head first.
 I created a few routes on Strava, and that was it.
@@ -41,6 +42,6 @@ This route is a short ride in Seoul. It takes you first to Namsan, which was cra
 The route then takes us towards Bugaksan, just behind the historic Gyeongbokgung Palace.
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/d0b353c1-b98a-44d7-a4d5-1e4492bcdb8f/Screenshot_2026-09-27_at_10.27.49_PM.png)
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/83f8c983-f9fd-4aef-a859-b2c5bc3f8dc6/Screenshot_2026-09-27_at_10.28.26_PM.png)
-I don’t recall the Bugaksan climb to be visually spectacular.
+I don’t recall the Bugaksan climb to be visually spectacular. 
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/bb451eb2-fe25-47f5-a479-5068c8197cbf/Screenshot_2026-09-27_at_10.31.35_PM.jpg)
 Skip it if you want, but if you want a quick ride around Seoul, you can consider adding it into your plan.
