@@ -31,10 +31,9 @@ export const HOME = {
   /** Walkable room (inside the walls; the low front wall is the south edge). */
   bounds: { minX: -6.75, maxX: 6.75, minZ: -6.75, maxZ: 6.75 },
 
-  /** Ground half-extents the interior camera keeps on-screen (see OrthoRig).
+  /** Sideways pan limit for the interior camera (see CAFE.panHalfX).
    *  Same 14×14 room as the café, so the same framing. */
-  frameHalfX: 9.0,
-  frameHalfZ: 8.6,
+  panHalfX: 8.0,
 
   /** Fixed ground centre of the interior shot (three z) — matches the café. */
   cameraCentreZ: -1.0,

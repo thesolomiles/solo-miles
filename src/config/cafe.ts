@@ -67,12 +67,12 @@ export const CAFE = {
    *  the carpeted exit is the way out). */
   bounds: { minX: -6.6, maxX: 6.6, minZ: -6.6, maxZ: 6.7 },
 
-  /** Half-extents the interior camera must keep on-screen (ground plane,
-   *  three-space). Past the modelled walls (~±7) plus a dark gutter so the
-   *  walls don't kiss the bezel. On a tall phone the café view zooms out until
-   *  `frameHalfX` fits; desktop is already wide enough and keeps the town zoom. */
-  frameHalfX: 9.0,
-  frameHalfZ: 8.6,
+  /** How far (ground x, three-space) the interior camera may pan either side.
+   *  Interiors keep the town zoom so the character is the same size everywhere;
+   *  on a narrow phone the camera follows the player sideways and stops here —
+   *  the outer face of the side walls plus a thin gutter. Desktop is wider than
+   *  this, so the shot stays centred. */
+  panHalfX: 8.0,
 
   /** Solid obstacles inside the room (three-space AABBs). The service counter +
    *  pastry fridge line, and the two arcade machines against the left wall.

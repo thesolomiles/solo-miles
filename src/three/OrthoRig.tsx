@@ -4,7 +4,6 @@ import * as THREE from 'three'
 import { CAMERA } from '../config/constants'
 import { CAFE } from '../config/cafe'
 import { HOME } from '../config/home'
-import type { InteriorId } from '../state/store'
 import { PACMAN } from '../config/arcade'
 import { RIDE } from '../config/ride'
 import { arcadeFocus } from '../systems/arcadeFocus'
@@ -47,27 +46,6 @@ function clampCentre(v: number, half: number, bound = GROUND_HALF): number {
   const limit = bound - half
   if (limit <= 0) return 0
   return Math.max(-limit, Math.min(limit, v))
-}
-
-/** Vertical world-units in the ortho frustum. Town stays at a fixed zoom; the
- *  café / Pac-Man maze zoom out on tall viewports until the whole room fits. */
-function viewHeight(
-  interior: InteriorId | null,
-  minigame: 'pacman' | null,
-  ride: boolean,
-  aspect: number,
-  sinPitch: number,
-): number {
-  // The maze / ride keep the town's fixed zoom so the character is the same size
-  // as it is outside. The board can be wider than the viewport in portrait —
-  // that's fine, the camera follows the player and pans, clamping to the board
-  // edge (frameHalfX/Z) below.
-  if (minigame === 'pacman' || ride) return CAMERA.worldViewHeight
-  if (!interior) return CAMERA.worldViewHeight
-  const room = interior === 'home' ? HOME : CAFE
-  const hFitX = (2 * room.frameHalfX) / Math.max(aspect, 0.05)
-  const hFitZ = 2 * room.frameHalfZ * sinPitch
-  return Math.max(CAMERA.worldViewHeight, hFitX, hFitZ)
 }
 
 function applyFrustum(cam: THREE.OrthographicCamera, h: number, aspect: number) {
@@ -156,8 +134,8 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Town zoom is constant; café zoom depends on aspect + interior, so the
-  // frustum is applied in useFrame (same tick as a town↔café swap).
+  // The frustum still depends on aspect (resize) and the intro zoom, so it's
+  // applied in useFrame.
   const frustum = useRef({ h: 0, aspect: 0 })
 
   useFrame((_, delta) => {
@@ -176,7 +154,10 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     const intro_ = !started && !framed
     const zoom = intro_ ? intro.zoom : 1
 
-    const h = viewHeight(interiorNow, minigameNow, riding, aspect, rig.sinPitch) / zoom
+    // One fixed zoom everywhere — town, interiors, maze, ride — so the character
+    // is the same size on every screen. Where the view is narrower than the space
+    // (a portrait phone in the café), the camera pans + clamps instead of zooming.
+    const h = CAMERA.worldViewHeight / zoom
     if (h !== frustum.current.h || aspect !== frustum.current.aspect) {
       frustum.current = { h, aspect }
       applyFrustum(cam, h, aspect)
@@ -188,10 +169,10 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     const halfX = (h * aspect) / 2
     const halfZ = h / 2 / rig.sinPitch
 
-    // Interiors (the café) are small single rooms — smaller than the view — so
-    // instead of following the player (which shoves the room to one side and
-    // reveals the void beside it), lock the camera on a fixed room centre. The
-    // player moves around inside a stable, fully-framed shot.
+    // Interiors are small single rooms. Where the view is wider than the room
+    // (desktop) the clamp collapses to a fixed, centred shot; on a narrow phone
+    // the camera follows the player sideways, stopping at the side walls
+    // (panHalfX). Front-to-back the room always fits, so z stays fixed.
     // A town↔café swap (flag flips at full black) must SNAP the camera into the
     // new room's framed shot, so the fade-in reveals it already in place.
     const swapped =
@@ -207,9 +188,11 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // edges. When the whole board fits, the clamp collapses to a centred shot.
     const cgx = minigameNow
       ? clampCentre(arcadeFocus.x, halfX, PACMAN.frameHalfX)
-      : framed
-        ? 0
-        : clampCentre(p.x, halfX)
+      : interiorNow
+        ? clampCentre(p.x, halfX, interiorNow === 'home' ? HOME.panHalfX : CAFE.panHalfX)
+        : framed
+          ? 0
+          : clampCentre(p.x, halfX)
     const cgz = minigameNow
       ? clampCentre(arcadeFocus.z + rig.groundOffZ, halfZ, PACMAN.frameHalfZ)
       : riding
