@@ -11,6 +11,7 @@ import { RideDialogue } from './RideDialogue'
 import { RideHud } from './RideHud'
 import { RideRouteOverview } from './RideRouteOverview'
 import { PacmanHud } from './PacmanHud'
+import { NinjaRunHud } from './NinjaRunHud'
 import { SpeechBox } from './SpeechBox'
 import { PersonalSite, usePersonalSiteSfx } from './PersonalSite'
 import { isTypingTarget } from '../systems/input'
@@ -285,6 +286,7 @@ export function Hud() {
       {ride && <RideHud />}
       {ride && <RideRouteOverview />}
       {minigame === 'pacman' && <PacmanHud />}
+      {minigame === 'ninjarun' && <NinjaRunHud />}
       <Transition />
     </div>
   )

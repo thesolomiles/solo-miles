@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { CAMERA } from '../config/constants'
 import { CAFE } from '../config/cafe'
 import { HOME } from '../config/home'
-import { PACMAN } from '../config/arcade'
+import { NINJA_RUN, PACMAN, ninjaView } from '../config/arcade'
 import { RIDE } from '../config/ride'
 import { arcadeFocus } from '../systems/arcadeFocus'
 import { useGame } from '../state/store'
@@ -98,6 +98,18 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     return new THREE.Quaternion().setFromRotationMatrix(m)
   }, [])
 
+  // Ninja Run's side-on camera: level-ish, looking along −Z at the path.
+  const { sideQuat, sideOffset } = useMemo(() => {
+    const pitch = THREE.MathUtils.degToRad(NINJA_RUN.pitchDeg)
+    const eye = new THREE.Vector3(
+      0,
+      NINJA_RUN.lookY + Math.sin(pitch) * NINJA_RUN.camDist,
+      Math.cos(pitch) * NINJA_RUN.camDist,
+    )
+    const m = new THREE.Matrix4().lookAt(eye, new THREE.Vector3(0, NINJA_RUN.lookY, 0), _up)
+    return { sideQuat: new THREE.Quaternion().setFromRotationMatrix(m), sideOffset: eye }
+  }, [])
+
   // Constants for mapping the fixed camera to the ground plane it centres on, so
   // the edge-clamp can reason in ground-space. The camera never re-aims, so the
   // view direction and the player→ground-centre offset are both constant.
@@ -155,9 +167,10 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     const zoom = intro_ ? intro.zoom : 1
 
     // One fixed zoom everywhere — town, interiors, maze, ride — so the character
-    // is the same size on every screen. Where the view is narrower than the space
-    // (a portrait phone in the café), the camera pans + clamps instead of zooming.
-    const h = CAMERA.worldViewHeight / zoom
+    // is the same size on every screen (Ninja Run's side-on shot is the one
+    // exception). Where the view is narrower than the space (a portrait phone in
+    // the café), the camera pans + clamps instead of zooming.
+    const h = minigameNow === 'ninjarun' ? ninjaView(aspect).h : CAMERA.worldViewHeight / zoom
     if (h !== frustum.current.h || aspect !== frustum.current.aspect) {
       frustum.current = { h, aspect }
       applyFrustum(cam, h, aspect)
@@ -186,6 +199,8 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // The maze follows its own player (the town Player is unmounted in a
     // minigame, so it publishes through arcadeFocus) and clamps to the board
     // edges. When the whole board fits, the clamp collapses to a centred shot.
+    // Ninja Run has its own fixed side-on shot (see below).
+    const ninja = minigameNow === 'ninjarun'
     const cgx = minigameNow
       ? clampCentre(arcadeFocus.x, halfX, PACMAN.frameHalfX)
       : interiorNow
@@ -207,6 +222,16 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // camera.x == ground-centre.x; camera.z is the ground centre minus the fixed
     // camera→ground z-offset.
     _desired.set(cgx, p.y + CAMERA.offset.y, cgz - rig.groundFromCamZ)
+    if (ninja) {
+      // Ninja Run: a side-on shot, constant for the whole game (it swaps in at
+      // the fade like any world, and is never re-aimed while you play). The
+      // runner stands at x = 0 and the world scrolls past, so the frame just sits
+      // ahead of him with most of the screen on the road to come.
+      cam.quaternion.copy(sideQuat)
+      _desired.copy(sideOffset).setX(ninjaView(aspect).lead)
+      cam.position.copy(_desired)
+      return
+    }
     if (intro_) _desired.add(_intro.set(intro.shakeX, intro.camY + intro.shakeY, 0))
     // While the intro plays, SNAP the camera to its framing (the sky shot, the
     // landing, the zoom) — it cuts, it never glides. A world SWAP (café) or a big

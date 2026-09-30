@@ -91,13 +91,20 @@ export function PacmanHud() {
     <div className="pacman-hud">
       {isTouch && <SwipeLayer />}
       <div className="pacman-hud__bar">
-        <span className="pacman-hud__score">Score {arcade.score}</span>
-        <span className="pacman-hud__lives">Lives {arcade.lives}</span>
+        <span className="ahud-stat">
+          <span className="ahud-stat__k">Score</span>
+          <span className="ahud-stat__v">{arcade.score}</span>
+        </span>
+        <span className="ahud-stat">
+          <span className="ahud-stat__k">Lives</span>
+          <span className="ahud-stat__v">{arcade.lives}</span>
+        </span>
         <button
           className="pacman-hud__esc"
           type="button"
           onClick={() => (arcade.paused ? setPaused(false) : setPaused(true))}
         >
+          {!isTouch && <kbd>Esc</kbd>}
           {arcade.paused ? 'Resume' : 'Pause'}
         </button>
       </div>
@@ -105,15 +112,21 @@ export function PacmanHud() {
       {overlay && (
         <div className="pacman-hud__modal">
           <div className="pacman-hud__panel">
+            <span className="ahud-tag">Pac-Man</span>
             <h2>{overlay}</h2>
-            {arcade.status === 'play' && arcade.paused && (
-              <button className="gselect__select" type="button" onClick={() => setPaused(false)}>
-                Resume
+            <p className="ahud-stat__k">Score {arcade.score}</p>
+            <div className="ahud-actions">
+              {arcade.status === 'play' && arcade.paused && (
+                <button className="ahud-btn ahud-btn--primary" type="button" onClick={() => setPaused(false)}>
+                  {!isTouch && <kbd>Esc</kbd>}
+                  Resume
+                </button>
+              )}
+              <button className="ahud-btn" type="button" onClick={leave}>
+                {arcade.status !== 'play' && !isTouch && <kbd>Esc</kbd>}
+                Back to café
               </button>
-            )}
-            <button className="gselect__exit" type="button" onClick={leave}>
-              Back to cafe
-            </button>
+            </div>
           </div>
         </div>
       )}

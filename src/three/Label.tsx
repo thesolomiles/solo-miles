@@ -20,7 +20,7 @@ export function Label({
     c.width = 256
     c.height = 72
     const x = c.getContext('2d')!
-    x.font = '600 32px "Space Grotesk", sans-serif'
+    x.font = '600 32px "Inter Tight", sans-serif'
     x.textAlign = 'center'
     x.textBaseline = 'middle'
     x.fillStyle = 'rgba(43,38,32,.30)'

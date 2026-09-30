@@ -41,6 +41,7 @@ import { setActiveWorld } from '../systems/activeWorld'
 import { CAFE } from '../config/cafe'
 import { HOME } from '../config/home'
 import { PacmanWorld } from './arcade/PacmanWorld'
+import { NinjaRunWorld } from './arcade/NinjaRunWorld'
 import { RideWorld } from './ride/RideWorld'
 import { IntroDirector, TownReady } from './Intro'
 
@@ -322,6 +323,8 @@ export function Scene() {
 
       {minigame === 'pacman' ? (
         <PacmanWorld />
+      ) : minigame === 'ninjarun' ? (
+        <NinjaRunWorld />
       ) : ride ? (
         <RideWorld />
       ) : interior === 'home' ? (

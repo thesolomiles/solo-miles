@@ -43,7 +43,7 @@ export function useGamesSelectorSfx() {
  * The café arcade's game selector (E on the café machines) — the world
  * selector's console-library layout: one side-scrolling row of games, the
  * highlighted one fills the hero and its art, blurred, is the backdrop.
- * ←/→ browse, Enter plays; Esc (Hud) closes. Pac-Man is the only live game.
+ * ←/→ browse, Enter plays; Esc (Hud) closes. Pac-Man and Ninja Run are live.
  */
 export function GamesModal() {
   const close = useGame((s) => s.closeGames)
@@ -60,7 +60,7 @@ export function GamesModal() {
   }, [cur])
 
   const play = (g: ArcadeGame) => {
-    if (!g.locked) useGame.getState().requestMinigame('pacman')
+    if (!g.locked && g.minigame) useGame.getState().requestMinigame(g.minigame)
   }
 
   // Keep the selected card on screen (scrolls the strip by hand — see WorldSelector).

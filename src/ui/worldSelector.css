@@ -1,7 +1,7 @@
 /* The world selector — Leonard's ride → route picker in the game, and the
    /blog/ page's route picker (ui/RouteSelector.tsx). The café arcade reuses the
    layout too (its extra bits stay in index.css). */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap');
 
 @keyframes wsel-fade {
   from { opacity: 0; }
@@ -72,7 +72,7 @@
   border: 0;
   background: none;
   color: var(--wsel-muted);
-  font: 600 13px/1 'Space Grotesk', sans-serif;
+  font: 600 13px/1 'Inter Tight', sans-serif;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -104,7 +104,7 @@
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
-  font: 700 10px/1 'Space Mono', monospace;
+  font: 700 10px/1 'JetBrains Mono', monospace;
   letter-spacing: 0;
   color: #06102a;
   background: var(--wsel-muted);
@@ -125,13 +125,13 @@
 .wsel__hero-main { min-width: 0; }
 .wsel__title {
   margin: 0;
-  font: 700 clamp(30px, 5.4vw, 60px)/1.02 'Space Grotesk', sans-serif;
+  font: 700 clamp(30px, 5.4vw, 60px)/1.02 'Inter Tight', sans-serif;
   letter-spacing: -0.02em;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
 }
 .wsel__sub {
   margin: 10px 0 0;
-  font: 400 clamp(14px, 1.5vw, 17px)/1.4 'Inter', sans-serif;
+  font: 400 clamp(14px, 1.5vw, 17px)/1.4 'Inter Tight', sans-serif;
   color: var(--wsel-muted);
 }
 .wsel__hero-side {
@@ -148,7 +148,7 @@
   flex-shrink: 0;
 }
 .wsel__stats dt {
-  font: 400 11px/1 'Space Mono', monospace;
+  font: 400 11px/1 'JetBrains Mono', monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--wsel-muted);
@@ -158,7 +158,7 @@
   height: 22px;
   display: flex;
   align-items: center;
-  font: 700 18px/1 'Space Grotesk', sans-serif;
+  font: 700 18px/1 'Inter Tight', sans-serif;
   white-space: nowrap;
 }
 /* The world selector's hero (RouteSelector): one stacked column — kicker, title,
@@ -175,7 +175,7 @@
   align-items: center;
   gap: 8px;
   margin: 0 0 12px;
-  font: 400 12px/1 'Space Mono', monospace;
+  font: 400 12px/1 'JetBrains Mono', monospace;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--wsel-muted);
@@ -185,12 +185,12 @@
   flex-wrap: wrap;
   gap: 6px 12px;
   margin: 14px 0 0;
-  font: 700 13px/1.2 'Space Mono', monospace;
+  font: 700 13px/1.2 'JetBrains Mono', monospace;
 }
 .wsel__meta span + span::before { content: '·'; margin-right: 12px; color: var(--wsel-muted); }
 .wsel__blurb {
   margin: 12px 0 0;
-  font: 400 clamp(14px, 1.3vw, 16px)/1.55 'Inter', sans-serif;
+  font: 400 clamp(14px, 1.3vw, 16px)/1.55 'Inter Tight', sans-serif;
   color: rgba(244, 246, 251, 0.9);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -207,7 +207,7 @@
   padding: 0 24px 0 20px;
   border: 0;
   border-radius: 999px;
-  font: 700 15px/1 'Space Grotesk', sans-serif;
+  font: 700 15px/1 'Inter Tight', sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #06102a;
@@ -285,7 +285,7 @@
   right: 0;
   bottom: 0;
   padding: 18px 10px 8px;
-  font: 600 12px/1.2 'Space Grotesk', sans-serif;
+  font: 600 12px/1.2 'Inter Tight', sans-serif;
   letter-spacing: 0.02em;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
   white-space: nowrap;
@@ -309,7 +309,7 @@
   gap: 10px 26px;
   padding: clamp(14px, 3vh, 26px) clamp(16px, 5vw, 64px) 0;
   flex-shrink: 0;
-  font: 400 12px/1 'Space Mono', monospace;
+  font: 400 12px/1 'JetBrains Mono', monospace;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--wsel-muted);
@@ -334,7 +334,7 @@
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  font: 700 10px/1 'Space Mono', monospace;
+  font: 700 10px/1 'JetBrains Mono', monospace;
   color: #06102a;
   background: var(--wsel-text);
   transition: background 0.15s ease;

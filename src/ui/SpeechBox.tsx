@@ -102,7 +102,7 @@ export function SpeechBox({
     setSel(0)
     const ro = new ResizeObserver(() => apply(false))
     ro.observe(el)
-    // Space Mono loading after the first measure would let a chunk overflow.
+    // JetBrains Mono loading after the first measure would let a chunk overflow.
     let cancel = false
     document.fonts?.ready.then(() => {
       if (!cancel) apply(false)

@@ -14,7 +14,7 @@ function rideLineCount(routeId: string): number {
   return routeScript(route).length + 1
 }
 
-export type MinigameId = 'pacman'
+export type MinigameId = 'pacman' | 'ninjarun'
 /** The enterable interiors: the café and Leonard's home (config/cafe.ts, config/home.ts). */
 export type InteriorId = 'cafe' | 'home'
 export type ArcadeHudStatus = 'play' | 'won' | 'lost' | 'dying'
@@ -24,6 +24,10 @@ export interface ArcadeHud {
   lives: number
   status: ArcadeHudStatus
   paused: boolean
+  /** Best score kept across runs (Ninja Run). */
+  best?: number
+  /** Shuriken in hand (Ninja Run). */
+  ammo?: number
 }
 
 export type Transition =
@@ -81,6 +85,8 @@ interface GameState {
   minigame: MinigameId | null
   /** Score / lives / pause for the arcade HUD. Null when no minigame. */
   arcade: ArcadeHud | null
+  /** Bumped by "Retry" — the running minigame restarts when it changes. */
+  arcadeRun: number
   /** An in-progress fade-to-black (town↔café or café↔minigame), or null when
       idle. The fade overlay (Hud) drives it: request → fade out → commit at
       black → fade in → end. */
@@ -115,6 +121,8 @@ interface GameState {
   advanceRide: () => void
   setArcade: (hud: ArcadeHud) => void
   setArcadePaused: (paused: boolean) => void
+  /** Restart the current minigame from scratch (Ninja Run's Retry). */
+  retryArcade: () => void
   /** Begin a town↔interior transition (fade out). No-op if one is already
       running. The overlay commits + ends it. */
   requestInterior: (to: InteriorId | null) => void
@@ -145,6 +153,7 @@ export const useGame = create<GameState>((set, get) => ({
   interior: null,
   minigame: null,
   arcade: null,
+  arcadeRun: 0,
   transition: null,
   sendBack: false,
 
@@ -280,6 +289,7 @@ export const useGame = create<GameState>((set, get) => ({
     const a = get().arcade
     if (a) set({ arcade: { ...a, paused } })
   },
+  retryArcade: () => set((s) => ({ arcadeRun: s.arcadeRun + 1 })),
 
   requestInterior: (to) => {
     if (get().transition) return

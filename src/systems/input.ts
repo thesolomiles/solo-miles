@@ -15,6 +15,13 @@ export const touchMove = { x: 0, z: 0 }
 export const arcadeMove = { x: 0, z: 0 }
 
 /**
+ * Ninja Run button presses (Space / E, or the touch buttons). Latched true on
+ * press and consumed (reset) by the runner's next frame, so a tap never gets lost
+ * between frames and a held key doesn't auto-repeat.
+ */
+export const ninjaInput = { jump: false, throw: false }
+
+/**
  * True when the focus is in a text field (the dev editor panels' name/verb
  * inputs, etc.). Movement/interact keys must yield to it — otherwise the HUD's
  * global keydown listener preventDefault()s "E"/Space/Enter (so you can't type

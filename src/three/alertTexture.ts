@@ -38,7 +38,7 @@ export function useAlertTexture() {
     bubble(5, 20)
     x.fill()
     x.fillStyle = CLAY_DEEP
-    x.font = '800 58px "Space Grotesk", sans-serif'
+    x.font = '800 58px "Inter Tight", sans-serif'
     x.textAlign = 'center'
     x.textBaseline = 'middle'
     x.fillText('!', 56, 52)
