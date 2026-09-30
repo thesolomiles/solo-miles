@@ -20,6 +20,7 @@ import { AmbientSound } from './AmbientSound'
 import { TownModel } from './TownModel'
 import { TownRoad } from './TownRoad'
 import { TownDust } from './TownDust'
+import { Birds } from './Birds'
 import { CafeModel } from './CafeModel'
 import { HomeModel } from './HomeModel'
 import { HomeLights } from './HomeLights'
@@ -356,6 +357,7 @@ export function Scene() {
           </Suspense>
           <TownRoad />
           <TownDust />
+          <Birds />
           {edit && <ColliderEditor />}
           {zonesEdit && <ZoneEditor />}
           {debug && !edit && <ColliderDebug boundary={WORLD.boundary} />}
