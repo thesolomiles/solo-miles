@@ -18,4 +18,5 @@ export const INTERACT_ZONES: InteractZone[] = [
   { id: "zkjs0ff", verb: "Use vending machine", minX: 14.2, maxX: 15.7, minZ: -0.4, maxZ: 1.8 },
   { id: "z9mqziw", verb: "Enter home", minX: -9.7, maxX: -7, minZ: -1.4, maxZ: 2.8 },
   { id: "zbydnja", verb: "Forest roads ahead", minX: -3.6, maxX: -1.7, minZ: -5.7, maxZ: -3.3 },
+  { id: "zsouthtrail", verb: "Follow the trail", minX: 14.6, maxX: 17.2, minZ: 21.1, maxZ: 23.6 },
 ]
