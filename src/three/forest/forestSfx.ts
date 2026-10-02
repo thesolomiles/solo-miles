@@ -147,6 +147,125 @@ export function playForestSfx(names: ForestSound[]) {
   }
 }
 
+// --- The wisp's voice --------------------------------------------------------------
+
+/**
+ * Short vowels in a tiny voice: formants (F1, F2) a shade above a child's, so
+ * it reads small and cute. Each syllable is a soft triangle tone (bright on a
+ * little rising-then-settling chirp) shaped by two vowel filters.
+ */
+const VOWELS = {
+  i: [380, 3000],
+  e: [560, 2500],
+  a: [950, 1650],
+  o: [620, 1150],
+  u: [420, 1100],
+} as const
+type Vowel = keyof typeof VOWELS
+
+/** One syllable: a soft onset (like p / m), a chirp of pitch, a vowel that
+ *  can glide into a second one (pi-yu, mu-i). `rise` > 1 ends it on a lift. */
+function syllable(
+  c: AudioContext,
+  to: AudioNode,
+  t: number,
+  f: number,
+  dur: number,
+  vol: number,
+  v0: Vowel,
+  v1: Vowel = v0,
+  rise = 1,
+) {
+  const o = c.createOscillator()
+  o.type = 'triangle'
+  o.frequency.setValueAtTime(f * 0.88, t)
+  o.frequency.exponentialRampToValueAtTime(f * 1.12, t + dur * 0.3)
+  o.frequency.exponentialRampToValueAtTime(f * rise, t + dur)
+  const env = c.createGain()
+  env.gain.setValueAtTime(0.0001, t)
+  env.gain.exponentialRampToValueAtTime(vol, t + 0.018)
+  env.gain.setTargetAtTime(vol * 0.6, t + 0.03, dur * 0.4)
+  env.gain.setTargetAtTime(0.0001, t + dur * 0.7, dur * 0.12)
+  // A little of the plain tone underneath, so it stays round, not nasal.
+  const dry = c.createGain()
+  dry.gain.value = 0.35
+  o.connect(dry).connect(env)
+  VOWELS[v0].forEach((fq, k) => {
+    const bp = c.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.Q.value = 5
+    bp.frequency.setValueAtTime(fq, t)
+    bp.frequency.exponentialRampToValueAtTime(VOWELS[v1][k], t + dur * 0.8)
+    const g = c.createGain()
+    g.gain.value = k === 0 ? 1.4 : 0.9
+    o.connect(bp).connect(g).connect(env)
+  })
+  env.connect(to)
+  o.start(t)
+  o.stop(t + dur + 0.25)
+}
+
+export type WispCall = 'hello' | 'beckon' | 'giggle' | 'babble'
+
+let wispBus: { pan: StereoPannerNode | null; in: AudioNode } | null = null
+
+/**
+ * The wisp says something. Soft and close (it's right there with him, so no
+ * echo), panned toward where it is in the frame (`pan` -1 left … 1 right).
+ * - hello: it arrives — "pi-yu!"
+ * - beckon: this way — "mu-mu?" ending on a lift
+ * - giggle: circling him — a quick falling "hi-hi-hi"
+ * - babble: a little chatter to itself
+ */
+export function playWispCall(call: WispCall, pan = 0) {
+  const c = audio()
+  if (!c || !out || c.state !== 'running') return
+  if (!wispBus) {
+    const lp = c.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = 4200
+    const g = c.createGain()
+    g.gain.value = 0.9
+    const p = c.createStereoPanner ? c.createStereoPanner() : null
+    if (p) lp.connect(p).connect(g)
+    else lp.connect(g)
+    g.connect(out)
+    wispBus = { pan: p, in: lp }
+  }
+  const t = c.currentTime + 0.01
+  wispBus.pan?.pan.setTargetAtTime(Math.max(-0.8, Math.min(0.8, pan)), t, 0.05)
+  const to = wispBus.in
+  const f = vary(880, 0.06)
+  const V = 0.12
+  const pickV = (vs: Vowel[]) => vs[Math.floor(Math.random() * vs.length)]
+  switch (call) {
+    case 'hello':
+      syllable(c, to, t, f, 0.1, V, 'i')
+      syllable(c, to, t + 0.13, f * 1.2, 0.16, V, 'i', 'u', 1.05)
+      break
+    case 'beckon': {
+      const v = pickV(['u', 'o', 'u'])
+      syllable(c, to, t, f * 0.95, 0.11, V * 0.9, v)
+      syllable(c, to, t + 0.15, f * 1.05, 0.17, V, v, 'i', 1.3)
+      break
+    }
+    case 'giggle':
+      for (let i = 0; i < 3; i++) syllable(c, to, t + i * 0.1, f * (1.25 - i * 0.09), 0.08, V * (1 - i * 0.15), 'i', 'e')
+      break
+    case 'babble': {
+      const n = 2 + Math.floor(Math.random() * 3)
+      let s = t
+      for (let i = 0; i < n; i++) {
+        const d = vary(0.1, 0.25)
+        const last = i === n - 1
+        syllable(c, to, s, vary(f, 0.12), d, V * 0.8, pickV(['i', 'e', 'a', 'o', 'u']), pickV(['i', 'u', 'a']), last && Math.random() < 0.5 ? 1.25 : 1)
+        s += d + vary(0.04, 0.4)
+      }
+      break
+    }
+  }
+}
+
 // --- Ambience ----------------------------------------------------------------------
 
 const BED_VOL = 0.55

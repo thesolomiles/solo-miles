@@ -135,8 +135,10 @@ export const FOREST = {
    *  `appearAfter` u. While he walks its way (right) it zips in and out of
    *  the frame ahead of him: in to a spot (`spotK` = share of the half-frame
    *  right of the camera's centre, so well ahead of him; `spotY` u up),
-   *  hovers there `hold` s, zips out past the edge (`outK` > 1, `outY` up),
-   *  stays out `away` s, and again — each zip `zip` s. If he stops it waits; after `waitAfter` s it
+   *  hovers there `hold` s, then (`outChance` of the time) zips out past the
+   *  edge (`outK` > 1, `outY` up) and stays out `away` s, or else just glides
+   *  to a new spot — each zip an eased `zip` s glide (Leonard: less zippy).
+   *  If he stops it waits; after `waitAfter` s it
    *  drifts closer over `closeIn` s (to `closest` u off; Leonard: not too
    *  near), then circles him (`orbitR` u out, `orbitSpeed` rad/s), arcing
    *  `orbitLift` u up over his head as it passes behind and in front. When he walks on it races back out in front.
@@ -148,9 +150,10 @@ export const FOREST = {
     spotY: [0.6, 5.2] as [number, number],
     outK: 1.4,
     outY: [1.0, 6.5] as [number, number],
-    hold: [0.8, 2.0] as [number, number],
-    away: [0.3, 1.0] as [number, number],
-    zip: 0.35,
+    hold: [2.4, 4.2] as [number, number],
+    away: [0.8, 1.6] as [number, number],
+    outChance: 0.45,
+    zip: 0.85,
     waitAfter: 5,
     closeIn: 10,
     closest: 2.4,
@@ -159,9 +162,9 @@ export const FOREST = {
     /** How far it rises as it passes behind / in front of him (u). */
     orbitLift: 1.1,
     follow: 2.4,
-    dart: 11,
-    rush: 9,
-    rushFor: 1.1,
+    dart: 6,
+    rush: 5.5,
+    rushFor: 1.5,
   },
 
   /** Walk → run after `runAfter` s of holding a direction. The run is a

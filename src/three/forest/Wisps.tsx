@@ -5,6 +5,7 @@ import { glowTexture, hash3 } from './forestAssets'
 import { CHARACTER_LAYER } from './CharacterMask'
 import { FOREST } from '../../config/forest'
 import { forestFrame, forestView } from '../../systems/forestView'
+import { playWispCall, type WispCall } from './forestSfx'
 
 /**
  * The forest wisp — a small, cute spirit that floats ahead of Leonard and
@@ -464,16 +465,32 @@ export function WispGuide() {
       orbitA: 0,
       cycleStart: 0,
       cycleN: 0,
+      /** Which leg of the cycle it's on, and where (camera-relative) that leg set off from. */
+      phase: -1,
+      fromX: 0,
+      fromY: 0,
+      /** It was out of frame (so arriving earns a hello). */
+      wasOut: true,
+      orbiting: false,
+      /** When it may next speak, and when it next will unprompted. */
+      quietUntil: 0,
+      chatAt: 0,
       pos: new THREE.Vector3(),
       target: new THREE.Vector3(),
     }
     return (t: number, out: THREE.Vector3) => {
-      if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__wisp = st
+      if (import.meta.env.DEV) Object.assign(window, { __wisp: st, __wispSay: playWispCall })
       const dt = st.lastT < 0 ? 1 / 60 : Math.min(0.05, Math.max(0, t - st.lastT))
       st.lastT = t
       const halfX = frame.current.halfX
       const wx = forestView.walkerX
       const camX = forestView.camX
+      // Its voice: never on top of itself, panned to where it is on screen.
+      const say = (call: WispCall, gap = 1.6) => {
+        if (t < st.quietUntil) return
+        st.quietUntil = t + gap
+        playWispCall(call, (st.pos.x - camX) / halfX)
+      }
       if (Number.isNaN(st.startX)) {
         st.startX = wx
         st.prevX = wx
@@ -502,43 +519,72 @@ export function WispGuide() {
       const bob = 0.28 * Math.sin(t * 1.3) + 0.12 * Math.sin(t * 2.9 + 1)
       let rate: number = W.follow
       if (moving) {
-        if (st.idle > 0.4) st.rush = W.rushFor // he's off again: race ahead
+        if (st.idle > 0.4) {
+          st.rush = W.rushFor // he's off again: race ahead
+          if (st.idle > 2) say('hello')
+        }
+        st.orbiting = false
         st.idle = 0
         const z = -0.3 + 0.35 * Math.sin(t * 0.7)
         if (towards) {
-          // Zipping in and out of the frame ahead: in to a spot well ahead of
-          // him, anywhere from the ferns to up among the trunks; hover there,
-          // looping loosely; zip back out past the edge; stay out a moment.
-          const h = (salt: number) => hash3(st.cycleN, 5, salt)
+          // Leading the way: it glides in to a spot well ahead of him (anywhere
+          // from the ferns to up among the trunks), hovers there looping
+          // loosely, then either slips out past the edge for a moment or just
+          // drifts on to a new spot. Each glide eases out and in — Leonard:
+          // less zippy.
           const lerp = THREE.MathUtils.lerp
-          const hold = lerp(W.hold[0], W.hold[1], h(1))
-          const away = lerp(W.away[0], W.away[1], h(2))
+          let h = (salt: number) => hash3(st.cycleN, 5, salt)
+          let exits = h(6) < W.outChance
+          let hold = lerp(W.hold[0], W.hold[1], h(1))
+          let away = exits ? lerp(W.away[0], W.away[1], h(2)) : 0
           let e = t - st.cycleStart
-          if (e > W.zip * 2 + hold + away) {
+          if (e > (exits ? W.zip * 2 : W.zip) + hold + away) {
+            st.wasOut = exits
             st.cycleN++
             st.cycleStart = t
             e = 0
+            h = (salt: number) => hash3(st.cycleN, 5, salt)
+            exits = h(6) < W.outChance
+            hold = lerp(W.hold[0], W.hold[1], h(1))
+            away = exits ? lerp(W.away[0], W.away[1], h(2)) : 0
           }
-          const spotX = camX + halfX * lerp(W.spotK[0], W.spotK[1], h(3))
+          const spotX = halfX * lerp(W.spotK[0], W.spotK[1], h(3))
           const spotY = lerp(W.spotY[0], W.spotY[1], h(4))
-          const outX = camX + halfX * W.outK
+          const outX = halfX * W.outK
           const outY = lerp(W.outY[0], W.outY[1], h(5))
-          if (e < W.zip) {
-            // Zip in, swooping a little on the way.
-            st.target.set(spotX, spotY + 0.8 * Math.sin((e / W.zip) * Math.PI), z)
+          const phase = e < W.zip ? 0 : e < W.zip + hold ? 1 : e < W.zip * 2 + hold ? 2 : 3
+          if (phase !== st.phase) {
+            st.phase = phase
+            st.fromX = st.pos.x - camX
+            st.fromY = st.pos.y
+            if (phase === 0 && st.wasOut) say('hello')
+            if (phase === 1 && !st.wasOut && Math.random() < 0.35) say('babble')
+            if (phase === 0) st.wasOut = false
+          }
+          // A glide from where the leg set off, eased at both ends, with a
+          // gentle swoop in the middle.
+          const glide = (x: number, y: number, k: number) => {
+            const s = sstep(0, 1, k)
+            st.target.set(camX + lerp(st.fromX, x, s), lerp(st.fromY, y, s) + 0.6 * Math.sin(k * Math.PI), z)
             rate = W.dart
-          } else if (e < W.zip + hold) {
-            st.target.set(spotX + 0.5 * Math.sin(t * 1.7), spotY + 0.45 * Math.sin(t * 2.3 + 1), z)
-          } else if (e < W.zip * 2 + hold) {
-            st.target.set(outX, outY + 0.8 * Math.sin(((e - W.zip - hold) / W.zip) * Math.PI), z)
-            rate = W.dart
-          } else st.target.set(outX, outY, z)
+          }
+          if (phase === 0) glide(spotX, spotY, e / W.zip)
+          else if (phase === 1)
+            st.target.set(camX + spotX + 0.5 * Math.sin(t * 1.2), spotY + 0.4 * Math.sin(t * 1.7 + 1), z)
+          else if (phase === 2) glide(outX, outY, (e - W.zip - hold) / W.zip)
+          else st.target.set(camX + outX, outY, z)
         } else {
           // Walking away from where it's leading: it hangs back on the right
           // of the frame, never leaving it, beckoning him to turn round, and
           // roaming up and down.
           const k = 0.6 + 0.15 * Math.sin(t * 0.8) + 0.12 * Math.pow(Math.max(0, Math.sin(t * 2.4)), 3)
           st.target.set(camX + halfX * k, W.height + 1.6 * (0.5 + 0.5 * Math.sin(t * 0.45)) + bob, z)
+          if (t > st.chatAt) {
+            st.chatAt = t + 3.5 + Math.random() * 3
+            say('beckon')
+          }
+          st.phase = -1
+          st.wasOut = false
         }
         st.orbitA = 0 // circling starts on his right
       } else {
@@ -549,6 +595,12 @@ export function WispGuide() {
           st.waitLead = THREE.MathUtils.clamp(ahead, W.closest, Math.max(W.closest, edge))
         }
         st.idle += dt
+        st.phase = -1
+        st.wasOut = false
+        if (st.idle > 0.8 && st.idle - dt <= 0.8) {
+          say('beckon')
+          st.chatAt = t + 4 + Math.random() * 3
+        }
         // Waiting, with little forward bobs — this way! Then closer and
         // closer the longer he stands there, and in the end, circling him.
         const close = sstep(W.waitAfter, W.waitAfter + W.closeIn, st.idle)
@@ -559,6 +611,14 @@ export function WispGuide() {
         // cutting across it, past his nose.
         const orbit = sstep(W.waitAfter + W.closeIn * 0.7, W.waitAfter + W.closeIn + 2, st.idle)
         st.orbitA += W.orbitSpeed * dt * orbit
+        if (orbit > 0.5 && !st.orbiting) {
+          st.orbiting = true
+          say('giggle')
+        }
+        if (st.idle > 1 && t > st.chatAt) {
+          st.chatAt = t + 4 + Math.random() * 4
+          say(st.orbiting ? (Math.random() < 0.5 ? 'giggle' : 'babble') : Math.random() < 0.6 ? 'beckon' : 'babble')
+        }
         const r = THREE.MathUtils.lerp(lead + beckon, W.orbitR, orbit)
         st.target.set(
           wx + r * Math.cos(st.orbitA), // from 0: on his right
