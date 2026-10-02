@@ -3,6 +3,7 @@ import type { DialogueChoice, Interactable, InteractZone, SectionId } from '../c
 import { CAFE } from '../config/cafe'
 import { HOME } from '../config/home'
 import { FOREST_SIGN } from '../config/town'
+import { SOUTH_TRAIL } from '../config/forest'
 import { ROUTES, routeScript } from '../config/worlds'
 import type { IntroPhase } from '../systems/intro'
 
@@ -34,6 +35,7 @@ export type Transition =
   | { kind: 'interior'; to: InteriorId | null }
   | { kind: 'minigame'; to: MinigameId | null }
   | { kind: 'ride'; to: string | null }
+  | { kind: 'forest'; to: boolean }
 
 /**
  * Discrete game/UI state shared between the r3f scene and the React HUD.
@@ -87,6 +89,9 @@ interface GameState {
   arcade: ArcadeHud | null
   /** Bumped by "Retry" — the running minigame restarts when it changes. */
   arcadeRun: number
+  /** True while on the forest walk (the side-on world past the south trail,
+      three/forest/). The town Player is unmounted; the walker takes over. */
+  forest: boolean
   /** An in-progress fade-to-black (town↔café or café↔minigame), or null when
       idle. The fade overlay (Hud) drives it: request → fade out → commit at
       black → fade in → end. */
@@ -129,6 +134,8 @@ interface GameState {
   /** Begin a café↔minigame fade. Closes the selector so SELECT doesn't sit
       on top of the black. */
   requestMinigame: (to: MinigameId | null) => void
+  /** Begin a town↔forest fade. */
+  requestForest: (to: boolean) => void
   /** Apply the pending world swap — called by the overlay at full black. */
   commitInterior: () => void
   /** Clear the transition once the fade-in finishes. */
@@ -154,6 +161,7 @@ export const useGame = create<GameState>((set, get) => ({
   minigame: null,
   arcade: null,
   arcadeRun: 0,
+  forest: false,
   transition: null,
   sendBack: false,
 
@@ -180,6 +188,10 @@ export const useGame = create<GameState>((set, get) => ({
     if (section || worldOpen || gamesOpen || siteOpen || transition || minigame) return
     if (dialogue) {
       get().advance()
+    } else if (get().forest) {
+      // Nothing to press in the forest (the town's zones sit under the walker's
+      // parked town position, so don't let them fire).
+      return
     } else if (near) {
       set({ dialogue: near, line: 0, near: null })
     } else if (nearZone) {
@@ -207,6 +219,10 @@ export const useGame = create<GameState>((set, get) => ({
       }
       if (interior === 'cafe' && nearZone.id === CAFE.playZoneId) {
         get().openGames()
+        return
+      }
+      if (!interior && nearZone.id === SOUTH_TRAIL.zoneId) {
+        set({ dialogue: SOUTH_TRAIL.interact, line: 0, nearZone: null })
         return
       }
       if (!interior && nearZone.id === FOREST_SIGN.zoneId) {
@@ -255,6 +271,8 @@ export const useGame = create<GameState>((set, get) => ({
       else set({ sendBack: true })
     } else if (choice.outcome === 'openWorld') set({ worldOpen: true })
     else if (choice.outcome === 'openSite') set({ siteOpen: true, near: null, nearZone: null })
+    else if (choice.outcome === 'enterForest') get().requestForest(true)
+    else if (choice.outcome === 'leaveForest') get().requestForest(false)
   },
 
   closeDialogue: () => set({ dialogue: null, line: 0 }),
@@ -304,10 +322,15 @@ export const useGame = create<GameState>((set, get) => ({
       nearZone: null,
     })
   },
+  requestForest: (to) => {
+    if (get().transition) return
+    set({ transition: { kind: 'forest', to }, near: null, nearZone: null })
+  },
   commitInterior: () => {
     const t = get().transition
     if (!t) return
     if (t.kind === 'interior') set({ interior: t.to })
+    else if (t.kind === 'forest') set({ forest: t.to })
     else if (t.kind === 'ride') set({ ride: t.to, rideLine: 0 })
     else if (t.to) {
       set({

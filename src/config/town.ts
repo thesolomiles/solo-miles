@@ -18,8 +18,15 @@ export type SectionId = 'about' | 'cycling' | 'travel' | 'contact' | 'story'
  * - `sendBack`  — close, then walk the player back toward town, facing town.
  * - `openWorld` — close, then open Leonard's world selector (country → route).
  * - `openSite`  — close, then open Leonard's personal site in the fake browser.
+ * - `enterForest` / `leaveForest` — fade into / out of the forest walk.
  */
-export type ChoiceOutcome = 'dismiss' | 'sendBack' | 'openWorld' | 'openSite'
+export type ChoiceOutcome =
+  | 'dismiss'
+  | 'sendBack'
+  | 'openWorld'
+  | 'openSite'
+  | 'enterForest'
+  | 'leaveForest'
 
 /** A branch offered at the end of a dialogue (Leonard's "go for a ride?"). */
 export interface DialogueChoice {

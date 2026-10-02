@@ -37,7 +37,18 @@ OUT = os.path.join(ROOT, "public/models/character.glb")
 BASE = "idle.fbx"  # the one exported "With Skin"
 # Source files keep their Mixamo names; these map to the clip names the game
 # plays. Anything else becomes a clip named after its file.
-NAME_MAP = {"Falling": "fall", "Falling To Landing": "land"}
+NAME_MAP = {
+    "Falling": "fall",
+    "Falling To Landing": "land",
+    "Standing To Crouched": "stand-to-crouch",
+    "Crouch To Stand": "crouch-to-stand",
+    "Climbing": "climb",
+    "Climb-over": "climb-over",
+}
+# Loops whose vertical climb the GAME supplies (it moves him up the wall): their
+# per-cycle rise is ramped out so the loop climbs in place and repeats without a
+# drop at the seam. The body's bob within the cycle stays.
+INPLACE_UP = {"climb"}
 # Kept in the folder for later but not shipped (the player never sits yet).
 SKIP = {"Stand To Sit"}
 
@@ -110,13 +121,32 @@ def retarget(base_arm, clip_arm, clip_action, name):
         bpy.context.scene.frame_set(fs)
         w = (clip_arm.matrix_world @ hips.matrix).translation
         anchor = (w.x, w.y)
+        # Report the hips' travel (start → end, and the peak), in Blender units,
+        # so a game controller can match a clip that climbs or vaults.
+        z0 = w.z
+        bpy.context.scene.frame_set(fe)
+        we = (clip_arm.matrix_world @ hips.matrix).translation
+        zmax = max(
+            (bpy.context.scene.frame_set(f) or (clip_arm.matrix_world @ hips.matrix).translation.z)
+            for f in range(fs, fe + 1)
+        )
+        log(f"travel {name}: frames {fs}-{fe} horiz ({we.x - w.x:.3f}, {we.y - w.y:.3f}) "
+            f"up {we.z - z0:.3f} peak {zmax - z0:.3f} hipsZ0 {z0:.3f}")
+
+    rise = 0.0
+    if anchor is not None and name in INPLACE_UP:
+        bpy.context.scene.frame_set(fs)
+        za = (clip_arm.matrix_world @ hips.matrix).translation.z
+        bpy.context.scene.frame_set(fe)
+        rise = (clip_arm.matrix_world @ hips.matrix).translation.z - za
 
     for f in range(fs, fe + 1):
         bpy.context.scene.frame_set(f)
-        dx = dy = 0.0
+        dx = dy = dz = 0.0
         if anchor is not None:
             w = (clip_arm.matrix_world @ hips.matrix).translation
             dx, dy = w.x - anchor[0], w.y - anchor[1]
+            dz = rise * (f - fs) / max(1, fe - fs)
         b2w = base_arm.matrix_world.inverted()
         for bname in order:
             cb = clip_pb.get(bname)
@@ -125,7 +155,7 @@ def retarget(base_arm, clip_arm, clip_action, name):
             pb = base_pb[bname]
             world = (clip_arm.matrix_world @ cb.matrix).copy()
             t = world.translation
-            world.translation = Vector((t.x - dx, t.y - dy, t.z))  # de-drift, keep hop
+            world.translation = Vector((t.x - dx, t.y - dy, t.z - dz))  # de-drift, keep hop
             # match world pose, expressed in base armature space
             pb.matrix = b2w @ world
             bpy.context.view_layer.update()  # so children see the new parent

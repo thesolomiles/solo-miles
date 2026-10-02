@@ -12,6 +12,8 @@ import { RideHud } from './RideHud'
 import { RideRouteOverview } from './RideRouteOverview'
 import { PacmanHud } from './PacmanHud'
 import { NinjaRunHud } from './NinjaRunHud'
+import { ForestTouch } from './ForestTouch'
+import { SOUTH_TRAIL } from '../config/forest'
 import { SpeechBox } from './SpeechBox'
 import { PersonalSite, usePersonalSiteSfx } from './PersonalSite'
 import { isTypingTarget } from '../systems/input'
@@ -21,6 +23,8 @@ const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: 
 
 function Hint() {
   const [show, setShow] = useState(true)
+  // The forest walk has its own hint (ForestHint).
+  const forest = useGame((s) => s.forest)
   useEffect(() => {
     const t = setTimeout(() => setShow(false), 5600)
     return () => clearTimeout(t)
@@ -28,6 +32,19 @@ function Hint() {
   const text = isTouch
     ? 'Tap to walk · hold and drag to steer · tap a prompt to interact'
     : 'Click or WASD / arrows to move · Space to jump · walk up to a door or a face and press E'
+  return <div className={'hint' + (show && !forest ? ' hint--show' : '')}>{text}</div>
+}
+
+/** The forest walk's controls, shown for a few seconds on arriving. */
+function ForestHint() {
+  const [show, setShow] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setShow(false), 6000)
+    return () => clearTimeout(t)
+  }, [])
+  const text = isTouch
+    ? 'Hold left or right to walk (keep holding to run) · swipe up to jump'
+    : '← → walk (keep holding to run) · Space jump · Esc town'
   return <div className={'hint' + (show ? ' hint--show' : '')}>{text}</div>
 }
 
@@ -219,6 +236,7 @@ export function Hud() {
   const minigame = useGame((s) => s.minigame)
   const ride = useGame((s) => s.ride)
   const nearZone = useGame((s) => s.nearZone)
+  const forest = useGame((s) => s.forest)
   useWorldSelectorSfx()
   useGamesSelectorSfx()
   usePersonalSiteSfx()
@@ -250,6 +268,8 @@ export function Hud() {
         if (st.minigame) {
           if (st.arcade?.status === 'won' || st.arcade?.status === 'lost') st.requestMinigame(null)
           else st.setArcadePaused(!st.arcade?.paused)
+        } else if (st.forest && !st.transition) {
+          useGame.setState({ dialogue: SOUTH_TRAIL.leave, line: 0 })
         } else if (st.gamesOpen) st.closeGames()
         else if (st.siteOpen) st.closeSite()
         else if (st.worldOpen) st.closeWorld()
@@ -268,6 +288,10 @@ export function Hud() {
       <SkySheet />
       <IntroStart />
       {started && <Hint />}
+      {/* Canopy shade: the forest darkens toward the treetops. */}
+      {forest && <div className="forest-shade" />}
+      {forest && <ForestHint />}
+      {forest && isTouch && !dialogue && <ForestTouch />}
       {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !minigame && !ride && (
         <TouchControls />
       )}

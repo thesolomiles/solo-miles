@@ -6,6 +6,8 @@ import { CAFE } from '../config/cafe'
 import { HOME } from '../config/home'
 import { NINJA_RUN, PACMAN, ninjaView } from '../config/arcade'
 import { RIDE } from '../config/ride'
+import { FOREST } from '../config/forest'
+import { forestFrame, forestView } from '../systems/forestView'
 import { arcadeFocus } from '../systems/arcadeFocus'
 import { useGame } from '../state/store'
 import { intro } from '../systems/intro'
@@ -110,6 +112,15 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     return { sideQuat: new THREE.Quaternion().setFromRotationMatrix(m), sideOffset: eye }
   }, [])
 
+  // The forest walk's side-on camera: like Ninja Run's, pitched a touch down
+  // along −Z, never re-aimed — it only slides along x after the walker.
+  const forestQuat = useMemo(() => {
+    const pitch = THREE.MathUtils.degToRad(FOREST.pitchDeg)
+    const eye = new THREE.Vector3(0, Math.sin(pitch), Math.cos(pitch))
+    const m = new THREE.Matrix4().lookAt(eye, new THREE.Vector3(), _up)
+    return new THREE.Quaternion().setFromRotationMatrix(m)
+  }, [])
+
   // Constants for mapping the fixed camera to the ground plane it centres on, so
   // the edge-clamp can reason in ground-space. The camera never re-aims, so the
   // view direction and the player→ground-centre offset are both constant.
@@ -155,8 +166,33 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     cam.quaternion.copy(fixedQuat) // constant — locked, never re-aimed
 
     const p = posRef.current
-    const { interior: interiorNow, minigame: minigameNow, ride: rideNow, started } =
+    const { interior: interiorNow, minigame: minigameNow, ride: rideNow, forest, started } =
       useGame.getState()
+    const aspectNow = size.width / Math.max(size.height, 1)
+
+    if (forest) {
+      const f = forestFrame(aspectNow)
+      if (f.h !== frustum.current.h || aspectNow !== frustum.current.aspect) {
+        frustum.current = { h: f.h, aspect: aspectNow }
+        applyFrustum(cam, f.h, aspectNow)
+      }
+      // Ease after the walker, a little ahead of the way he faces; snap on entry.
+      const want = forestView.walkerX + forestView.facing * FOREST.lead
+      if (forestView.snap) {
+        forestView.camX = want
+        forestView.snap = false
+      } else {
+        forestView.camX += (want - forestView.camX) * Math.min(1, dt * FOREST.follow)
+      }
+      const pitch = THREE.MathUtils.degToRad(FOREST.pitchDeg)
+      cam.quaternion.copy(forestQuat)
+      cam.position.set(
+        forestView.camX,
+        f.lookY + Math.sin(pitch) * FOREST.camDist,
+        Math.cos(pitch) * FOREST.camDist,
+      )
+      return
+    }
     const riding = rideNow !== null
     const framed = interiorNow !== null || minigameNow !== null || riding
     const aspect = size.width / Math.max(size.height, 1)

@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { captureDerivedColliders } from '../systems/colliders'
 import { densifyForest } from '../systems/forest'
+import { clearSouthTrail } from '../systems/southTrail'
 import { instanceScatter } from '../systems/instancing'
 import { bakeRiverDepth, getRiverGrid } from '../systems/riverDepth'
 import { buildRiverFoam } from '../systems/riverRocks'
@@ -383,6 +384,8 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
     // and canopy colliders (they keep the Pine_/Round_ names the collider and
     // shadow passes key off).
     densifyForest(scene)
+    // Cut the south trail (into the forest walk) through the trees.
+    clearSouthTrail(scene)
     // Bake the water depth over the riverbed for the depth-shaded water.
     const river = scene.getObjectByName('River') as THREE.Mesh | undefined
     const ground = scene.getObjectByName('Ground') as THREE.Mesh | undefined

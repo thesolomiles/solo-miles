@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
 import type { InteractZone } from '../config/town'
@@ -98,14 +98,27 @@ function EditableZone({ zone, index, selected, select, update }: BoxProps) {
     }
   }
 
+  const ew = Math.max(w, 0.05)
+  const ed = Math.max(d, 0.05)
+  const edges = useMemo(() => {
+    const box = new THREE.BoxGeometry(ew, SLAB_H, ed)
+    const g = new THREE.EdgesGeometry(box)
+    box.dispose()
+    return g
+  }, [ew, ed])
+  useEffect(() => () => edges.dispose(), [edges])
+
   return (
     <group>
       {/* No floating label — the box's id lives in the editor panel when it's
           selected. Nothing random hangs in the scene. */}
 
-      {/* The box slab — click to select, then drag its face to move it. */}
+      {/* The box slab — click to select, then drag its face to move it. Drawn
+          over everything (no depth test) so a box under the pines stays visible;
+          trees carry no pointer handlers, so clicks reach it through them. */}
       <mesh
         position={[cx, SLAB_Y, cz]}
+        renderOrder={999}
         onPointerDown={(e) => {
           e.stopPropagation()
           select(index)
@@ -123,8 +136,13 @@ function EditableZone({ zone, index, selected, select, update }: BoxProps) {
           transparent
           opacity={selected ? 0.36 : 0.26}
           depthWrite={false}
+          depthTest={false}
         />
       </mesh>
+      {/* Crisp outline on top, so the box's edges read even over dark foliage. */}
+      <lineSegments position={[cx, SLAB_Y, cz]} geometry={edges} renderOrder={1000} raycast={() => null}>
+        <lineBasicMaterial color={selected ? 0x35e0ff : 0x8fc2ff} depthTest={false} transparent />
+      </lineSegments>
 
       {/* Corner handles (resize) — only on the selected box. */}
       {selected &&

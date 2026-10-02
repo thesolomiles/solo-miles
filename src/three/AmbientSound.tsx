@@ -202,7 +202,8 @@ export function AmbientSound({ playerPos }: { playerPos: RefObject<THREE.Vector3
     const st = useGame.getState()
     // Outdoor ambience is the TOWN's — silence the birds + river inside an
     // interior (the café), which has its own BGM instead.
-    const outdoors = st.started && !st.interior
+    // (The forest walk is its own world: the town's birds and river fade out.)
+    const outdoors = st.started && !st.interior && !st.forest
     const k = Math.min(1, delta * FADE_K)
     const birdTarget = outdoors ? BIRD_VOL : 0
     const riverTarget = outdoors ? riverNearness(playerPos.current.z) * RIVER_MAX : 0

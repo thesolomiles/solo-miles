@@ -41,7 +41,8 @@ export default function App() {
   // The warm veil would tint the intro skydive's blue sky, so it waits for the town.
   const diving = useGame((s) => s.introPhase === 'boot' || s.introPhase === 'sky' || s.introPhase === 'cut')
   const indoors = useGame((s) => s.interior !== null)
-  const haze = indoors || minigame || diving ? 0 : hazeKnob
+  const forest = useGame((s) => s.forest)
+  const haze = indoors || minigame || forest || diving ? 0 : hazeKnob
   const map = useMemo<KeyboardControlsEntry<Controls>[]>(
     () => [
       { name: 'forward', keys: ['ArrowUp', 'KeyW'] },

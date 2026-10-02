@@ -59,7 +59,7 @@ export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vect
     // Town actors unmount when the café is up, so the registry only holds
     // whoever is actually in this world (Leonard outdoors, café talkers inside).
     // Stand down during a transition fade or while a dialogue/section is open.
-    if (!st.started || st.dialogue || st.section || st.transition) {
+    if (!st.started || st.dialogue || st.section || st.forest || st.transition) {
       if (st.near) setNear(null)
       return
     }
@@ -93,7 +93,7 @@ export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector
 
   useFrame(() => {
     const st = useGame.getState()
-    if (!st.started || st.dialogue || st.section || st.worldOpen || st.gamesOpen || st.siteOpen || st.minigame || st.ride || st.transition) {
+    if (!st.started || st.dialogue || st.section || st.worldOpen || st.gamesOpen || st.siteOpen || st.minigame || st.ride || st.forest || st.transition) {
       if (st.nearZone) setNearZone(null)
       return
     }

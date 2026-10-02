@@ -9,6 +9,8 @@ import {
 } from '@react-three/postprocessing'
 import { useLighting } from '../state/lighting'
 import { IS_MOBILE } from '../systems/device'
+import { useGame } from '../state/store'
+import { PaintFX } from './forest/PaintFX'
 
 /**
  * The cozy-mood postprocessing stack (Phase 2). Order matters:
@@ -46,6 +48,8 @@ export function PostFX() {
   const contrast = useLighting((s) => s.contrast)
   const brightness = useLighting((s) => s.brightness)
   const vignette = useLighting((s) => s.vignette)
+  // The forest walk is painted: a Kuwahara brush filter + paper grain (PaintFX).
+  const forest = useGame((s) => s.forest)
   // Mobile renders straight to screen — the composer is unusable on iOS (see
   // the module comment above).
   if (IS_MOBILE) return null
@@ -60,6 +64,7 @@ export function PostFX() {
         color="#221812"
       />
       <Bloom intensity={bloomIntensity} luminanceThreshold={bloomThreshold} luminanceSmoothing={0.22} mipmapBlur />
+      {forest ? <PaintFX /> : <></>}
       <HueSaturation saturation={saturation} hue={0} />
       <BrightnessContrast brightness={brightness} contrast={contrast} />
       <Vignette offset={0.28} darkness={vignette} />

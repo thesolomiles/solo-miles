@@ -43,6 +43,10 @@ import { HOME } from '../config/home'
 import { PacmanWorld } from './arcade/PacmanWorld'
 import { NinjaRunWorld } from './arcade/NinjaRunWorld'
 import { RideWorld } from './ride/RideWorld'
+import { ForestWorld } from './forest/ForestWorld'
+import { ForestBgm } from './forest/ForestBgm'
+import { TownTrail } from './TownTrail'
+import { SOUTH_TRAIL } from '../config/forest'
 import { IntroDirector, TownReady } from './Intro'
 
 // Interiors sit in a dark surround (a single room floating in space would
@@ -209,6 +213,25 @@ function InteriorController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
  * Leonard, facing town — so the town fades in with them standing where the ride
  * began. Entering a ride needs no move (the town Player is unmounted).
  */
+/**
+ * On leaving the forest walk, put the player back at the south trail's mouth so
+ * the town fades in with them stepping out of the trees.
+ */
+function ForestController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
+  const forest = useGame((s) => s.forest)
+  const prev = useRef(forest)
+  useEffect(() => {
+    if (prev.current === forest) return
+    const left = prev.current && !forest
+    prev.current = forest
+    if (left) {
+      setActiveWorld('town')
+      posRef.current.copy(SOUTH_TRAIL.returnPos)
+    }
+  }, [forest, posRef])
+  return null
+}
+
 function RideController({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const ride = useGame((s) => s.ride)
   const prevRide = useRef(ride)
@@ -233,6 +256,7 @@ export function Scene() {
   const interior = useGame((s) => s.interior)
   const minigame = useGame((s) => s.minigame)
   const ride = useGame((s) => s.ride)
+  const forest = useGame((s) => s.forest)
   const started = useGame((s) => s.started)
   const introPhase = useGame((s) => s.introPhase)
   const dive = introPhase === 'boot' || introPhase === 'sky' || introPhase === 'cut'
@@ -266,6 +290,8 @@ export function Scene() {
         setActiveWorld('home')
         posRef.current.set(HOME.spawn.x, 0, HOME.spawn.z)
       }
+      // `?forest` boots straight onto the forest walk.
+      if (q.has('forest')) useGame.setState({ forest: true, started: true, introPhase: 'done' })
       if (q.has('cafe')) {
         useGame.setState({ interior: 'cafe', started: true, introPhase: 'done' })
         setActiveWorld('cafe')
@@ -303,14 +329,14 @@ export function Scene() {
     <InteractablesProvider>
       <SkyBackground interior={enclosed ? 'cafe' : null} dive={dive} />
       {/* Town fog only: the ride mounts its own fog (RideWorld); interiors have none. */}
-      {!enclosed && !ride && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
+      {!enclosed && !ride && !forest && <fog attach="fog" args={[WORLD.fog.color, fogNear, fogFar]} />}
 
       {/* Town rig (golden hour): a warm sky/ground ambient, a warm-amber key sun
           casting long soft shadows, and a dim COOL fill from the opposite side —
           the cool fill is deliberate: it tints the shadow sides blue against the
           warm sun for that late-afternoon warm/cool contrast. Gated OFF inside an
           interior — the café lights itself (CafeLights) so the sun never washes it. */}
-      {!enclosed && !ride && (
+      {!enclosed && !ride && !forest && (
         <>
           <hemisphereLight args={[0xf3e2c6, 0x6f5f42, hemisphere]} />
           <ambientLight intensity={ambient} color={0xffe9cf} />
@@ -327,6 +353,8 @@ export function Scene() {
         <NinjaRunWorld />
       ) : ride ? (
         <RideWorld />
+      ) : forest ? (
+        <ForestWorld />
       ) : interior === 'home' ? (
         <>
           <HomeModel />
@@ -359,6 +387,7 @@ export function Scene() {
             <TownReady />
           </Suspense>
           <TownRoad />
+          <TownTrail />
           <TownDust />
           <Birds />
           {edit && <ColliderEditor />}
@@ -371,8 +400,9 @@ export function Scene() {
 
       <InteriorController posRef={posRef} />
       <RideController posRef={posRef} />
-      {!minigame && !ride && <Player posRef={posRef} />}
-      {!minigame && !ride && <PointToMove />}
+      <ForestController posRef={posRef} />
+      {!minigame && !ride && !forest && <Player posRef={posRef} />}
+      {!minigame && !ride && !forest && <PointToMove />}
 
       <OrthoRig posRef={posRef} />
       {!started && <IntroDirector posRef={posRef} />}
@@ -385,6 +415,7 @@ export function Scene() {
       {/* <Bgm playerPos={posRef} /> */}
       <AmbientSound playerPos={posRef} />
       <CafeBgm />
+      <ForestBgm />
 
       <PostFX />
     </InteractablesProvider>

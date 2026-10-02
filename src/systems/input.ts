@@ -22,6 +22,13 @@ export const arcadeMove = { x: 0, z: 0 }
 export const ninjaInput = { jump: false, throw: false }
 
 /**
+ * Forest walk touch input (ui/ForestTouch): `dir` is −1 / 0 / +1 while a finger
+ * holds the left / right of the screen; `jump` latches on an upward swipe and is
+ * consumed by the walker's next frame. Keyboard is read straight from drei.
+ */
+export const forestTouch = { dir: 0, jump: false, crouch: false }
+
+/**
  * True when the focus is in a text field (the dev editor panels' name/verb
  * inputs, etc.). Movement/interact keys must yield to it — otherwise the HUD's
  * global keydown listener preventDefault()s "E"/Space/Enter (so you can't type
