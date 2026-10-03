@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { glowTexture, hash3 } from './forestAssets'
 import { CHARACTER_LAYER } from './CharacterMask'
 import { FOREST } from '../../config/forest'
-import { forestFrame, forestView } from '../../systems/forestView'
+import { forestFrame, forestView, rateAt } from '../../systems/forestView'
 import { playWispCall, type WispCall } from './forestSfx'
 
 /**
@@ -235,6 +235,7 @@ function writeTail(g: THREE.BufferGeometry, pts: THREE.Vector3[], swell: number)
 // --- Puffs shed from the tail ----------------------------------------------------------
 
 const PUFFS = 12
+const PLAIN: WispLook = { scale: 1, opacity: 1, gaze: 0, snap: false }
 interface Puff {
   age: number
   life: number
@@ -244,12 +245,27 @@ interface Puff {
 
 // --- The wisp ----------------------------------------------------------------------------
 
+/** How the wisp shows, set by its motion each frame: `scale` (far back in
+ *  the trees it's drawn smaller — the camera's orthographic, so depth alone
+ *  wouldn't shrink it), `opacity` (fading in and out), `gaze` (−1 looking
+ *  left … +1 right, 0 ahead) and `snap` (it just jumped: settle the tail
+ *  where it is rather than streaming it across). */
+export interface WispLook {
+  scale: number
+  opacity: number
+  gaze: number
+  snap: boolean
+}
+
 /**
  * The wisp. `motion(t)` says where its body is at time t (in the parent's
  * space); the tail and puffs work out the rest from how it actually moved.
  */
-export function Wisp({ motion }: { motion: (t: number, out: THREE.Vector3) => void }) {
+export function Wisp({ motion, look }: { motion: (t: number, out: THREE.Vector3) => void; look?: WispLook }) {
+  const root = useRef<THREE.Group>(null!)
   const body = useRef<THREE.Group>(null!)
+  const light = useRef<THREE.PointLight>(null!)
+  const face = useRef<THREE.Mesh>(null!)
   const tail = useRef<THREE.Mesh>(null!)
   const puffRefs = useRef<(THREE.Sprite | null)[]>([])
 
@@ -323,6 +339,8 @@ export function Wisp({ motion }: { motion: (t: number, out: THREE.Vector3) => vo
       nextPuff: 0,
       puffClock: 0,
       started: false,
+      gaze: 0,
+      at: new THREE.Vector3(),
     }),
     [],
   )
@@ -334,15 +352,35 @@ export function Wisp({ motion }: { motion: (t: number, out: THREE.Vector3) => vo
     const b = body.current
 
     // Body: wherever the motion puts it, leaning into its speed, breathing.
-    motion(t, b.position)
-    if (!sim.started) {
+    // Everything below works in the root's space, which is scaled by
+    // look.scale (about the origin), so the motion's spot is divided down.
+    motion(t, sim.at)
+    const L = look ?? PLAIN
+    root.current.scale.setScalar(L.scale)
+    root.current.visible = L.opacity > 0.003
+    b.position.copy(sim.at).divideScalar(L.scale)
+    if (!sim.started || L.snap) {
       sim.prev.copy(b.position)
+      sim.pts.forEach((p, i) => p.set(b.position.x, b.position.y + 0.36 - i * TAIL_SEG, b.position.z))
+      sim.puffs.forEach((p) => (p.age = p.life))
       sim.started = true
+      L.snap = false
     }
+    // Fading: every part of it at once, and its light with it.
+    const o = L.opacity
+    assets.gas.opacity = assets.tailGas.opacity = assets.faceMat.opacity = o
+    assets.coreMat.opacity = 0.55 * o
+    assets.haloMat.opacity = 0.32 * o
+    light.current.intensity = 3 * o
+    // The face's mask keeps it out of the brush filter; once it's this faint
+    // that would just leave a crisp hole in the painting.
+    face.current.visible = o > 0.3
+    sim.gaze += (L.gaze - sim.gaze) * Math.min(1, dt * 3)
     sim.vel.subVectors(b.position, sim.prev).divideScalar(Math.max(dt, 1e-4))
     sim.prev.copy(b.position)
     b.rotation.z = THREE.MathUtils.clamp(-sim.vel.x * 0.09, -0.5, 0.5) + 0.06 * Math.sin(t * 1.3)
-    b.rotation.y = 0.25 * Math.sin(t * 0.6)
+    // Turning its face (the front of the head) toward where it's looking.
+    b.rotation.y = 0.25 * Math.sin(t * 0.6) * (1 - 0.6 * Math.abs(sim.gaze)) + 0.55 * sim.gaze
     const s = 1 + 0.04 * Math.sin(t * 3.4)
     b.scale.set(1 / Math.sqrt(s), s, 1 / Math.sqrt(s))
     b.updateMatrix()
@@ -388,12 +426,12 @@ export function Wisp({ motion }: { motion: (t: number, out: THREE.Vector3) => vo
       spr.position.copy(p.pos)
       const sz = 0.12 + 0.3 * k
       spr.scale.set(sz, sz, 1)
-      assets.puffMat[i].opacity = k >= 1 ? 0 : 0.28 * Math.sin(Math.PI * k)
+      assets.puffMat[i].opacity = k >= 1 ? 0 : 0.28 * o * Math.sin(Math.PI * k)
     })
   })
 
   return (
-    <group>
+    <group ref={root}>
       <group ref={body}>
         {/* Arms */}
         {[-1, 1].map((s) => (
@@ -405,6 +443,7 @@ export function Wisp({ motion }: { motion: (t: number, out: THREE.Vector3) => vo
           <sphereGeometry args={[0.24, 28, 20]} />
         </mesh>
         <mesh
+          ref={face}
           position={[0, 0.58, 0.25]}
           geometry={assets.faceGeom}
           material={assets.faceMat}
@@ -415,7 +454,7 @@ export function Wisp({ motion }: { motion: (t: number, out: THREE.Vector3) => vo
         <sprite material={assets.coreMat} position={[0, 0.55, 0]} scale={[0.75, 0.75, 1]} />
         <sprite material={assets.haloMat} position={[0, 0.5, 0]} scale={[1.8, 1.8, 1]} />
         {/* Below it, so it lights the ground and the ferns, not its own face. */}
-        <pointLight color={COLOR} intensity={3} distance={4} decay={2} position={[0, -0.25, 0.2]} />
+        <pointLight ref={light} color={COLOR} intensity={3} distance={4} decay={2} position={[0, -0.25, 0.2]} />
       </group>
       <mesh ref={tail} geometry={assets.tailGeom} material={assets.tailGas} frustumCulled={false} />
       {assets.puffMat.map((m, i) => (
@@ -436,8 +475,11 @@ const sstep = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x,
 
 /**
  * The wisp's mind (FOREST.wisp). It's leading him somewhere to the right
- * (+x), and only ever keeps to that side. It turns up once Leonard has
- * started walking, swooping in from the right edge of the frame. While he
+ * (+x), and only ever keeps to that side. It doesn't come straight to him:
+ * a little way in (`watchAt`) it shows up far back among the trees, small
+ * and hazy, keeping pace with him and watching; further on (`meetAt`) it
+ * slips away there and pops up right in front of him, says hello, and from
+ * then on leads. While he
  * walks right it stays in front, drifting about, now and then darting out of
  * frame and peeking back in — come on, this way. Walking left, it hangs back
  * on the right of the frame, beckoning him round. When he stops it waits (bobbing
@@ -450,12 +492,28 @@ export function WispGuide() {
   const frame = useRef({ halfX: 8 })
   frame.current.halfX = forestFrame(size.width / Math.max(size.height, 1)).halfX
 
-  const motion = useMemo(() => {
+  const { motion, look } = useMemo(() => {
     const W = FOREST.wisp
+    const look: WispLook = { scale: 1, opacity: 0, gaze: 0, snap: false }
     const st = {
       lastT: -1,
       startX: NaN,
-      started: false,
+      /** hidden → watching from the back of the forest → slipping away
+       *  there → popping up in front of him → leading. */
+      stage: 'hidden' as 'hidden' | 'watch' | 'leave' | 'meet' | 'lead',
+      stageT: 0,
+      /** Watching from the back: keeping still, or slipping somewhere else
+       *  (from/to camera-relative x, and y) over `dur` s from `t0`. */
+      shy: {
+        moving: false,
+        t0: 0,
+        hold: 0,
+        dur: 0,
+        fromX: 0,
+        fromY: 0,
+        toX: 0,
+        toY: 0,
+      },
       prevX: 0,
       prevCam: NaN,
       speed: 0,
@@ -467,6 +525,8 @@ export function WispGuide() {
       cycleN: 0,
       /** Which leg of the cycle it's on, and where (camera-relative) that leg set off from. */
       phase: -1,
+      /** Which leg of its coy approach it's on (stage 'meet'). */
+      meetLeg: -1,
       fromX: 0,
       fromY: 0,
       /** It was out of frame (so arriving earns a hello). */
@@ -478,7 +538,7 @@ export function WispGuide() {
       pos: new THREE.Vector3(),
       target: new THREE.Vector3(),
     }
-    return (t: number, out: THREE.Vector3) => {
+    const motion = (t: number, out: THREE.Vector3) => {
       if (import.meta.env.DEV) Object.assign(window, { __wisp: st, __wispSay: playWispCall })
       const dt = st.lastT < 0 ? 1 / 60 : Math.min(0.05, Math.max(0, t - st.lastT))
       st.lastT = t
@@ -495,6 +555,9 @@ export function WispGuide() {
         st.startX = wx
         st.prevX = wx
       }
+      // Being put somewhere (the trailhead on entering, a dev teleport) isn't
+      // walking: those jumps don't count toward how far he's come.
+      if (Math.abs(wx - st.prevX) > 1) st.startX += wx - st.prevX
       // His pace, smoothed (teleports aside).
       const v = Math.abs(wx - st.prevX) / Math.max(dt, 1e-4)
       st.prevX = wx
@@ -505,18 +568,153 @@ export function WispGuide() {
       const towards = forestView.facing > 0
       const offscreen = camX + halfX + 3
 
-      // Not yet: it waits just out of frame ahead, unseen.
-      if (!st.started) {
-        st.pos.set(offscreen, W.height + 0.6, -0.3)
+      const bob = 0.28 * Math.sin(t * 1.3) + 0.12 * Math.sin(t * 2.9 + 1)
+      const walked = Math.abs(wx - st.startX)
+      const stage = (s: typeof st.stage) => {
+        st.stage = s
+        st.stageT = t
+      }
+      const since = t - st.stageT
+      // Rides along with the camera, then eases toward the target: otherwise,
+      // chasing a target that moves with the frame, it trails behind it (into
+      // his face) by the walking speed over the rate.
+      const ease = (rate: number) => {
+        if (!Number.isNaN(st.prevCam)) st.pos.x += camX - st.prevCam
+        st.prevCam = camX
+        st.pos.lerp(st.target, 1 - Math.exp(-rate * dt))
         out.copy(st.pos)
-        if (Math.abs(wx - st.startX) > W.appearAfter) {
-          st.started = true
-          st.cycleStart = t
+      }
+
+      // Not yet: nowhere to be seen.
+      if (st.stage === 'hidden') {
+        st.pos.set(offscreen, W.height + 0.6, -0.3)
+        st.prevCam = camX
+        out.copy(st.pos)
+        look.opacity = 0
+        if (walked >= W.watchAt) {
+          stage('watch')
+          // Already where it'll be, just a little low: it rises into view
+          // through the haze as it fades in, as if it had been there all along.
+          const V = W.watch
+          const y = THREE.MathUtils.lerp(V.y[0], V.y[1], Math.random())
+          st.pos.set(camX + halfX * V.x[1], y - 0.5, V.z)
+          Object.assign(st.shy, { moving: false, t0: t, toY: y, hold: THREE.MathUtils.lerp(V.still[0], V.still[1], Math.random()) })
+          look.scale = V.scale
+          look.snap = true
         }
         return
       }
+      // Far back among the trees, small and hazy, and shy: it keeps still
+      // there watching him, so as he walks on it falls behind (at its depth's
+      // pace, the trunks sliding between them). Once it's lagged a while it
+      // slips ahead to a new spot, faint and looking away, and goes still
+      // again. At `meetAt` it zips off past the right edge.
+      if (st.stage === 'watch' || st.stage === 'leave') {
+        const V = W.watch
+        const lerp = THREE.MathUtils.lerp
+        const sh = st.shy
+        const pan = Number.isNaN(st.prevCam) ? 0 : camX - st.prevCam
+        st.prevCam = camX
+        const slip = (toX: number, toY: number, dur: number) =>
+          Object.assign(sh, { moving: true, t0: t, dur, fromX: st.pos.x - camX, fromY: st.pos.y, toX, toY })
+        if (st.stage === 'watch' && walked >= W.meetAt) {
+          stage('leave')
+          slip(halfX * 1.4, lerp(V.y[0], V.y[1], 0.5) + 1.2, V.outZip)
+        }
+        const fadeIn = st.stage === 'watch' ? sstep(0, 1, (t - st.stageT) / V.fadeIn) : 1
+        if (sh.moving) {
+          // Gliding in the frame's terms (so it rides with the camera), eased,
+          // dipping low through the ferns and thinning to a glimmer midway.
+          const k = Math.min(1, (t - sh.t0) / sh.dur)
+          const e = sstep(0, 1, k)
+          st.pos.set(camX + lerp(sh.fromX, sh.toX, e), lerp(sh.fromY, sh.toY, e) - 0.5 * Math.sin(k * Math.PI), V.z)
+          look.opacity = fadeIn * (st.stage === 'leave' ? 1 : 1 - 0.6 * Math.sin(k * Math.PI))
+          look.gaze = Math.sign(sh.toX - sh.fromX) || 1 // looking where it's going, not at him
+          if (k >= 1) {
+            if (st.stage === 'leave') {
+              // Gone. A beat unseen, then it comes back along the path, from
+              // the right, where he's headed.
+              look.opacity = 0
+              if (t - sh.t0 > sh.dur + V.outWait) {
+                stage('meet')
+                st.pos.set(camX + halfX * 1.25, W.height * W.meet.low, -0.3)
+                st.meetLeg = -1
+                look.scale = 1
+                look.opacity = 1
+                look.snap = true
+              }
+            } else {
+              Object.assign(sh, { moving: false, t0: t, hold: lerp(V.still[0], V.still[1], Math.random()) })
+            }
+          }
+          out.copy(st.pos)
+          return
+        }
+        // Still: fixed to its spot in the trees, which drifts by as the camera
+        // pans (slower than the path, like the trunks round it), bobbing a
+        // little and glowing dim and bright, watching him.
+        st.pos.x += pan * (1 - rateAt(V.z))
+        st.pos.y += (sh.toY + 0.3 * bob - st.pos.y) * (1 - Math.exp(-W.follow * dt))
+        look.opacity = fadeIn * (0.82 + 0.18 * Math.sin(t * 0.9))
+        look.gaze = wx < st.pos.x ? -1 : 1
+        const share = (st.pos.x - camX) / halfX
+        // (It may linger till it's slipped out of frame behind him; it won't
+        // stay gone, though.)
+        if ((t - sh.t0 > sh.hold && share < V.lag) || share < -1.2 || share > 1.2)
+          slip(halfX * lerp(V.x[0], V.x[1], Math.random()), lerp(V.y[0], V.y[1], Math.random()), V.catchUp)
+        out.copy(st.pos)
+        return
+      }
+      // Coy to the last: it drifts in along the path from the right, low,
+      // and stops a way off, looking at him; shrinks back a little; then
+      // comes up to him, says hello, and hangs there a moment before it
+      // starts leading. Each leg glides, eased, from where the last one left
+      // it to a spot in the frame (the last two: just ahead of him).
+      if (st.stage === 'meet') {
+        const M = W.meet
+        const low = W.height * M.low
+        const near = wx + M.ahead - camX
+        const legs: [number, number, number][] = [
+          [M.legs[0], halfX * M.peekK, low + 0.2], // drifting in
+          [M.legs[1], halfX * M.peekK, low + 0.2], // stops, watching him
+          [M.legs[2], halfX * M.backK, low - 0.15], // shrinks back
+          [M.legs[3], halfX * M.backK, low - 0.15], // works up the nerve
+          [M.legs[4], near, W.height + 0.35], // comes up to him
+          [M.hold, near, W.height + 0.35], // hello!
+        ]
+        let leg = Math.max(0, st.meetLeg)
+        while (leg < legs.length && since > legs.slice(0, leg + 1).reduce((a, l) => a + l[0], 0)) leg++
+        if (leg >= legs.length) {
+          stage('lead')
+          look.gaze = 0
+          st.cycleStart = t
+          st.phase = -1
+          st.wasOut = false
+          st.target.copy(st.pos)
+          out.copy(st.pos)
+          return
+        }
+        if (leg !== st.meetLeg) {
+          st.meetLeg = leg
+          st.fromX = st.pos.x - camX
+          st.fromY = st.pos.y
+          if (leg === 4) say('hello', 0)
+          if (leg === 2) say('beckon', 0)
+        }
+        const legStart = legs.slice(0, leg).reduce((a, l) => a + l[0], 0)
+        const [d, x, y] = legs[leg]
+        const k = sstep(0, 1, (since - legStart) / d)
+        st.pos.set(
+          camX + THREE.MathUtils.lerp(st.fromX, x, k),
+          THREE.MathUtils.lerp(st.fromY, y, k) + 0.25 * bob * k,
+          -0.3,
+        )
+        st.prevCam = camX
+        look.gaze = -1
+        out.copy(st.pos)
+        return
+      }
 
-      const bob = 0.28 * Math.sin(t * 1.3) + 0.12 * Math.sin(t * 2.9 + 1)
       let rate: number = W.follow
       if (moving) {
         if (st.idle > 0.4) {
@@ -637,15 +835,10 @@ export function WispGuide() {
         st.rush -= dt
         rate = W.rush
       }
-      // Ride along with the camera, then ease toward the target: otherwise,
-      // chasing a target that moves with the frame, it trails behind it
-      // (into his face) by the walking speed over the rate.
-      if (!Number.isNaN(st.prevCam)) st.pos.x += camX - st.prevCam
-      st.prevCam = camX
-      st.pos.lerp(st.target, 1 - Math.exp(-rate * dt))
-      out.copy(st.pos)
+      ease(rate)
     }
+    return { motion, look }
   }, [])
 
-  return <Wisp motion={motion} />
+  return <Wisp motion={motion} look={look} />
 }

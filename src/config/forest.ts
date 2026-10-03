@@ -131,8 +131,18 @@ export const FOREST = {
    *  its air step), no crouch — that still works, just switched off. */
   moves: { run: true, jump: true, crouch: false },
 
-  /** The wisp (three/forest/Wisps.tsx): it shows up once he's walked
-   *  `appearAfter` u. While he walks its way (right) it zips in and out of
+  /** The wisp (three/forest/Wisps.tsx). It arrives in two steps (Leonard,
+   *  2026-10-02): once he's `watchAt` u (m) from where he came in, it shows up
+   *  far back among the trees (`watch`: at depth `z`, `scale`× its size),
+   *  shy: it stays put there `still` s watching him (so as he walks it falls
+   *  behind, the trunks sliding between them), and once it's lagged to `lag`
+   *  of the half-frame right of centre it slips ahead in `catchUp` s, faint
+   *  and looking away, to a new spot `x` share of the half-frame right of
+   *  centre, `y` up. At `meetAt` u it zips out past the right edge
+   *  (`outZip` s), waits `outWait` s unseen, and comes back along the path
+   *  from the right, coyly (`meet`), to just in front of him, then leads as
+   *  below.
+   *  While he walks its way (right) it zips in and out of
    *  the frame ahead of him: in to a spot (`spotK` = share of the half-frame
    *  right of the camera's centre, so well ahead of him; `spotY` u up),
    *  hovers there `hold` s, then (`outChance` of the time) zips out past the
@@ -144,7 +154,34 @@ export const FOREST = {
    *  `orbitLift` u up over his head as it passes behind and in front. When he walks on it races back out in front.
    *  `follow`/`dart`/`rush` = how snappily it chases its target (per s). */
   wisp: {
-    appearAfter: 0.8,
+    watchAt: 10,
+    watch: {
+      z: -20,
+      scale: 0.8,
+      x: [0.4, 0.8] as [number, number],
+      y: [0.9, 2.1] as [number, number],
+      still: [2.5, 5] as [number, number],
+      lag: 0.1,
+      catchUp: 1.3,
+      outZip: 0.9,
+      outWait: 0.8,
+      /** Fading in when it first shows (s). */
+      fadeIn: 1.8,
+    },
+    meetAt: 50,
+    /** Its coy approach (Leonard): in from the right along the path, at
+     *  `low`× its usual height, to `peekK` of the half-frame right of centre;
+     *  pauses; shrinks back to `backK`; pauses; comes up to `ahead` u in front
+     *  of him and says hello, staying `hold` s. `legs` = how long each of the
+     *  first five steps takes (s). */
+    meet: {
+      ahead: 2.6,
+      hold: 1.8,
+      low: 0.55,
+      peekK: 0.62,
+      backK: 0.82,
+      legs: [2.2, 1.6, 0.9, 1.4, 2.2] as [number, number, number, number, number],
+    },
     height: 1.35,
     spotK: [0.45, 0.95] as [number, number],
     spotY: [0.6, 5.2] as [number, number],
