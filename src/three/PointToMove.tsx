@@ -1,7 +1,8 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
-import { pointMove, cancelPointMove } from '../systems/input'
+import { pointMove, cancelPointMove, talkTarget } from '../systems/input'
+import { pickProp, propHover, walkToZone } from '../systems/propPick'
 import { useGame } from '../state/store'
 
 // The dev editors (?edit / ?zones / ?talk) drag boxes and circles on the canvas
@@ -38,7 +39,7 @@ function canPoint(): boolean {
  * Also draws the destination marker: an amber ripple that spreads out on each
  * press (`seq` bump) and keeps softly pulsing until the player arrives.
  */
-export function PointToMove() {
+export function PointToMove({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
   const gl = useThree((s) => s.gl)
   const camera = useThree((s) => s.camera)
 
@@ -58,8 +59,12 @@ export function PointToMove() {
     }
     const down = (e: PointerEvent) => {
       if (!e.isPrimary || e.button !== 0 || !canPoint()) return
+      // A highlighted prop (arcade, signpost, desk…) → walk into its zone and use it.
+      const prop = pickProp(e, el, camera)
+      if (prop && walkToZone(prop, playerPos.current)) return
       if (!aim(e)) return
       pointerId = e.pointerId
+      talkTarget.id = null // a fresh press drops any walk-to-talk (an NPC click re-sets it)
       pointMove.active = true
       pointMove.held = true
       pointMove.seq++
@@ -76,23 +81,40 @@ export function PointToMove() {
       pointMove.held = false
     }
 
+    // Hover over a prop lights its outline (ZoneHighlights) + shows the hand.
+    const setHover = (zone: string | null) => {
+      if (zone === propHover.zone) return
+      propHover.zone = zone
+      el.style.cursor = zone ? 'pointer' : ''
+    }
+    const hover = (e: PointerEvent) => {
+      if (pointMove.held) return
+      setHover(canPoint() ? pickProp(e, el, camera) : null)
+    }
+    const leave = () => setHover(null)
+
     // A long press on the canvas is a steer, not a request for the context menu.
     const noMenu = (e: Event) => e.preventDefault()
 
     el.addEventListener('pointerdown', down)
+    el.addEventListener('pointermove', hover)
+    el.addEventListener('pointerleave', leave)
     el.addEventListener('contextmenu', noMenu)
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', release)
     window.addEventListener('pointercancel', release)
     return () => {
       el.removeEventListener('pointerdown', down)
+      el.removeEventListener('pointermove', hover)
+      el.removeEventListener('pointerleave', leave)
+      setHover(null)
       el.removeEventListener('contextmenu', noMenu)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', release)
       window.removeEventListener('pointercancel', release)
       cancelPointMove()
     }
-  }, [gl, camera])
+  }, [gl, camera, playerPos])
 
   if (EDITING) return null
   return <RippleMarker color={MARKER_COLOR} />

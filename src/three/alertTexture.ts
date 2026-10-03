@@ -2,48 +2,56 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 
 /**
- * The town's "!" attention bubble — warm paper + clay, same mark Leonard the
- * cyclist wears. Shared so café talkers match him exactly.
+ * The town's "!" attention bubble — a mini dialogue box: white, hairline border,
+ * red JetBrains Mono "!". Shared so café talkers match Leonard the cyclist.
  */
 export function useAlertTexture() {
   return useMemo(() => {
-    const PAPER = '#fbf4e8'
-    const CLAY = '#d98a5a'
-    const CLAY_DEEP = '#b9663a'
+    const WHITE = '#ffffff'
+    const LINE = '#e4e4e4'
+    const RED = '#e0322b'
+    const FONT = '700 54px "JetBrains Mono", ui-monospace, monospace'
     const c = document.createElement('canvas')
-    c.width = 112
-    c.height = 140
+    c.width = 224 // 2× the 112×140 layout, for crisp edges
+    c.height = 280
     const x = c.getContext('2d')!
-    const bubble = (inset: number, r: number) => {
-      x.beginPath()
-      x.roundRect(16 + inset, 12 + inset, 80 - inset * 2, 84 - inset * 2, r)
-      x.closePath()
-    }
-    x.fillStyle = CLAY
-    x.beginPath()
-    x.moveTo(44, 92)
-    x.lineTo(56, 122)
-    x.lineTo(68, 92)
-    x.closePath()
-    x.fill()
-    x.save()
-    x.shadowColor = 'rgba(43, 38, 32, 0.28)'
-    x.shadowBlur = 10
-    x.shadowOffsetY = 5
-    x.fillStyle = CLAY_DEEP
-    bubble(0, 24)
-    x.fill()
-    x.restore()
-    x.fillStyle = PAPER
-    bubble(5, 20)
-    x.fill()
-    x.fillStyle = CLAY_DEEP
-    x.font = '800 58px "Inter Tight", sans-serif'
-    x.textAlign = 'center'
-    x.textBaseline = 'middle'
-    x.fillText('!', 56, 52)
     const t = new THREE.CanvasTexture(c)
     t.colorSpace = THREE.SRGBColorSpace
+
+    const draw = () => {
+      x.setTransform(2, 0, 0, 2, 0, 0)
+      x.clearRect(0, 0, 112, 140)
+      // body + tail share one soft drop shadow
+      x.save()
+      x.shadowColor = 'rgba(43, 38, 32, 0.22)'
+      x.shadowBlur = 10
+      x.shadowOffsetY = 4
+      x.fillStyle = LINE
+      x.beginPath()
+      x.roundRect(15, 11, 82, 82, 26)
+      x.moveTo(43, 88)
+      x.lineTo(56, 106)
+      x.lineTo(69, 88)
+      x.fill()
+      x.restore()
+      // white fill inset by the 1px hairline
+      x.fillStyle = WHITE
+      x.beginPath()
+      x.roundRect(16, 12, 80, 80, 25)
+      x.moveTo(44.5, 90)
+      x.lineTo(56, 104.5)
+      x.lineTo(67.5, 90)
+      x.fill()
+      x.fillStyle = RED
+      x.font = FONT
+      x.textAlign = 'center'
+      x.textBaseline = 'middle'
+      x.fillText('!', 56, 54)
+      t.needsUpdate = true
+    }
+    draw()
+    // The webfont may not be ready on first mount — redraw once it is.
+    document.fonts?.load(FONT).then(draw, () => {})
     return t
   }, [])
 }

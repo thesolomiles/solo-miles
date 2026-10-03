@@ -402,7 +402,7 @@ export function Scene() {
       <RideController posRef={posRef} />
       <ForestController posRef={posRef} />
       {!minigame && !ride && !forest && <Player posRef={posRef} />}
-      {!minigame && !ride && !forest && <PointToMove />}
+      {!minigame && !ride && !forest && <PointToMove playerPos={posRef} />}
 
       <OrthoRig posRef={posRef} />
       {!started && <IntroDirector posRef={posRef} />}

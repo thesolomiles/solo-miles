@@ -1,11 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
 import { ACTORS } from '../../config/town'
-import { useRegisterInteractable } from '../../systems/interactables'
+import { useRegisterInteractable, useNpcPointer, canTalk } from '../../systems/interactables'
 import { useGame } from '../../state/store'
 import { useTownGLTF } from '../gltf'
+import { useNpcOutline, NPC_OUTLINE } from '../npcOutline'
 
 const M = ACTORS.mews
 const MODEL = '/models/cat.glb'
@@ -18,7 +19,7 @@ const YAW_OFFSET = M.yawOffset
  * `Cat` orients and moves the group, exactly the seam `RiggedFigure` fills for
  * the player.
  */
-function CatModel() {
+function CatModel({ outline }: { outline: RefObject<number> }) {
   const root = useRef<THREE.Group>(null!)
   const { scene, animations } = useTownGLTF(MODEL)
   const { actions } = useAnimations(animations, root)
@@ -26,12 +27,16 @@ function CatModel() {
   useEffect(() => {
     scene.traverse((o) => {
       const m = o as THREE.Mesh
-      if (m.isMesh) {
+      if (m.isMesh && !m.userData.npcHull) {
         m.castShadow = true
         m.receiveShadow = true
       }
     })
   }, [scene])
+
+  // White outline while you're in petting range or hovering him (like the NPCs).
+  const setOutline = useNpcOutline(scene, NPC_OUTLINE)
+  useFrame(() => setOutline(outline.current))
 
   useEffect(() => {
     actions.walk?.reset().play()
@@ -57,10 +62,15 @@ export function Cat() {
   const timer = useRef(0)
 
   useRegisterInteractable(M.interact, pos.current)
+  const { hovered, handlers } = useNpcPointer(M.interact.id, pos.current)
+  const outline = useRef(0) // in-range / hover highlight, eased 0..1
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05)
-    const petting = useGame.getState().dialogue?.id === 'mews'
+    const st = useGame.getState()
+    const petting = st.dialogue?.id === 'mews'
+    const lit = canTalk() && (st.near?.id === M.interact.id || hovered.current)
+    outline.current = THREE.MathUtils.damp(outline.current, lit ? 1 : 0, 14, dt)
 
     timer.current += dt
     if (timer.current > 2.4) {
@@ -92,8 +102,13 @@ export function Cat() {
   })
 
   return (
-    <group ref={group} position={[M.home.x, 0, M.home.z]}>
-      <CatModel />
+    <group ref={group} position={[M.home.x, 0, M.home.z]} {...handlers}>
+      {/* Invisible, roomier hit area — he's small and never stops moving. */}
+      <mesh position={[0, 0.4, 0]}>
+        <boxGeometry args={[1.2, 0.9, 1.2]} />
+        <meshBasicMaterial colorWrite={false} depthWrite={false} />
+      </mesh>
+      <CatModel outline={outline} />
     </group>
   )
 }

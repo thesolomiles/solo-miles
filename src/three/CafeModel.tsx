@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import * as THREE from 'three'
 import { CAFE } from '../config/cafe'
 import { useTownGLTF } from './gltf'
+import { ZoneHighlights } from './ZoneHighlights'
 
 /**
  * The café interior, modelled in Blender (cafe.blend → public/models/cafe.glb)
@@ -29,7 +30,12 @@ export function CafeModel() {
 
   // Drop the room so its floor-plank top sits at y=0 (see CAFE.floorDrop),
   // otherwise the ~0.16u-high planks bury the player's/staff's lower legs.
-  return <primitive object={scene} position={[0, -CAFE.floorDrop, 0]} />
+  return (
+    <>
+      <primitive object={scene} position={[0, -CAFE.floorDrop, 0]} />
+      <ZoneHighlights world="cafe" root={scene} />
+    </>
+  )
 }
 
 useTownGLTF.preload(CAFE.url)

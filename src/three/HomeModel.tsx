@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { HOME } from '../config/home'
 import { useTownGLTF } from './gltf'
 import { getGlassMaterial } from './TownModel'
+import { ZoneHighlights } from './ZoneHighlights'
 
 /**
  * Leonard's home interior (home.blend → public/models/home.glb), rendered in
@@ -47,7 +48,12 @@ export function HomeModel() {
     })
   }, [scene, glassMat])
 
-  return <primitive object={scene} />
+  return (
+    <>
+      <primitive object={scene} />
+      <ZoneHighlights world="home" root={scene} />
+    </>
+  )
 }
 
 useTownGLTF.preload(HOME.url)

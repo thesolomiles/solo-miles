@@ -12,6 +12,7 @@ import { useTownGLTF } from './gltf'
 import { useLighting } from '../state/lighting'
 import { WORLD } from '../config/town'
 import { Koi } from './Koi'
+import { ZoneHighlights } from './ZoneHighlights'
 
 const URL = '/models/town.glb'
 
@@ -434,6 +435,7 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
   return (
     <>
       <primitive object={scene} scale={scale} />
+      <ZoneHighlights world="town" root={scene} />
       <Koi />
     </>
   )

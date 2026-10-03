@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import type { Interactable } from '../config/town'
 import { applyTalkDraft } from '../state/talkEdit'
+import { pointMove, cancelPointMove, talkTarget } from './input'
 import { useGame } from '../state/store'
 import { zones } from './zones'
 import { cafeZones } from './cafeZones'
@@ -61,6 +62,7 @@ export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vect
     // Stand down during a transition fade or while a dialogue/section is open.
     if (!st.started || st.dialogue || st.section || st.forest || st.transition) {
       if (st.near) setNear(null)
+      talkTarget.id = null
       return
     }
     const p = playerPos.current
@@ -76,6 +78,17 @@ export function ProximitySystem({ playerPos }: { playerPos: RefObject<THREE.Vect
       }
     })
     setNear(best)
+
+    // Click-to-talk: arrived in range of the clicked NPC → stop and talk.
+    if (talkTarget.id && !talkTarget.zone) {
+      if ((best as Interactable | null)?.id === talkTarget.id) {
+        talkTarget.id = null
+        cancelPointMove()
+        st.interact()
+      } else if (!pointMove.active) {
+        talkTarget.id = null // the walk ended short (blocked / keys took over)
+      }
+    }
   })
 
   return null
@@ -108,7 +121,66 @@ export function ZoneProximity({ playerPos }: { playerPos: RefObject<THREE.Vector
       }
     }
     setNearZone(hit)
+
+    // Click-to-use on a prop: walked into its zone → stop and press E.
+    if (talkTarget.id && talkTarget.zone) {
+      if (hit?.id === talkTarget.id) {
+        talkTarget.id = null
+        cancelPointMove()
+        st.interact()
+      } else if (!pointMove.active) {
+        talkTarget.id = null
+      }
+    }
   })
 
   return null
+}
+
+/** Same "free to talk" gate as the NPCs' "!" (no overlay, dialogue or fade up). */
+export function canTalk() {
+  const st = useGame.getState()
+  return (
+    st.started && !st.dialogue && !st.section && !st.worldOpen && !st.gamesOpen &&
+    !st.siteOpen && !st.minigame && !st.ride && !st.transition && !st.sendBack
+  )
+}
+
+/**
+ * Pointer handlers for a talkable NPC: hover flags `hovered` (drives the outline)
+ * and shows the pointer cursor; a click walks the player over (point-to-move at
+ * `pos`) and ProximitySystem opens the talk on arrival.
+ */
+export function useNpcPointer(id: string, pos: THREE.Vector3) {
+  const hovered = useRef(false)
+  useEffect(
+    () => () => {
+      if (hovered.current) document.body.style.cursor = ''
+      if (talkTarget.id === id) talkTarget.id = null
+    },
+    [id],
+  )
+  const handlers = {
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation()
+      hovered.current = true
+      document.body.style.cursor = 'pointer'
+    },
+    onPointerOut: () => {
+      hovered.current = false
+      document.body.style.cursor = ''
+    },
+    onClick: (e: ThreeEvent<MouseEvent>) => {
+      if (e.button !== 0 || !canTalk()) return
+      e.stopPropagation()
+      talkTarget.id = id
+      talkTarget.zone = false
+      pointMove.x = pos.x
+      pointMove.z = pos.z
+      pointMove.active = true
+      pointMove.held = false
+      pointMove.seq++
+    },
+  }
+  return { hovered, handlers }
 }

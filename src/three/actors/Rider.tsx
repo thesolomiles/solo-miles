@@ -3,10 +3,11 @@ import { useFrame } from '@react-three/fiber'
 import { useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
 import { ACTORS } from '../../config/town'
-import { useRegisterInteractable } from '../../systems/interactables'
+import { useRegisterInteractable, useNpcPointer } from '../../systems/interactables'
 import { useGame } from '../../state/store'
 import { useCyclistModel, CYCLIST_SCALE } from '../cyclist'
 import { useAlertTexture } from '../alertTexture'
+import { useNpcOutline, NPC_OUTLINE } from '../npcOutline'
 
 const R = ACTORS.rider
 
@@ -19,8 +20,10 @@ const PARKED_POSE = 0.0
  * default blue/white kit and plays the baked `cycle` clip but holds it paused on
  * one frame — so he's on the bike, not pedalling (wheels still, legs planted).
  */
-function ParkedCyclist() {
+function ParkedCyclist({ outline }: { outline: RefObject<number> }) {
   const { model, animations } = useCyclistModel()
+  const setOutline = useNpcOutline(model, NPC_OUTLINE)
+  useFrame(() => setOutline(outline.current))
   const root = useRef<THREE.Group>(null!)
   const { actions } = useAnimations(animations, root)
 
@@ -55,11 +58,13 @@ function ParkedCyclist() {
 export function Rider({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
   const mark = useRef<THREE.Sprite>(null!)
   const alertTex = useAlertTexture()
+  const outline = useRef(0) // talk-range / hover highlight, eased 0..1
+  const { hovered, handlers } = useNpcPointer(R.interact.id, R.post)
 
   useRegisterInteractable(R.interact, R.post)
   useEffect(() => () => alertTex.dispose(), [alertTex])
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     const st = useGame.getState()
     const dx = playerPos.current.x - R.post.x
     const dz = playerPos.current.z - R.post.z
@@ -67,21 +72,27 @@ export function Rider({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
     const t = performance.now()
 
     // "!" over his head while the player is in range and free to talk.
-    const alert =
-      st.started && !st.dialogue && !st.section && !st.worldOpen && distToPlayer < R.interact.radius
+    const free = st.started && !st.dialogue && !st.section && !st.worldOpen
+    const alert = free && distToPlayer < R.interact.radius
     if (mark.current) {
       mark.current.visible = alert
       mark.current.position.y = 2.65 + Math.sin(t * 0.006) * 0.09
     }
+    // Outline when in talk range or under the mouse; ~0.2s fade in/out
+    const lit = alert || (free && hovered.current)
+    outline.current = THREE.MathUtils.damp(outline.current, lit ? 1 : 0, 14, dt)
   })
 
   return (
-    <group position={[R.post.x, 0, R.post.z]}>
+    <group
+      position={[R.post.x, 0, R.post.z]}
+      {...handlers}
+    >
       {/* attention "!" — always upright (sprite), toggled per-frame */}
       <sprite ref={mark} position={[0, 2.65, 0]} scale={[0.85, 1.06, 1]} renderOrder={4} visible={false}>
         <spriteMaterial map={alertTex} transparent depthTest={false} depthWrite={false} />
       </sprite>
-      <ParkedCyclist />
+      <ParkedCyclist outline={outline} />
     </group>
   )
 }

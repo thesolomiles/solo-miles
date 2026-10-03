@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-10-03">2026-10-03</a>
       <a href="#2026-10-02">2026-10-02</a>
       <a href="#2026-10-01">2026-10-01</a>
       <a href="#2026-09-30">2026-09-30</a>
@@ -119,6 +120,15 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-10-03">
+        <h3><a class="perma" href="#2026-10-03">2026-10-03 · Saturday</a></h3>
+        <ul>
+          <li><strong>New "!" over NPCs.</strong> The old paper-and-clay bubble didn't match the new dialogue box and UI. After a few rounds of mockups, Leonard picked a mini dialogue box: white, with a thin grey border, a small tail and a red JetBrains Mono "!". The rider and the café patrons share it. A glowing, gently swaying white cube was the runner-up.</li>
+          <li><strong>NPCs you can talk to get a white outline.</strong> When you're in talk range, a crisp white line fades in around the NPC together with the "!". It's a shell drawn just outside the character's outline, so it bends with their pose and works on phones. Leonard picked crisp over a soft glow (glow is still there behind <code>?outline=glow</code>, and <code>?outline=off</code> hides it). It's on the rider and the café patrons you can talk to. Hovering the mouse over one of them shows the same outline from any distance, so you can spot who's talkable before walking over.</li>
+          <li><strong>Click an NPC to talk.</strong> Clicking (or tapping) an NPC you can talk to walks you over and opens the conversation when you get there, and the cursor turns into a hand over them. A new click on the ground, or using the keys, cancels it. There's no pathfinding, so if something blocks the way it gives up like any normal click-to-walk.</li>
+          <li><strong>Things you can use get the same treatment.</strong> The outline, hover hand and click-to-use now also cover the vending machine, the forest signpost, Mews the cat, both café arcade cabinets, and at home the two jerseys, the desk, the bookshelf and the Zwift setup (bike, trainer and TV). Doors and exits don't, at Leonard's ask, since outlining a whole building reads oddly. These props are baked into each world's single merged model, so instead of re-exporting from Blender, each one is cut out in code by a box around it (boxes measured from the Blender groups, in <code>config/highlights.ts</code>). The cut-out piece is redrawn over its outline, so you get one clean outer line and no lines between the prop's parts. Clicking a prop walks you into its zone and does the E action when you get there. Mews has a slightly larger invisible click area, because he's small and always moving.</li>
+        </ul>
+      </article>
       <article id="2026-10-02">
         <h3><a class="perma" href="#2026-10-02">2026-10-02 · Friday</a></h3>
         <ul>

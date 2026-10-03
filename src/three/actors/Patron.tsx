@@ -4,9 +4,10 @@ import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useTownGLTF } from '../gltf'
 import { CAFE } from '../../config/cafe'
-import { useRegisterInteractable } from '../../systems/interactables'
+import { useRegisterInteractable, useNpcPointer } from '../../systems/interactables'
 import { useGame } from '../../state/store'
 import { useAlertTexture } from '../alertTexture'
+import { useNpcOutline, NPC_OUTLINE } from '../npcOutline'
 import type { Interactable } from '../../config/town'
 
 // The patron GLBs stand ~ the same ~2u human as the player + baristas; 0.9 lands
@@ -46,9 +47,11 @@ function snap(mixer: THREE.AnimationMixer, clip: THREE.AnimationClip, loop: bool
 function PatronTalk({
   interact,
   pos,
+  model,
   playerPos,
 }: {
   interact: Interactable
+  model: THREE.Object3D
   pos: [number, number]
   playerPos: RefObject<THREE.Vector3>
 }) {
@@ -56,30 +59,35 @@ function PatronTalk({
   const alertTex = useAlertTexture()
   const talkPos = useMemo(() => new THREE.Vector3(pos[0], 0, pos[1]), [pos])
   useRegisterInteractable(interact, talkPos)
+  const { hovered, handlers } = useNpcPointer(interact.id, talkPos)
   useEffect(() => () => alertTex.dispose(), [alertTex])
+  const setOutline = useNpcOutline(model, NPC_OUTLINE)
+  const outline = useRef(0) // talk-range / hover highlight, eased 0..1
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     const st = useGame.getState()
     const dx = playerPos.current.x - talkPos.x
     const dz = playerPos.current.z - talkPos.z
     const distToPlayer = Math.hypot(dx, dz)
-    const alert =
-      st.started &&
-      !st.dialogue &&
-      !st.section &&
-      !st.worldOpen &&
-      !st.siteOpen &&
-      distToPlayer < interact.radius
+    const free = st.started && !st.dialogue && !st.section && !st.worldOpen && !st.siteOpen
+    const alert = free && distToPlayer < interact.radius
     if (mark.current) {
       mark.current.visible = alert
       mark.current.position.y = 2.2 + Math.sin(performance.now() * 0.006) * 0.09
     }
+    // Outline when in talk range or under the mouse; ~0.2s fade in/out
+    const lit = alert || (free && hovered.current)
+    outline.current = THREE.MathUtils.damp(outline.current, lit ? 1 : 0, 14, dt)
+    setOutline(outline.current)
   })
 
   return (
-    <sprite ref={mark} position={[0, 2.2, 0]} scale={[0.85, 1.06, 1]} renderOrder={4} visible={false}>
-      <spriteMaterial map={alertTex} transparent depthTest={false} depthWrite={false} />
-    </sprite>
+    <group {...handlers}>
+      <sprite ref={mark} position={[0, 2.2, 0]} scale={[0.85, 1.06, 1]} renderOrder={4} visible={false}>
+        <spriteMaterial map={alertTex} transparent depthTest={false} depthWrite={false} />
+      </sprite>
+      <primitive object={model} />
+    </group>
   )
 }
 
@@ -110,7 +118,7 @@ function OnePatron({
   useEffect(() => {
     model.traverse((o) => {
       const m = o as THREE.Mesh
-      if (m.isMesh) {
+      if (m.isMesh && !m.userData.npcHull) {
         m.castShadow = true
         m.receiveShadow = true
       }
@@ -164,10 +172,12 @@ function OnePatron({
 
   return (
     <group position={[def.pos[0], def.yFix ?? 0, def.pos[1]]} rotation={[0, def.rot, 0]} scale={SCALE}>
-      {'interact' in def && def.interact && (
-        <PatronTalk interact={def.interact} pos={def.pos} playerPos={playerPos} />
+      {/* Talkers wrap the model themselves (hover / click-to-talk handlers). */}
+      {'interact' in def && def.interact ? (
+        <PatronTalk interact={def.interact} pos={def.pos} model={model} playerPos={playerPos} />
+      ) : (
+        <primitive object={model} />
       )}
-      <primitive object={model} />
     </group>
   )
 }

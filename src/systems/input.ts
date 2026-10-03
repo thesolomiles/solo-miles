@@ -51,6 +51,15 @@ export function isTypingTarget(el: EventTarget | null): boolean {
  */
 export const pointMove = { active: false, held: false, x: 0, z: 0, seq: 0 }
 
+/**
+ * Click-to-talk: what the player is walking to — an NPC (interactable id; set by
+ * useNpcPointer) or, with `zone`, a prop's interaction zone (set by clicking a
+ * highlighted prop, see systems/propPick). ProximitySystem / ZoneProximity fire
+ * the E action as soon as the player is in range of it, and drop it if the walk
+ * ends without getting there (blocked, cancelled by keys, or a fresh ground click).
+ */
+export const talkTarget = { id: null as string | null, zone: false }
+
 /** Drop any point-and-go target (keyboard took over, a dialogue opened, etc.). */
 export function cancelPointMove() {
   pointMove.active = false
