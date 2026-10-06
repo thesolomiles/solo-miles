@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { useGame } from '../state/store'
 import { SITE, type SiteQA } from '../config/site'
 import { playWorldSfx } from './worldSfx'
@@ -333,6 +333,116 @@ function CompanyPage({ at }: { at: number }) {
   )
 }
 
+/** "Contact me"'s tab: a compose-an-email form in the site's hologram dress —
+ *  From (their address), a fixed To, and the message. Posts to /api/contact,
+ *  which mails it from Leonard's Gmail; the hidden `website` field is a bot
+ *  honeypot. */
+type SendState = 'idle' | 'sending' | 'sent' | 'error'
+function ContactPage() {
+  const title = useScramble(SITE.contact.tab, 1)
+  const [email, setEmail] = useState('')
+  const [body, setBody] = useState('')
+  const [state, setState] = useState<SendState>('idle')
+  const send = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (state === 'sending') return
+    playSiteSfx('click')
+    setState('sending')
+    try {
+      const website = (e.currentTarget.elements.namedItem('website') as HTMLInputElement).value
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, message: body, website }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.ok) throw new Error()
+      playSiteSfx('open')
+      setState('sent')
+    } catch {
+      playSiteSfx('shut')
+      setState('error')
+    }
+  }
+  const sent = state === 'sent'
+  return (
+    <div className="site__role">
+      {FRAME.flatMap((y, r) =>
+        FRAME.map((x, c) =>
+          r !== 1 && c !== 1 ? <i key={r + '-' + c} className="site__plus" style={{ left: x, top: y }} aria-hidden /> : null,
+        ),
+      )}
+      <div className="site__roleScroll">
+        <form className={'site__mail' + (sent ? ' is-sent' : '')} onSubmit={send}>
+          <div className="site__mailHead">
+            <h2 className="site__mailTitle" aria-label={SITE.contact.tab}>
+              <span aria-hidden>{title}</span>
+            </h2>
+            <span className="site__mailStatus" aria-live="polite">
+              <span className={'site__sigLive' + (state === 'error' ? ' is-down' : '')} />
+              {state === 'sending' ? 'TRANSMITTING' : sent ? 'DELIVERED' : state === 'error' ? 'LINK FAILED' : 'CHANNEL OPEN'}
+            </span>
+          </div>
+          <div className="site__mailRow">
+            <span className="site__mailKey">From</span>
+            <input
+              className="site__mailIn site__mailIn--addr"
+              name="email"
+              type="email"
+              placeholder="you@domain.com"
+              autoComplete="email"
+              required
+              maxLength={160}
+              value={email}
+              disabled={sent}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="site__mailRow">
+            <span className="site__mailKey">To</span>
+            <span className="site__mailTo">
+              <span className="site__favicon">L</span>
+              {SITE.contact.to}
+            </span>
+          </div>
+          <input className="site__mailTrap" name="website" tabIndex={-1} autoComplete="off" aria-hidden />
+          <div className="site__mailBody">
+            <textarea
+              className="site__mailText"
+              name="message"
+              placeholder="Write your message…"
+              required
+              maxLength={5000}
+              value={body}
+              disabled={sent}
+              onChange={(e) => setBody(e.target.value)}
+              aria-label="Message"
+            />
+            {['tl', 'tr', 'bl', 'br'].map((c) => (
+              <i key={c} className={'site__mailCorner site__mailCorner--' + c} aria-hidden />
+            ))}
+          </div>
+          <div className="site__mailFoot">
+            <span className="site__mailCount">
+              {state === 'error'
+                ? 'Couldn’t send — please try again.'
+                : sent
+                  ? 'Thanks — I’ll get back to you soon.'
+                  : `${String(body.length).padStart(4, '0')} / 5000`}
+            </span>
+            {!sent && (
+              <button className="site__mailSend" type="submit" disabled={state === 'sending'}>
+                {state === 'sending' ? 'Sending…' : 'Send'}
+                <span aria-hidden>→</span>
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 /** The page's label/value fields, pinned to the top right of the window
  *  (level with the top link). On About they're the bio, tied to the body by
  *  the leader line (BioLeader). */
@@ -549,6 +659,8 @@ function SiteLink({
   )
 }
 const N = SITE.sections.length
+/** A browser tab past the site's own: a company (SITE.jobs index) or the contact form. */
+type Tab = number | 'contact'
 const STAGGER = 0.06 // s between links moving together
 const TURN_MS = 700 // the fake turn — same length as the slide across (index.css)
 const MBLUR_PX = 16 // peak horizontal blur
@@ -569,22 +681,25 @@ const MBLUR_PX = 16 // peak horizontal blur
 export function PersonalSite() {
   const close = useGame((s) => s.closeSite)
   // Browser tabs: the site itself, plus one per company opened with "Find
-  // out more" (SITE.jobs indexes). `tab` is the active company, or null for
-  // the site, which stays mounted (hidden) under a company tab so its state
-  // survives.
-  const [tabs, setTabs] = useState<number[]>([])
-  const [tab, setTab] = useState<number | null>(null)
+  // out more" (SITE.jobs indexes) and the "Contact me" form ('contact').
+  // `tab` is the active one, or null for the site, which stays mounted
+  // (hidden) under another tab so its state survives.
+  const [tabs, setTabs] = useState<Tab[]>([])
+  const [tab, setTab] = useState<Tab | null>(null)
+  const openTab = (t: Tab) => {
+    setTabs((ts) => (ts.includes(t) ? ts : [...ts, t]))
+    setTab(t)
+  }
   const openCompany = (job: number) => {
     playSiteSfx('click')
-    setTabs((t) => (t.includes(job) ? t : [...t, job]))
-    setTab(job)
+    openTab(job)
   }
-  const switchTab = (job: number | null) => {
+  const switchTab = (job: Tab | null) => {
     if (job === tab) return
     playSiteSfx('open')
     setTab(job)
   }
-  const closeTab = (job: number) => {
+  const closeTab = (job: Tab) => {
     playSiteSfx('shut')
     const i = tabs.indexOf(job)
     const rest = tabs.filter((x) => x !== job)
@@ -686,7 +801,7 @@ export function PersonalSite() {
               </span>
             </button>
             {tabs.map((at) => {
-              const { company } = SITE.jobs[at]
+              const company = at === 'contact' ? SITE.contact.tab : SITE.jobs[at].company
               return (
                 <div key={at} className={'site__tab site__tab--role' + (tab === at ? ' is-active' : '')}>
                   <button
@@ -695,7 +810,9 @@ export function PersonalSite() {
                     aria-selected={tab === at}
                     onClick={() => switchTab(at)}
                   >
-                    <span className="site__favicon site__favicon--role">{company[0]}</span>
+                    <span className={'site__favicon ' + (at === 'contact' ? 'site__favicon--mail' : 'site__favicon--role')}>
+                      {at === 'contact' ? '@' : company[0]}
+                    </span>
                     <span className="site__tabtitle">{company}</span>
                   </button>
                   <button className="site__tabX" onClick={() => closeTab(at)} aria-label={`Close ${company} tab`} />
@@ -709,7 +826,7 @@ export function PersonalSite() {
           ref={pageRef}
           className={'site__page' + (current ? ' is-open' : '') + (measure ? ' is-measure' : '') + (tab !== null ? ' is-behind' : '')}
           data-page={current?.id}
-          style={{ '--n': N, '--k': Math.max(k, 0) } as CSSProperties}
+          style={{ '--n': N + 1, '--k': Math.max(k, 0) } as CSSProperties}
           onPointerMove={(e) => {
             if (!about || e.pointerType !== 'mouse') return
             const over = overFigure(e.clientX, e.clientY)
@@ -800,6 +917,15 @@ export function PersonalSite() {
               />
             )
           })}
+          {/* Contact me: the last link in the bottom stack; it never rises —
+              it opens the compose form in a tab of its own. */}
+          <SiteLink
+            label={SITE.contact.label}
+            className="site__link"
+            style={{ '--i': N } as CSSProperties}
+            onClick={() => openTab('contact')}
+            active={false}
+          />
 
           {current && (
             <div className="site__content" key={current.id}>
@@ -814,7 +940,7 @@ export function PersonalSite() {
           )}
           {about && <BioLeader key="leader" pageRef={pageRef} figRef={figRef} fieldsRef={fieldsRef} />}
         </div>
-        {tab !== null && <CompanyPage key={tab} at={tab} />}
+        {tab === 'contact' ? <ContactPage /> : tab !== null && <CompanyPage key={tab} at={tab} />}
       </div>
     </div>
   )

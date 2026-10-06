@@ -55,6 +55,16 @@ export const SITE = {
     { id: 'philosophy', label: 'Design philosophy' },
   ] as const,
 
+  /** "Contact me": a fourth link under the sections that opens a compose-
+   *  an-email form in its own browser tab (ContactPage). Sent through
+   *  /api/contact, which mails it from Leonard's own Gmail (env
+   *  GMAIL_USER + GMAIL_APP_PASSWORD on Vercel). */
+  contact: {
+    label: 'Contact me',
+    tab: 'New message',
+    to: 'Leonard Goh',
+  },
+
   /** PLACEHOLDER copy for each page, laid straight over the hologram in the
    *  Ex Machina style — for reviewing the layout before real copy goes in.
    *  (The real content below — philosophy, traits, stats, experience, skills —
