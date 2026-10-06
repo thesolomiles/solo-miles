@@ -28,6 +28,7 @@ import { CafeLights } from './CafeLights'
 import { CafeWorkers } from './actors/CafeWorker'
 import { Patrons } from './actors/Patron'
 import { CafeBgm } from './CafeBgm'
+import { HomeAmbience } from './HomeAmbience'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
 import { Rider } from './actors/Rider'
@@ -415,6 +416,7 @@ export function Scene() {
       {/* <Bgm playerPos={posRef} /> */}
       <AmbientSound playerPos={posRef} />
       <CafeBgm />
+      <HomeAmbience />
       <ForestBgm />
 
       <PostFX />

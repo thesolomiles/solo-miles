@@ -1,0 +1,11 @@
+{
+  "file": "04-soft-ac-hum.wav",
+  "description": "Revised direction: barely-there steady AC motor hum and soft filtered airflow only.",
+  "seconds": 48,
+  "sample_rate": 44100,
+  "channels": 2,
+  "rms_dbfs": -44.0,
+  "peak_dbfs": -32.03,
+  "seam_delta": 1.24e-05,
+  "clipping_samples": 0
+}

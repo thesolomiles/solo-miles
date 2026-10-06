@@ -1,0 +1,35 @@
+[
+  {
+    "file": "01-sunlit-room.wav",
+    "description": "Environmental: soft indoor airflow with occasional distant birds through the glass; no music.",
+    "seconds": 48,
+    "sample_rate": 44100,
+    "channels": 2,
+    "rms_dbfs": -26.0,
+    "peak_dbfs": -11.79,
+    "seam_delta": 0.0014711,
+    "clipping_samples": 0
+  },
+  {
+    "file": "02-rain-at-the-window.wav",
+    "description": "Environmental: sheltered steady rain, gentle glass taps and a low room bed; no thunder or music.",
+    "seconds": 48,
+    "sample_rate": 44100,
+    "channels": 2,
+    "rms_dbfs": -26.0,
+    "peak_dbfs": -11.81,
+    "seam_delta": 0.0081859,
+    "clipping_samples": 0
+  },
+  {
+    "file": "03-soft-keys-at-home.wav",
+    "description": "Musical: sparse rounded electric-key notes and warm slow chords over soft room air; no beat.",
+    "seconds": 48,
+    "sample_rate": 44100,
+    "channels": 2,
+    "rms_dbfs": -26.0,
+    "peak_dbfs": -11.72,
+    "seam_delta": 0.0002588,
+    "clipping_samples": 0
+  }
+]

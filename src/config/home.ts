@@ -18,6 +18,10 @@ import type { BoxCollider, Interactable, InteractZone } from './town'
 export const HOME = {
   url: '/models/home.glb',
 
+  /** Barely-there AC hum, matched to the approved -44 dBFS audition.
+   * `fade` is the gain smoothing time constant in seconds. */
+  ambience: { gain: 0.00737, fade: 0.55 },
+
   /** The town interaction-zone id on the house's front door (zones.data.ts). */
   enterZoneId: 'z9mqziw',
 
