@@ -9,6 +9,7 @@ import { bakeRiverDepth, getRiverGrid } from '../systems/riverDepth'
 import { buildRiverFoam } from '../systems/riverRocks'
 import { capturePineAsset } from './ride/pineAsset'
 import { useTownGLTF } from './gltf'
+import { makeGroundMaterial } from './groundPaint'
 import { useLighting } from '../state/lighting'
 import { WORLD } from '../config/town'
 import { Koi } from './Koi'
@@ -402,6 +403,8 @@ export function TownModel({ scale = 1 }: { scale?: number }) {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
       const mat = Array.isArray(m.material) ? m.material[0] : m.material
+      // Grass + paths are painted in code (three/groundPaint.ts).
+      if (m.name === 'Ground' && mat.name !== 'GroundPainted') m.material = makeGroundMaterial(mat)
       // Water: swap in the stylized material and keep it out of the shadow pass.
       if (mat && (mat as THREE.Material).name === 'Water') {
         m.material = waterMat

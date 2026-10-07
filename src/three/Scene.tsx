@@ -46,7 +46,6 @@ import { NinjaRunWorld } from './arcade/NinjaRunWorld'
 import { RideWorld } from './ride/RideWorld'
 import { ForestWorld } from './forest/ForestWorld'
 import { ForestBgm } from './forest/ForestBgm'
-import { TownTrail } from './TownTrail'
 import { SOUTH_TRAIL } from '../config/forest'
 import { IntroDirector, TownReady } from './Intro'
 
@@ -388,7 +387,6 @@ export function Scene() {
             <TownReady />
           </Suspense>
           <TownRoad />
-          <TownTrail />
           <TownDust />
           <Birds />
           {edit && <ColliderEditor />}

@@ -31,7 +31,7 @@ export const SOUTH_TRAIL = {
   /** Trail width (u) and how far it fades in at the meadow end. */
   width: 1.25,
   fadeIn: 2.2,
-  /** Mossy green-brown — a secret path, mostly grown over (TownTrail mixes in
+  /** Mossy green-brown — a secret path, mostly grown over (three/groundPaint.ts mixes in
    *  grass and a little bare dirt). */
   color: '#64703a',
   /** A tree is cleared when it stands within `clearBase + clearPerScale·scale`
