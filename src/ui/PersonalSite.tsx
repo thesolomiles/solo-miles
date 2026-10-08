@@ -591,6 +591,9 @@ function Typewriter({ words }: { words: readonly string[] }) {
  *  frame inset and the rest fade; `top`/`left` transition between them. */
 const PLUS_X = [8, 50, 92]
 const PLUS_Y = [26, 46, 66]
+/** The bottom-left mark shares a column with the links, so on home it sits
+ *  in the gap under the first one (About) rather than landing on its text. */
+const PLUS_UNDER_FIRST = 'calc(100% - var(--pad) - (var(--n) - 1) * var(--step) + 4px)'
 /** Page positions: the corners sit on the frame inset (--frame); content is
  *  padded inside it (--pad = --frame + gap). Middle marks fade out. */
 const FRAME = ['var(--frame)', '50%', 'calc(100% - var(--frame))']
@@ -599,7 +602,7 @@ const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/<>_+#'
 
 /** Text that briefly scrambles, then resolves left to right. Mono font, so
  *  the width never jitters. Re-runs whenever `run` changes. */
-function useScramble(text: string, run: number) {
+export function useScramble(text: string, run: number) {
   const [out, setOut] = useState(text)
   useEffect(() => {
     if (!run) return
@@ -875,10 +878,10 @@ export function PersonalSite() {
             PLUS_X.map((x, c) => (
               <i
                 key={x + '-' + y}
-                className={'site__plus' + (r === 1 || c === 1 ? ' is-mid' : '')}
+                className={'site__plus' + (r === 1 || c === 1 ? ' is-mid' : '') + (r === 2 && c === 0 ? ' is-low' : '')}
                 style={{
                   left: current ? FRAME[c] : `${x}%`,
-                  top: current ? FRAME[r] : `${y}%`,
+                  top: current ? FRAME[r] : r === 2 && c === 0 ? PLUS_UNDER_FIRST : `${y}%`,
                 }}
                 aria-hidden
               />

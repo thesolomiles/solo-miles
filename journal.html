@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-10-08">2026-10-08</a>
       <a href="#2026-10-07">2026-10-07</a>
       <a href="#2026-10-06">2026-10-06</a>
       <a href="#2026-10-03">2026-10-03</a>
@@ -122,6 +123,20 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-10-08">
+        <h3><a class="perma" href="#2026-10-08">2026-10-08 · Thursday</a></h3>
+        <ul>
+          <li><strong>Project sanity review (findings only).</strong> TypeScript and a production bundle built successfully. Suggested follow-ups: defer optional world code and model preloads, profile rendering quality, reduce vendor lint noise, strengthen check coverage, and keep editor saves from committing unrelated staged work. No application changes were made; these remain proposals.</li>
+          <li><strong>Journal routine reinforced.</strong> Leonard asked that every new session begin by reading the journal, and that progress and decisions be logged periodically during a session. Recorded in the project instructions for both Codex and Claude; updates should stay concise and reflect meaningful milestones.</li>
+          <li><strong>Review checked against earlier decisions.</strong> Startup loading remains the main follow-up: the August 28 NPC decision already calls for loading characters per map, while current café actors still preload on town boot. Earlier town profiling points to pixel cost rather than CPU or triangle count, so investigate DPR before broader rendering changes; those measurements need refreshing for today's worlds. The mobile composer workaround stays intentional. The journal also records manual and mocked checks, so the testing gap is a committed, repeatable suite, not an absence of verification. File splitting and folder cleanup are lower-priority maintenance proposals.</li>
+          <li><strong>Forest story-game ideation.</strong> Leonard wants to explore turning the forest walk into a mini-game that tells a story. The existing wisp, movement and scenery provide a foundation for a short chapter with a goal, meaningful interactions and an ending. Story theme remains open; additional rendering and loading cost should be measured against the current forest, including on a phone. Planning only; no game changes.</li>
+          <li><strong>Forest discovery mechanics first.</strong> Leonard wants to start simply with looking, interaction and camera framing. The direction is now a sightseeing storytelling experience with no villains, possibly with light climbing and jumping between discoveries. Landmark ideas: a huge ancient creature's skull, a glowing carving on a huge rock, and a cave filled with drawings. Proposed first experiment: one skull encounter with an inspect action and a deliberate camera reveal. The forest's side-on parallax and flat foreground favour controlled framing for this first pass. No implementation yet.</li>
+          <li><strong>New start screen.</strong> The "Enter Leonard's World" button is replaced by a menu in the personal site's hologram style: the Solo Miles logo above the falling player, and two chamfered items below him, Enter world and Other projects (arrow keys and Enter, or click). Other projects opens a hologram panel listing Routechecker, which opens in a new tab. Picked from mockups; Leonard dropped the title font in favour of the logo.</li>
+          <li><strong>Controls hint as a callout.</strong> The long sentence pill is gone. The keys now sit in chamfered scanline caps, with a leader line out to a boxed label that scrambles in. Move shows first, with WASD glitching into the arrows and back so both read as valid. Once he walks, it switches to Space → Jump, then goes away. E is left to the existing door and NPC prompt. On phones it's a single Tap → Move.</li>
+          <li><strong>Personal site: + mark off "About".</strong> On the home view, the bottom-left + was landing on the About link. It now sits in the gap under About, and it's dimmer (0.4) than the others. On an open page it goes back to its usual corner.</li>
+          <li><strong>Start screen logo: horizontal.</strong> The stacked logo is replaced by the horizontal one, smaller and placed top-centre. The navy drop shadow is gone; it now has a slight white glow.</li>
+        </ul>
+      </article>
       <article id="2026-10-07">
         <h3><a class="perma" href="#2026-10-07">2026-10-07 · Wednesday</a></h3>
         <ul>

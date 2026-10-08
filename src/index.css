@@ -1153,74 +1153,266 @@ canvas {
   }
 }
 
-/* ---- Intro Start button (Hud IntroStart): a thick white outline on the sky.
-   The sky is pale near the bottom, so the button carries a faint navy tint +
-   blur behind it and the text a soft navy shadow to keep white legible. */
-.intro-start {
+/* ---- Start screen (ui/StartScreen.tsx): the Solo Miles logo over a two-item
+   menu, centred on the sky, in the personal site's hologram language (+ marks,
+   mono caps, white keyline boxes, the selected item inverts to white). */
+.start {
+  --frame: clamp(14px, 2.4vw, 28px);
+  --accent: #7fe7ff;
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 16vh;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  color: #fff;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  /* backwards, not both: a held end-state would override the --gone fade. */
+  animation: fade-in 0.6s ease backwards;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.start--gone { opacity: 0; transform: translateY(10px); }
+.start__plus {
+  position: absolute;
+  translate: -50% -50%;
+  font: 300 18px/1 'JetBrains Mono', monospace;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(8, 36, 84, 0.45);
+}
+/* Logo above the falling player, menu below — he stays framed in between. */
+.start__center {
+  position: absolute;
+  inset: clamp(44px, 6vh, 64px) 0 clamp(56px, 13vh, 130px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 0 16px;
-  pointer-events: none;
-  z-index: 30;
-  /* backwards, not both: a held end-state would override the --gone fade. */
-  animation: fade-in 0.5s ease backwards;
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  justify-content: space-between;
 }
-.intro-start--gone {
-  opacity: 0;
-  transform: translateY(8px);
+.start__logo {
+  width: clamp(150px, 16vw, 210px);
+  height: auto;
+  /* a soft white glow, no offset shadow */
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.45)) drop-shadow(0 0 18px rgba(255, 255, 255, 0.25));
+  animation: start-float 5s ease-in-out infinite;
 }
-.intro-start__btn {
-  pointer-events: auto;
-  font: 700 17px/1.2 'JetBrains Mono', ui-monospace, monospace;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.75);
-  text-shadow: 0 1px 6px rgba(8, 36, 84, 0.55);
-  background: rgba(10, 44, 100, 0.22);
+@keyframes start-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.start__menu { display: flex; flex-direction: column; align-items: stretch; gap: 8px; pointer-events: auto; }
+.start__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 250px;
+  padding: 11px 22px 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  background: rgba(10, 30, 60, 0.18);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  border: 4px solid rgba(255, 255, 255, 0.55);
-  border-radius: 14px;
-  padding: 14px 28px;
-  cursor: default;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
-    transform 0.15s ease, text-shadow 0.15s ease;
-}
-.intro-start__btn--ready {
   color: #fff;
-  border-color: #fff;
-  cursor: pointer;
-  animation: intro-start-glow 1.8s ease-in-out infinite;
-}
-@keyframes intro-start-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.25), 0 4px 18px rgba(8, 36, 84, 0.18); }
-  50% { box-shadow: 0 0 14px 2px rgba(255, 255, 255, 0.45), 0 4px 18px rgba(8, 36, 84, 0.18); }
-}
-/* Hover / keyboard focus: fill white, text flips to deep navy. */
-.intro-start__btn--ready:hover,
-.intro-start__btn--ready:focus-visible {
-  background: #fff;
-  color: #0b3a78;
-  text-shadow: none;
-  outline: none;
-}
-.intro-start__btn--ready:active {
-  transform: scale(0.97);
-}
-.intro-start__hint {
-  font: 700 11px/1 'JetBrains Mono', ui-monospace, monospace;
-  letter-spacing: 0.12em;
+  font: 500 13px/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
+  text-shadow: 0 1px 6px rgba(8, 36, 84, 0.55);
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+.start__mark { color: var(--accent); opacity: 0; transition: opacity 0.18s; }
+.start__item.is-sel {
+  background: #fff;
+  border-color: #fff;
+  color: #0b1020;
+  text-shadow: none;
+}
+.start__item.is-sel .start__mark { opacity: 1; color: #0b1020; animation: start-blink 1s steps(2) infinite; }
+.start__item.is-off { cursor: default; opacity: 0.7; }
+.start__item:focus-visible { outline: none; }
+@keyframes start-blink { 50% { opacity: 0; } }
+.start__status {
+  position: absolute;
+  right: calc(var(--frame) + 18px);
+  bottom: calc(var(--frame) - 6px);
+  font: 400 10px/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.22em;
+  text-shadow: 0 1px 4px rgba(8, 36, 84, 0.5);
+}
+.start__caret {
+  display: inline-block;
+  width: 7px;
+  height: 11px;
+  margin-left: 5px;
+  vertical-align: -1px;
+  background: var(--accent);
+  animation: start-blink 1s steps(2) infinite;
+}
+
+/* Other projects: a hologram panel over the sky. */
+.pmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 14, 30, 0.45);
+  pointer-events: auto;
+  animation: fade-in 0.25s ease both;
+}
+.pmodal__panel {
+  position: relative;
+  width: min(460px, 100%);
+  padding: 22px 24px 18px;
   color: #fff;
-  text-shadow: 0 1px 4px rgba(8, 36, 84, 0.6);
+  background: rgba(8, 16, 32, 0.72);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(127, 231, 255, 0.35);
+  box-shadow: 0 0 30px rgba(127, 231, 255, 0.12), inset 0 0 40px rgba(127, 231, 255, 0.05);
+  animation: pmodal-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes pmodal-in {
+  from { opacity: 0; transform: scaleY(0.04); filter: brightness(2); }
+  60% { opacity: 1; transform: scaleY(1.02); }
+  to { transform: none; filter: none; }
+}
+.pmodal__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(127, 231, 255, 0.07) 0 1px, transparent 1px 4px);
+}
+.pmodal__plus {
+  position: absolute;
+  translate: -50% -50%;
+  font: 300 18px/1 'JetBrains Mono', monospace;
+  color: #fff;
+}
+.pmodal__head { display: flex; justify-content: space-between; align-items: center; }
+.pmodal__meta { font: 400 10px/1 'JetBrains Mono', monospace; letter-spacing: 0.22em; color: rgba(127, 231, 255, 0.8); }
+.pmodal__close {
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: none;
+  color: #fff;
+  padding: 4px 8px 3px;
+  font: 400 10px/1.3 'JetBrains Mono', monospace;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.pmodal__close:hover { background: #fff; color: #0b1020; }
+.pmodal__title {
+  margin: 14px 0 18px;
+  font: 700 22px/1.1 'JetBrains Mono', monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pmodal__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pmodal__card {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  color: #fff;
+  text-decoration: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: background 0.18s, color 0.18s;
+}
+.pmodal__card:hover, .pmodal__card:focus-visible { background: #fff; color: #0b1020; outline: none; }
+.pmodal__row { display: flex; justify-content: space-between; align-items: center; }
+.pmodal__name { font: 600 17px/1.2 'Inter Tight', sans-serif; letter-spacing: -0.01em; }
+.pmodal__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 10px/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.pmodal__status i { width: 6px; height: 6px; border-radius: 50%; background: #6bffb0; box-shadow: 0 0 8px #6bffb0; }
+.pmodal__blurb { font: 400 13px/1.5 'Inter Tight', sans-serif; opacity: 0.85; }
+.pmodal__host { font: 400 11px/1 'JetBrains Mono', monospace; letter-spacing: 0.06em; color: #7fe7ff; }
+.pmodal__card:hover .pmodal__host { color: #0b5a78; }
+.pmodal__foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  font: 400 10px/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ---- Controls hint (ui/ControlsHint.tsx): chamfered scanline keycaps → a
+   leader line → a boxed mono label, like the personal site's callouts. */
+.chint {
+  position: absolute;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  left: 50%;
+  translate: -50% 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+.chint--show { opacity: 1; }
+.chint__callout { display: flex; align-items: center; animation: fade-in 0.4s ease both; }
+.chint__pad { display: grid; grid-template-columns: repeat(3, 32px); gap: 4px; }
+.chint__key {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #fff;
+  font: 700 13px/1 'JetBrains Mono', monospace;
+  background:
+    repeating-linear-gradient(0deg, rgba(127, 231, 255, 0.16) 0 1px, transparent 1px 4px),
+    rgba(8, 14, 26, 0.82);
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+/* the 1.5px white keyline, chamfered with the key (a border would be clipped) */
+.chint__key::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  clip-path: polygon(
+    0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px), 0 0,
+    1.5px 1.5px, 1.5px calc(100% - 7.6px), 7.6px calc(100% - 1.5px), calc(100% - 1.5px) calc(100% - 1.5px),
+    calc(100% - 1.5px) 7.6px, calc(100% - 7.6px) 1.5px, 1.5px 1.5px
+  );
+}
+.chint__key--wide { width: 84px; font-size: 11px; letter-spacing: 0.18em; }
+.chint__pad.is-glitch .chint__key {
+  color: #7fe7ff;
+  text-shadow: -2px 0 rgba(255, 70, 140, 0.8), 2px 0 rgba(127, 231, 255, 0.9);
+  animation: chint-jitter 0.08s steps(2) infinite;
+}
+.chint__pad.is-glitch .chint__key:nth-child(odd) { animation-direction: reverse; }
+@keyframes chint-jitter {
+  0% { transform: translate(-1px, 0); }
+  100% { transform: translate(1.5px, -0.5px); }
+}
+.chint__leader { margin: 0 4px 0 6px; align-self: flex-start; overflow: visible; }
+.chint__leader circle { fill: #7fe7ff; }
+.chint__leader path { stroke: #fff; stroke-width: 1.5; fill: none; }
+.chint__label {
+  align-self: flex-start;
+  margin-top: -1px;
+  padding: 5px 10px 4px;
+  border: 1.5px solid #fff;
+  background: rgba(8, 14, 26, 0.55);
+  color: #fff;
+  font: 500 12px/1.3 'JetBrains Mono', monospace;
+  letter-spacing: 0.3em;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .start__logo, .chint__pad.is-glitch .chint__key { animation: none; }
 }
 
 /* --- Personal site (home work desk → fake browser, ui/PersonalSite.tsx) ---
@@ -2235,6 +2427,7 @@ canvas {
 }
 /* persistent design language: on a page the four corner marks expand out to
    the frame (positions set in PersonalSite); the middle ones fade */
+.site__plus.is-low { opacity: 0.4; }
 .site__page.is-open .site__plus { opacity: 0.75; }
 .site__page.is-open .site__plus.is-mid { opacity: 0; }
 /* buttons don't inherit fonts by default; :where keeps this weaker than any

@@ -17,23 +17,10 @@ import { SOUTH_TRAIL } from '../config/forest'
 import { SpeechBox } from './SpeechBox'
 import { PersonalSite, usePersonalSiteSfx } from './PersonalSite'
 import { isTypingTarget } from '../systems/input'
-import { startWind } from '../systems/introSfx'
+import { StartScreen } from './StartScreen'
+import { ControlsHint } from './ControlsHint'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
-
-function Hint() {
-  const [show, setShow] = useState(true)
-  // The forest walk has its own hint (ForestHint).
-  const forest = useGame((s) => s.forest)
-  useEffect(() => {
-    const t = setTimeout(() => setShow(false), 5600)
-    return () => clearTimeout(t)
-  }, [])
-  const text = isTouch
-    ? 'Tap to walk · hold and drag to steer · tap a prompt to interact'
-    : 'Click or WASD / arrows to move · Space to jump · walk up to a door or a face and press E'
-  return <div className={'hint' + (show && !forest ? ' hint--show' : '')}>{text}</div>
-}
 
 /** The forest walk's controls, shown for a few seconds on arriving. */
 function ForestHint() {
@@ -182,48 +169,6 @@ function SkySheet() {
   return null
 }
 
-/**
- * The intro's Start button, shown while the player floats in the sky. It reads
- * "Loading" until the town is in and settled, then "Enter Leonard's World"
- * (click / tap / Enter / Space / E). The press is the user gesture browsers need for audio, so the
- * wind starts right here, inside the handler.
- */
-function IntroStart() {
-  const phase = useGame((s) => s.introPhase)
-  const ready = useGame((s) => s.introReady)
-  const go = useGame((s) => s.introGo)
-  const start = () => {
-    if (!useGame.getState().introReady || useGame.getState().introGo) return
-    startWind()
-    useGame.getState().goIntro()
-  }
-  useEffect(() => {
-    if (!ready || go) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyE') {
-        e.preventDefault()
-        start()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [ready, go])
-  if (phase !== 'sky') return null
-  return (
-    <div className={'intro-start' + (go ? ' intro-start--gone' : '')}>
-      <button
-        type="button"
-        className={'intro-start__btn' + (ready ? ' intro-start__btn--ready' : '')}
-        disabled={!ready || go}
-        onClick={start}
-      >
-        {ready ? "Enter Leonard's World" : 'Loading…'}
-      </button>
-      {ready && !isTouch && <div className="intro-start__hint">press Enter</div>}
-    </div>
-  )
-}
-
 export function Hud() {
   const started = useGame((s) => s.started)
   const near = useGame((s) => s.near)
@@ -286,8 +231,8 @@ export function Hud() {
       {/* No intro modal — the opening skydive (three/Intro.tsx) plays, then
           calls start() itself. */}
       <SkySheet />
-      <IntroStart />
-      {started && <Hint />}
+      <StartScreen />
+      {started && <ControlsHint />}
       {/* Canopy shade: the forest darkens toward the treetops. */}
       {forest && <div className="forest-shade" />}
       {forest && <ForestHint />}
