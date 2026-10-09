@@ -12,8 +12,8 @@ const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown
 type Step = 'move' | 'jump' | 'done'
 
 /**
- * Town controls, taught one at a time as a hologram callout (keys → leader line
- * → boxed label, like the personal site's About annotations). Move shows first
+ * Town controls, taught one at a time: hologram keycaps with a mono "TO MOVE"
+ * line underneath. Move shows first
  * (WASD glitching to arrows and back, since both work); once he walks, Jump.
  * E needs no step: the interact prompt appears on its own near a door or face.
  */
@@ -103,15 +103,11 @@ function Key({ children, wide }: { children: string; wide?: boolean }) {
 }
 
 function Callout({ keys, label }: { keys: ReactNode; label: string }) {
-  const text = useScramble(label.toUpperCase(), 1)
+  const text = useScramble(`TO ${label.toUpperCase()}`, 1)
   return (
     <span className="chint__callout">
       {keys}
-      <svg className="chint__leader" width="58" height="34" viewBox="0 0 58 34" aria-hidden>
-        <circle cx="5" cy="26" r="3.5" />
-        <path d="M5 26 L21 10 L58 10" />
-      </svg>
-      <span className="chint__label" aria-label={label}>
+      <span className="chint__label" aria-label={`To ${label.toLowerCase()}`}>
         {text}
       </span>
     </span>

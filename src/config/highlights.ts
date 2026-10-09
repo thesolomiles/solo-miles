@@ -48,6 +48,9 @@ export const PROP_HIGHLIGHTS: Record<HighlightWorld, { floorY: number; props: Pr
       { zone: 'desk', min: [-1.51, 0, -7.0], max: [1.01, 3.14, -6.18] },
       // Zwift bike + trainer + the TV it faces
       { zone: 'zwift', min: [-4.26, 0, -6.99], max: [-2.14, 2.36, -3.24] },
+      // Record console + both speakers (merged parts + the TT_* moving nodes);
+      // measured from home.glb 2026-10-09.
+      { zone: 'turntable', min: [-5.91, 0, 1.98], max: [-2.89, 1.01, 2.48] },
     ],
   },
 }
