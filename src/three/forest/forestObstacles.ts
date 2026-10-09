@@ -1,4 +1,5 @@
 import { FOREST } from '../../config/forest'
+import { FOREST_ENCOUNTER as E } from '../../config/forestEncounter'
 import { hash3 } from './forestAssets'
 
 export type ObstacleKind = keyof typeof FOREST.obstacles.kinds
@@ -6,7 +7,7 @@ export type ObstacleKind = keyof typeof FOREST.obstacles.kinds
 export interface Obstacle {
   /** Slot index (stable id). */
   i: number
-  kind: ObstacleKind
+  kind: ObstacleKind | 'tusk'
   /** Centre x, half-width, top height. */
   x: number
   hw: number
@@ -36,6 +37,10 @@ export function obstacleAt(i: number): Obstacle | null {
 /** All obstacles overlapping [x0, x1]. */
 export function obstaclesIn(x0: number, x1: number): Obstacle[] {
   const out: Obstacle[] = []
+  // The authored tusk uses the existing jump/landing collision even while
+  // procedural obstacles are off. Its visual is already part of the skull GLB.
+  const tusk: Obstacle = { i: -1, kind: 'tusk', x: E.landmarkX + E.pathTusk.x, hw: E.pathTusk.hw, h: E.pathTusk.h }
+  if (tusk.x + tusk.hw >= x0 && tusk.x - tusk.hw <= x1) out.push(tusk)
   if (!O.enabled) return out
   const pad = 2
   for (let i = Math.floor((x0 - pad) / O.every); i <= Math.ceil((x1 + pad) / O.every); i++) {

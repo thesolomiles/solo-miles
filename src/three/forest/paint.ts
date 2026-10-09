@@ -19,8 +19,9 @@ const FOG_COS = Math.cos(THREE.MathUtils.degToRad(FOREST.pitchDeg)).toFixed(8)
  * - stone:  mottled, with moss settling on whatever faces up (rocks, boulders,
  *           the skull's crown).
  * - leaf:   gentle light/dark mottling (ferns, boughs).
+ * - bone:   muddy rain washes on stained bone, preserving authored foliage colours.
  */
-export type PaintKind = 'bark' | 'ground' | 'stone' | 'leaf'
+export type PaintKind = 'bark' | 'ground' | 'stone' | 'leaf' | 'bone'
 
 const NOISE = /* glsl */ `
 varying vec3 vPaintPos;
@@ -117,6 +118,20 @@ const BODY: Record<PaintKind, string> = {
   {
     float m = pFbm(vPaintPos * 1.3);
     diffuseColor.rgb *= 0.78 + 0.45 * m;
+  }
+  `,
+  bone: /* glsl */ `
+  {
+    // Earth washes and rain streaks on exposed bone; foliage keeps its palette.
+    float broad = pNoise(vPaintPos * 0.85);
+    float grain = pNoise(vPaintPos * vec3(3.2, 1.4, 3.2));
+    diffuseColor.rgb *= 0.88 + 0.18 * broad + 0.06 * grain;
+    float bone = (1.0 - smoothstep(-0.01, 0.08, diffuseColor.g - diffuseColor.r))
+      * smoothstep(0.12, 0.24, diffuseColor.g);
+    float streak = pNoise(vPaintPos * vec3(2.1, 0.28, 2.4));
+    float dirt = smoothstep(0.20, 0.67, streak) * 0.75
+      + (1.0 - smoothstep(0.25, 2.8, vPaintPos.y)) * 0.25;
+    diffuseColor.rgb *= mix(vec3(1.0), vec3(0.55, 0.46, 0.32), dirt * bone);
   }
   `,
 }

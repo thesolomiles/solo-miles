@@ -1,4 +1,5 @@
 import type { Interactable } from './town'
+import pathTusk from './forestSkull.json'
 
 /** First sightseeing encounter. All positions are along the forest's +X path. */
 export const FOREST_ENCOUNTER = {
@@ -11,6 +12,8 @@ export const FOREST_ENCOUNTER = {
   sceneryHalfWidth: 42,
   sceneryPrepareRadius: 38,
   inspectRadius: 10,
+  /** Generated from the GLB's tusk cross-section by build-forest-skull.py. */
+  pathTusk,
   camera: { fade: 0.4, blackHold: 0.15, hold: 1, fov: 48 },
   revealDialogue: {
     id: 'forest-ancient-remains-reveal',

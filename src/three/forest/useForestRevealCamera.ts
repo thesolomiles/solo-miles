@@ -30,9 +30,12 @@ export function useForestRevealCamera(ortho: THREE.OrthographicCamera) {
     // Pull straight back on portrait while keeping the eye low to the ground.
     const pullBack = Math.max(0, 1 / aspect - 1) * 13
     camera.position.set(forestView.walkerX - 6 - pullBack, 1.4, 14 + pullBack * 0.35)
-    camera.lookAt(E.landmarkX - 1, 5.1, E.landmarkZ + 2)
-    if (camera.aspect !== aspect) {
+    // Include the fallen face and the tusk reaching forward onto the trail.
+    camera.lookAt(E.landmarkX, 4.5, E.landmarkZ + 3.5)
+    const fov = E.camera.fov + Math.max(0, 1 - aspect) * 12
+    if (camera.aspect !== aspect || camera.fov !== fov) {
       camera.aspect = aspect
+      camera.fov = fov
       camera.updateProjectionMatrix()
     }
     if (get().camera !== camera) set({ camera })
