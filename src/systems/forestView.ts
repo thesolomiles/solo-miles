@@ -8,6 +8,7 @@ import { FOREST } from '../config/forest'
  */
 export const forestView = {
   walkerX: 0,
+  walkerY: 0,
   /** +1 facing right (+X), −1 left. */
   facing: 1 as 1 | -1,
   camX: 0,

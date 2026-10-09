@@ -23,7 +23,6 @@ export const charMask: { target: THREE.WebGLRenderTarget | null } = { target: nu
 export function CharacterMask() {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
-  const camera = useThree((s) => s.camera)
   const assets = useMemo(() => {
     const target = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: true })
     const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
@@ -38,7 +37,7 @@ export function CharacterMask() {
     }
   }, [assets])
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     const { target, depth, size, white } = assets
     gl.getDrawingBufferSize(size)
     if (target.width !== size.x || target.height !== size.y) target.setSize(size.x, size.y)

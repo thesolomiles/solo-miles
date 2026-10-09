@@ -34,10 +34,13 @@ import {
   pathDirt,
   PATH_TILE,
 } from './forestAssets'
-import { paint } from './paint'
+import { forestPaintFog, paint } from './paint'
 import { CharacterMask, CHARACTER_LAYER } from './CharacterMask'
 import { WispGuide } from './Wisps'
 import { playForestSfx, startForestAmbience, type ForestSound } from './forestSfx'
+import { FOREST_ENCOUNTER, forestSceneryHalf, inForestClearing } from '../../config/forestEncounter'
+import { forestReveal, useForestEncounter } from '../../state/forestEncounter'
+import { ForestEncounter } from './ForestEncounter'
 
 /**
  * The forest walk: an endless side-on stroll through tall pines (see
@@ -76,8 +79,20 @@ function Atmosphere() {
 
   // The sun's shadow box rides along with the walker (like the town's SunRig).
   const sun = useRef<THREE.DirectionalLight>(null!)
-  useFrame(() => {
+  useFrame(({ camera, size }) => {
     const x = forestView.walkerX
+    if (scene.fog instanceof THREE.Fog) {
+      const distance = Math.hypot(camera.position.x - x, camera.position.y, camera.position.z)
+      scene.fog.near = distance + FOREST.fogNear
+      scene.fog.far = distance + FOREST.fogFar
+      // Match the side view's depth haze rather than giving the low shot a new
+      // fog distribution. Its lighting and painted materials stay the same.
+      const pitch = THREE.MathUtils.degToRad(FOREST.pitchDeg)
+      const lookY = forestFrame(size.width / Math.max(size.height, 1)).lookY
+      const sideDistance = Math.hypot(lookY + Math.sin(pitch) * FOREST.camDist, Math.cos(pitch) * FOREST.camDist)
+      const sideOffset = FOREST.camDist - sideDistance + lookY * Math.sin(pitch)
+      forestPaintFog.value.set(forestReveal.perspective ? 1 : 0, distance + sideOffset)
+    }
     sun.current.position.set(x + SUN_DIR.x * 40, SUN_DIR.y * 40, SUN_DIR.z * 40)
     sun.current.target.position.set(x, 0, 0)
     sun.current.target.updateMatrixWorld()
@@ -319,7 +334,7 @@ function TreeBand({ li, layer, assets }: { li: number; layer: ForestLayer; asset
     const camX = forestView.camX
     group.current.position.x = camX * (1 - rate)
     // Visible stretch in the band's own coordinates.
-    const half = forestFrame(size.width / Math.max(size.height, 1)).halfX + MARGIN
+    const half = forestSceneryHalf(camX, forestFrame(size.width / Math.max(size.height, 1)).halfX) + MARGIN
     const centre = camX * rate
     const i0 = Math.floor((centre - half) / layer.every) - 1
     const i1 = Math.ceil((centre + half) / layer.every) + 1
@@ -332,6 +347,9 @@ function TreeBand({ li, layer, assets }: { li: number; layer: ForestLayer; asset
     let rc = 0
     for (let i = i0; i <= i1; i++) {
       const r = (salt: number) => hash3(i, li, salt)
+      const slotX = (i + 0.15 + 0.7 * r(2)) * layer.every + camX * (1 - rate)
+      const slotZ = lerp(layer.z[0], layer.z[1], r(3))
+      if (inForestClearing(slotX, slotZ)) continue
       if (r(0) < layer.fill) {
         const v = Math.floor(r(1) * VARIANTS)
         const x = (i + 0.15 + 0.7 * r(2)) * layer.every
@@ -435,7 +453,7 @@ function Understory({ assets }: { assets: Assets }) {
 
   useFrame(() => {
     const camX = forestView.camX
-    const half = forestFrame(size.width / Math.max(size.height, 1)).halfX + MARGIN
+    const half = forestSceneryHalf(camX, forestFrame(size.width / Math.max(size.height, 1)).halfX) + MARGIN
     const i0 = Math.floor((camX - half) / U.every) - 1
     const i1 = Math.ceil((camX + half) / U.every) + 1
     const key = `${i0}|${i1}`
@@ -448,6 +466,7 @@ function Understory({ assets }: { assets: Assets }) {
       if (r(0) > U.fill) continue
       const x = (i + r(1)) * U.every
       const z = lerp(U.z[0], U.z[1], r(3))
+      if (inForestClearing(x, z)) continue
       if (r(4) < 0.82) {
         const s = 0.5 + r(5) * 0.7
         put(fernRef.current, fc++, x, z, r(6) * 6.28, s, s * (0.7 + r(7) * 0.6), s)
@@ -542,7 +561,7 @@ function Grass({ assets }: { assets: Assets }) {
   const slots = Math.ceil((2 * (MAX_HALF + MARGIN)) / G.every) + 8
   useFrame(() => {
     const camX = forestView.camX
-    const half = forestFrame(size.width / Math.max(size.height, 1)).halfX + MARGIN
+    const half = forestSceneryHalf(camX, forestFrame(size.width / Math.max(size.height, 1)).halfX) + MARGIN
     bands.forEach((band, b) => {
       const grp = groups.current[b]
       const m = refs.current[b]
@@ -646,6 +665,8 @@ function Foreground() {
   }, [assets])
   useFrame(() => {
     const camX = forestView.camX
+    // This camera-facing foreground strip is composed only for the side view.
+    mesh.current.visible = !forestReveal.perspective
     mesh.current.position.x = camX
     assets.tex.offset.x = (camX * F.rate - width / 2) / F.tile
   })
@@ -690,6 +711,7 @@ const rayBreath = (t: number, p: { rate: number; phase: number }) => 0.7 + 0.3 *
 function Shafts() {
   const size = useThree((s) => s.size)
   const shafts = useRef<THREE.InstancedMesh>(null!)
+  const volumes = useRef<THREE.InstancedMesh>(null!)
   const pools = useRef<THREE.InstancedMesh>(null!)
   const S = FOREST.shafts
   const PS = FOREST.pathShafts
@@ -699,6 +721,11 @@ function Shafts() {
     const shaftTex = shaftTexture()
     const poolTex = glowTexture()
     const card = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0)
+    // Three fixed crossed planes give the clearing's rays volume from both
+    // cameras. They share one draw call and retain the same floor anchors.
+    const crossed = [0, Math.PI / 3, Math.PI * 2 / 3].map((angle) => card.clone().rotateY(angle))
+    const volumeCard = mergeGeometries(crossed)!
+    crossed.forEach((geometry) => geometry.dispose())
     const flat = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)
     const mat = (map: THREE.Texture) =>
       new THREE.MeshBasicMaterial({
@@ -711,7 +738,9 @@ function Shafts() {
         toneMapped: false,
         side: THREE.DoubleSide,
       })
-    return { shaftTex, poolTex, card, flat, shaftMat: mat(shaftTex), poolMat: mat(poolTex) }
+    const volumeMat = mat(shaftTex)
+    volumeMat.opacity = 1 / 3
+    return { shaftTex, poolTex, card, flat, volumeCard, volumeMat, shaftMat: mat(shaftTex), poolMat: mat(poolTex) }
   }, [])
   useEffect(
     () => () => {
@@ -725,8 +754,22 @@ function Shafts() {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
     const camX = forestView.camX
-    const half = forestFrame(size.width / Math.max(size.height, 1)).halfX + 8
+    const half = forestSceneryHalf(camX, forestFrame(size.width / Math.max(size.height, 1)).halfX) + 8
     let n = 0
+    let vn = 0
+    const writeShaft = (x: number, z: number, w: number, len: number, a: number) => {
+      const local = Math.abs(x - FOREST_ENCOUNTER.landmarkX) < FOREST_ENCOUNTER.sceneryPrepareRadius
+      rot.set(0, 0, S.lean)
+      _q.setFromEuler(rot)
+      _m.compose(_p.set(x, 0, z), _q, _s.set(w, len, 1))
+      shafts.current.setMatrixAt(n, _m)
+      shafts.current.setColorAt(n, col.setScalar(local ? 0 : a))
+      if (local) {
+        _m.compose(_p.set(x, 0, z), _q, _s.set(w, len, w))
+        volumes.current.setMatrixAt(vn, _m)
+        volumes.current.setColorAt(vn++, col.setScalar(a))
+      }
+    }
     // Slots are laid out in the shafts' own depth-averaged frame; each shaft is
     // then parallaxed by its own depth.
     const rMid = rateAt((S.z[0] + S.z[1]) / 2)
@@ -745,11 +788,7 @@ function Shafts() {
       const near = THREE.MathUtils.mapLinear(z, S.z[0], S.z[1], 0.55, 1)
       const a = S.opacity * breathe * near * (0.7 + r(7) * 0.6)
 
-      rot.set(0, 0, S.lean)
-      _q.setFromEuler(rot)
-      _m.compose(_p.set(x, 0, z), _q, _s.set(w, len, 1))
-      shafts.current.setMatrixAt(n, _m)
-      shafts.current.setColorAt(n, col.setRGB(a, a, a))
+      writeShaft(x, z, w, len, a)
       _q.identity()
       _m.compose(_p.set(x, 0.03, z), _q, _s.set(w * 3, 1, w * 1.6))
       pools.current.setMatrixAt(n, _m)
@@ -762,11 +801,7 @@ function Shafts() {
       const ps = pathShaftAt(i)
       if (!ps) continue
       const a = PS.opacity * rayBreath(t, ps)
-      rot.set(0, 0, S.lean)
-      _q.setFromEuler(rot)
-      _m.compose(_p.set(ps.x, 0, -0.6), _q, _s.set(ps.w, ps.len, 1))
-      shafts.current.setMatrixAt(n, _m)
-      shafts.current.setColorAt(n, col.setRGB(a, a, a))
+      writeShaft(ps.x, -0.6, ps.w, ps.len, a)
       _q.identity()
       _m.compose(_p.set(ps.x, 0.03, 0.1), _q, _s.set(ps.w * 2.4, 1, 3.2))
       pools.current.setMatrixAt(n, _m)
@@ -779,6 +814,9 @@ function Shafts() {
       m.instanceMatrix.needsUpdate = true
       if (m.instanceColor) m.instanceColor.needsUpdate = true
     }
+    volumes.current.count = vn
+    volumes.current.instanceMatrix.needsUpdate = true
+    if (volumes.current.instanceColor) volumes.current.instanceColor.needsUpdate = true
   })
 
   const init = (m: THREE.InstancedMesh | null, into: { current: THREE.InstancedMesh }) => {
@@ -790,6 +828,7 @@ function Shafts() {
   return (
     <>
       <instancedMesh ref={(m) => init(m, shafts)} args={[assets.card, assets.shaftMat, slots]} frustumCulled={false} renderOrder={2} />
+      <instancedMesh ref={(m) => init(m, volumes)} args={[assets.volumeCard, assets.volumeMat, slots]} frustumCulled={false} renderOrder={2} />
       <instancedMesh ref={(m) => init(m, pools)} args={[assets.flat, assets.poolMat, slots]} frustumCulled={false} renderOrder={1} />
     </>
   )
@@ -1288,7 +1327,13 @@ function Walker() {
     const s = w.current
     const st = useGame.getState()
     const typing = typeof document !== 'undefined' && isTypingTarget(document.activeElement)
-    const canMove = !st.dialogue && !st.transition && !typing
+    const revealing = useForestEncounter.getState().phase === 'reveal'
+    const canMove = !st.dialogue && !st.transition && !typing && !revealing
+    if (revealing) {
+      s.speed = 0
+      s.jumpBuffer = 0
+      held.current = 0
+    }
     const keys = getKeys() as { left: boolean; right: boolean; jump: boolean; back: boolean; forward: boolean }
     const sounds: ForestSound[] = []
     const hw = FOREST.walkerHalfW
@@ -1475,7 +1520,11 @@ function Walker() {
     const want = forestView.facing * (Math.PI / 2 - (still ? IDLE_TURN : 0))
     yaw.current += (want - yaw.current) * Math.min(1, dt * (still ? 4 : 12))
     group.current.position.set(forestView.walkerX, s.y, 0)
-    group.current.rotation.y = yaw.current
+    forestView.walkerY = s.y
+    // Turn toward the discovery only in the shot; walking facing stays intact.
+    group.current.rotation.y = forestReveal.perspective
+      ? Math.atan2(FOREST_ENCOUNTER.landmarkX - forestView.walkerX, FOREST_ENCOUNTER.landmarkZ)
+      : yaw.current
 
     // After the pull-up hands over, the root has just jumped up + forward to
     // where he stands, but while the pull-up clip fades out it still poses him
@@ -1508,9 +1557,12 @@ export function ForestWorld() {
 
   // A fresh walk every time: back at the trail's start, camera snapped to him.
   useEffect(() => {
-    forestView.walkerX = 0
+    // Quick local preview: ?forest&viewpoint begins at the viewpoint.
+    const preview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('viewpoint')
+    forestView.walkerX = preview ? FOREST_ENCOUNTER.viewpointX : 0
+    forestView.walkerY = 0
     forestView.facing = 1
-    forestView.camX = 0
+    forestView.camX = forestView.walkerX
     forestView.snap = true
     forestTouch.dir = 0
     forestTouch.jump = false
@@ -1551,6 +1603,7 @@ export function ForestWorld() {
       <PathRayLight />
       <Motes />
       <Walker />
+      <ForestEncounter />
       <WispGuide />
       <Foreground />
       {/* Desktop only, like the painterly filter it feeds. */}

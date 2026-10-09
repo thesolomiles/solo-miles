@@ -2502,6 +2502,41 @@ canvas {
 @media (max-width: 640px) {
 }
 
+
+
+/* Authored viewpoint controls and black cover for camera / scenery handoffs. */
+.forest-reveal {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.forest-reveal__fade {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+.forest-reveal__fade--active { pointer-events: auto; }
+.forest-reveal__skip {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  right: 18px;
+  padding: 9px 13px;
+  border: 1px solid rgba(218, 237, 225, 0.3);
+  border-radius: 7px;
+  background: rgba(16, 37, 30, 0.6);
+  color: #e9f1e7;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.forest-reveal__skip span { opacity: 0.55; margin-left: 8px; }
+.forest-reveal__skip:hover { background: rgba(16, 37, 30, 0.85); }
+.forest-reveal__skip:focus-visible { outline: 2px solid #bfe6ff; outline-offset: 4px; }
+
 /* ---- Record crate (ui/RecordsModal.tsx): the home turntable. A hologram
    panel like the start menu's Other projects: picture disc left, crate right. */
 .rec {

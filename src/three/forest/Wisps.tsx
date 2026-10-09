@@ -6,6 +6,8 @@ import { CHARACTER_LAYER } from './CharacterMask'
 import { FOREST } from '../../config/forest'
 import { forestFrame, forestView, rateAt } from '../../systems/forestView'
 import { playWispCall, type WispCall } from './forestSfx'
+import { FOREST_ENCOUNTER as E } from '../../config/forestEncounter'
+import { useForestEncounter } from '../../state/forestEncounter'
 
 /**
  * The forest wisp — a small, cute spirit that floats ahead of Leonard and
@@ -583,6 +585,43 @@ export function WispGuide() {
         st.prevCam = camX
         st.pos.lerp(st.target, 1 - Math.exp(-rate * dt))
         out.copy(st.pos)
+      }
+
+      // At the first discovery it becomes a patient guide: wait at the viewpoint,
+      // then happily explore the landmark while the player looks and reads.
+      const encounter = useForestEncounter.getState()
+      if (wx >= E.leadAt && wx < E.landmarkX + 14 && !(encounter.phase === 'complete' && moving)) {
+        if (st.stage !== 'lead') {
+          stage('lead')
+          look.scale = 1
+          look.snap = true
+        }
+        look.opacity = Math.min(1, look.opacity + dt * 2)
+        const exploring = encounter.phase !== 'approach'
+        const reading = encounter.phase === 'inspecting' || (encounter.phase === 'reveal' && encounter.stage === 'story')
+        if (exploring) {
+          const a = t * (reading ? 1.6 : 0.9)
+          st.target.set(E.landmarkX - 1 + Math.cos(a) * 2.2, 2.4 + Math.sin(a * 1.5) * 0.85, 0.5 + Math.sin(a) * 1.2)
+          look.gaze = Math.cos(a) > 0 ? 1 : -1
+          if (t > st.chatAt) {
+            st.chatAt = t + 4 + Math.random() * 3
+            say(reading ? 'giggle' : 'babble')
+          }
+        } else {
+          st.target.set(Math.min(wx + 4, E.viewpointX + 2), W.height + 0.5 + bob, -0.3)
+          look.gaze = wx < E.viewpointX - 2 ? -1 : 1
+          if (!moving && t > st.chatAt) {
+            st.chatAt = t + 4
+            say('beckon')
+          }
+        }
+        // Landmark choreography is in world space; don't drag it with the camera.
+        st.prevCam = camX
+        st.pos.lerp(st.target, 1 - Math.exp(-3 * dt))
+        out.copy(st.pos)
+        st.cycleStart = t
+        st.phase = -1
+        return
       }
 
       // Not yet: nowhere to be seen.

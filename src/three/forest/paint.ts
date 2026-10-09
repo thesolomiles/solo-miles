@@ -1,4 +1,10 @@
 import * as THREE from 'three'
+import { FOREST } from '../../config/forest'
+
+/** Perspective scenery keeps the same depth haze as the walking composition. */
+export const forestPaintFog = new THREE.Uniform(new THREE.Vector2())
+const FOG_SIN = Math.sin(THREE.MathUtils.degToRad(FOREST.pitchDeg)).toFixed(8)
+const FOG_COS = Math.cos(THREE.MathUtils.degToRad(FOREST.pitchDeg)).toFixed(8)
 
 /**
  * Hand-painted surfaces for the forest (Leonard's reference: a textured,
@@ -46,6 +52,7 @@ float pFbm(vec3 p) {
 `
 
 const VERT_DECL = /* glsl */ `
+uniform vec2 uForestPaintFog;
 varying vec3 vPaintPos;
 varying vec3 vPaintNrm;
 `
@@ -120,11 +127,17 @@ const WARM = new THREE.Color('#c9c24a')
 /** Give a standard material the painted look of `kind` (mutates + returns it). */
 export function paint<M extends THREE.MeshStandardMaterial>(mat: M, kind: PaintKind): M {
   mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uForestPaintFog = forestPaintFog
     shader.uniforms.uPaintMoss = { value: MOSS }
     shader.uniforms.uPaintWarm = { value: WARM }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\n' + VERT_DECL)
       .replace('#include <project_vertex>', '#include <project_vertex>\n' + VERT_BODY)
+      .replace('#include <fog_vertex>', `#include <fog_vertex>
+        #ifdef USE_FOG
+          float walkingDepth = uForestPaintFog.y - vPaintPos.y * ${FOG_SIN} - vPaintPos.z * ${FOG_COS};
+          vFogDepth = mix(vFogDepth, walkingDepth, uForestPaintFog.x);
+        #endif`)
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
@@ -133,6 +146,6 @@ export function paint<M extends THREE.MeshStandardMaterial>(mat: M, kind: PaintK
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + BODY[kind])
   }
   // Distinct program per kind (three caches by onBeforeCompile source otherwise).
-  mat.customProgramCacheKey = () => 'paint-' + kind
+  mat.customProgramCacheKey = () => 'paint-depth-haze-' + kind
   return mat
 }

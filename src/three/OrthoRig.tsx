@@ -11,6 +11,7 @@ import { forestFrame, forestView } from '../systems/forestView'
 import { arcadeFocus } from '../systems/arcadeFocus'
 import { useGame } from '../state/store'
 import { intro } from '../systems/intro'
+import { useForestRevealCamera } from './forest/useForestRevealCamera'
 
 const _desired = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
@@ -27,7 +28,7 @@ const GROUND_HALF = 27.5
 // start(). Same fixed ortho camera throughout — it only translates and zooms.
 
 /**
- * The one camera, created up front and handed to <Canvas camera={RIG_CAMERA}>
+ * The default camera, created up front and handed to <Canvas camera={RIG_CAMERA}>
  * so it's the camera from the very FIRST frame. Before, the Canvas rendered a
  * frame or two with r3f's default perspective camera until OrthoRig swapped this
  * one in — a wide, zoomed-out flash of the whole town on every load. Its
@@ -61,7 +62,8 @@ function applyFrustum(cam: THREE.OrthographicCamera, h: number, aspect: number) 
 /**
  * The fixed three-quarter orthographic camera rig.
  *
- * Contract (LOCKED — see brief):
+ * Normal gameplay contract (the forest's authored reveal temporarily hands off
+ * to a perspective camera; all walking and other worlds keep this fixed rig):
  *  - orientation is a CONSTANT; the camera never rotates and never re-aims
  *  - every frame only TRANSLATES the camera toward player + offset
  *
@@ -88,6 +90,8 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
   const prevRide = useRef(useGame.getState().ride)
 
   const cam = RIG_CAMERA
+  // Forest sightseeing is the one authored perspective exception to the fixed rig.
+  const forestCamera = useForestRevealCamera(cam)
 
   // The one, constant orientation. Matrix4.lookAt(eye, target, up) with the
   // camera's relative offset as the eye yields the fixed tilt (~39° down).
@@ -191,8 +195,10 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
         f.lookY + Math.sin(pitch) * FOREST.camDist,
         Math.cos(pitch) * FOREST.camDist,
       )
+      forestCamera.update(aspectNow)
       return
     }
+    forestCamera.restore()
     const riding = rideNow !== null
     const framed = interiorNow !== null || minigameNow !== null || riding
     const aspect = size.width / Math.max(size.height, 1)
@@ -274,7 +280,7 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
     // teleport also snaps; otherwise glide.
     if (!started || swapped || cam.position.distanceTo(_desired) > 12) cam.position.copy(_desired)
     else cam.position.lerp(_desired, 1 - Math.pow(CAMERA.followDamping, dt))
-  })
+  }, -1)
 
   return null
 }

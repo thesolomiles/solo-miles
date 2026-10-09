@@ -20,6 +20,8 @@ import { isTypingTarget } from '../systems/input'
 import { StartScreen } from './StartScreen'
 import { ControlsHint } from './ControlsHint'
 import { RecordsModal } from './RecordsModal'
+import { ForestEncounterHud } from './ForestEncounterHud'
+import { skipForestReveal, useForestEncounter } from '../state/forestEncounter'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -184,6 +186,7 @@ export function Hud() {
   const ride = useGame((s) => s.ride)
   const nearZone = useGame((s) => s.nearZone)
   const forest = useGame((s) => s.forest)
+  const forestRevealing = useForestEncounter((s) => s.phase === 'reveal')
   useWorldSelectorSfx()
   useGamesSelectorSfx()
   usePersonalSiteSfx()
@@ -198,6 +201,13 @@ export function Hud() {
       // During a ride the speech box (RideDialogue) owns the keys (advance / Esc);
       // don't also run movement/interact handling here.
       if (st.ride) return
+      if (st.forest && useForestEncounter.getState().phase === 'reveal') {
+        if (e.code === 'Escape') {
+          e.preventDefault()
+          skipForestReveal()
+        }
+        return
+      }
       // An open dialogue box owns its own keys (typewriter reveal, advance, choices)
       // — see Dialogue. The Hud only handles Escape to close it.
       if (st.dialogue) {
@@ -235,11 +245,12 @@ export function Hud() {
           calls start() itself. */}
       <SkySheet />
       <StartScreen />
-      {started && <ControlsHint />}
+      {started && !forest && <ControlsHint />}
       {/* Canopy shade: the forest darkens toward the treetops. */}
-      {forest && <div className="forest-shade" />}
-      {forest && <ForestHint />}
-      {forest && isTouch && !dialogue && <ForestTouch />}
+      {forest && !forestRevealing && <div className="forest-shade" />}
+      {forest && !forestRevealing && <ForestHint />}
+      {forest && isTouch && !dialogue && !forestRevealing && <ForestTouch />}
+      {forest && <ForestEncounterHud />}
       {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !recordsOpen && !minigame && !ride && (
         <TouchControls />
       )}
