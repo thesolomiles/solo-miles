@@ -57,7 +57,6 @@ export const HOME = {
     { minX: -7.3, maxX: -5.6, minZ: 1.6, maxZ: 6.6 },
     { minX: -6.8, maxX: -6.3, minZ: 2.8, maxZ: 3.2 },
     { minX: -5.1, maxX: -3.9, minZ: 4, maxZ: 4.7 },
-    { minX: -5.7, maxX: -3.6, minZ: 1.5, maxZ: 3.1 },
     { minX: -7.3, maxX: -5.7, minZ: -0.2, maxZ: 1.6 },
     { minX: -1.5, maxX: 1.1, minZ: -7.2, maxZ: -6.1 },
     { minX: -1.1, maxX: 0.6, minZ: -6.5, maxZ: -4.7 },
@@ -67,7 +66,7 @@ export const HOME = {
     { minX: 5.8, maxX: 6.5, minZ: 4.4, maxZ: 5.1 },
     { minX: 4, maxX: 7.2, minZ: 4.9, maxZ: 7.4 },
     { minX: -2.7, maxX: -1.3, minZ: 5.6, maxZ: 7.5 },
-    { minX: -2.45, maxX: -1.85, minZ: 2.3, maxZ: 5.45 },
+    { minX: -5.92, maxX: -2.88, minZ: 1.98, maxZ: 2.5 },
   ] as BoxCollider[],
 
   /** Interaction boxes inside the room (three-space AABBs). `home-exit` covers
@@ -82,7 +81,7 @@ export const HOME = {
     { id: "zwift", verb: "Look", minX: -4.2, maxX: -2.3, minZ: -5.7, maxZ: -2.7 },
     { id: "desk", verb: "Use", minX: -1.7, maxX: 1.3, minZ: -6.1, maxZ: -3.8 },
     { id: "bookshelf", verb: "Look", minX: 4.3, maxX: 7, minZ: -6.1, maxZ: -4.6 },
-    { id: "turntable", verb: "Play records", minX: -1.85, maxX: -0.75, minZ: 3.0, maxZ: 4.8 },
+    { id: "turntable", verb: "Play records", minX: -5.1, maxX: -3.7, minZ: 2.5, maxZ: 3.3 },
   ] as InteractZone[],
 
   /** What pressing E in a zone says, by zone id: a portrait-less speech box. */

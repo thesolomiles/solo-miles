@@ -3,9 +3,11 @@ import sakuraDreaming from '../../assets/audio/records/sakura-dreaming.m4a'
 import southernForest from '../../assets/audio/records/southern-forest.m4a'
 
 /**
- * The home's record player: a low console on the east edge of the lounge rug,
- * facing the L-sofa, with a speaker at each end (three/Turntable.tsx). E on its
- * zone (HOME.zones `turntable`) opens the record crate (ui/RecordsModal.tsx).
+ * The home's record player: a walnut console across the top of the lounge rug (where the armchair was),
+ * facing the L-sofa (and the camera), with a speaker either side. Modelled in
+ * home.blend (`RecordConsole`); three/Turntable.tsx moves its platter, tonearm
+ * and woofers. E on its zone (HOME.zones `turntable`, in front of it) opens the
+ * record crate (ui/RecordsModal.tsx).
  *
  * Off on every visit; a record plays through to the next one, wrapping round.
  * Leaving the house stops it (back to the town's own ambience). Volume is
@@ -18,12 +20,12 @@ export const TURNTABLE = {
   /** Must match the `turntable` box in HOME.zones. */
   zoneId: 'turntable',
 
-  /** Console centre on the floor; it runs along z (long side faces the sofa, west). */
-  console: { x: -2.15, z: 3.9, length: 2.0, depth: 0.5, height: 0.55 },
-  /** Speaker floor positions, toed in toward the sofa. */
+  /** Console centre on the floor (matches Blender `RecordConsole`, x, −y). */
+  console: { x: -4.4, z: 2.22 },
+  /** Speaker floor positions (Blender `Speaker_L` / `Speaker_R`). */
   speakers: [
-    { x: -2.15, z: 2.55 },
-    { x: -2.15, z: 5.2 },
+    { x: -5.7, z: 2.22 },
+    { x: -3.1, z: 2.22 },
   ],
 
   audio: {
