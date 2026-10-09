@@ -29,6 +29,7 @@ import { CafeWorkers } from './actors/CafeWorker'
 import { Patrons } from './actors/Patron'
 import { CafeBgm } from './CafeBgm'
 import { HomeAmbience } from './HomeAmbience'
+import { Turntable } from './Turntable'
 import { Interactions } from './Interactions'
 import { Cat } from './actors/Cat'
 import { Rider } from './actors/Rider'
@@ -358,6 +359,7 @@ export function Scene() {
       ) : interior === 'home' ? (
         <>
           <HomeModel />
+          <Turntable playerPos={posRef} />
           {edit && <ColliderEditorFor store={useHomeColliderEdit} />}
           {zonesEdit && <ZoneEditorFor store={useHomeZoneEdit} />}
         </>

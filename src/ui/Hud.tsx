@@ -19,6 +19,7 @@ import { PersonalSite, usePersonalSiteSfx } from './PersonalSite'
 import { isTypingTarget } from '../systems/input'
 import { StartScreen } from './StartScreen'
 import { ControlsHint } from './ControlsHint'
+import { RecordsModal } from './RecordsModal'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -178,6 +179,7 @@ export function Hud() {
   const worldOpen = useGame((s) => s.worldOpen)
   const gamesOpen = useGame((s) => s.gamesOpen)
   const siteOpen = useGame((s) => s.siteOpen)
+  const recordsOpen = useGame((s) => s.recordsOpen)
   const minigame = useGame((s) => s.minigame)
   const ride = useGame((s) => s.ride)
   const nearZone = useGame((s) => s.nearZone)
@@ -217,6 +219,7 @@ export function Hud() {
           useGame.setState({ dialogue: SOUTH_TRAIL.leave, line: 0 })
         } else if (st.gamesOpen) st.closeGames()
         else if (st.siteOpen) st.closeSite()
+        else if (st.recordsOpen) st.closeRecords()
         else if (st.worldOpen) st.closeWorld()
         else if (st.section) st.closeSection()
         else if (st.dialogue) st.closeDialogue()
@@ -237,13 +240,13 @@ export function Hud() {
       {forest && <div className="forest-shade" />}
       {forest && <ForestHint />}
       {forest && isTouch && !dialogue && <ForestTouch />}
-      {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !minigame && !ride && (
+      {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !recordsOpen && !minigame && !ride && (
         <TouchControls />
       )}
-      {started && near && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !minigame && !ride && (
+      {started && near && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !recordsOpen && !minigame && !ride && (
         <Prompt near={near} />
       )}
-      {started && !near && nearZone && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !minigame && !ride && (
+      {started && !near && nearZone && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !recordsOpen && !minigame && !ride && (
         <ZonePrompt zone={nearZone} />
       )}
       {dialogue && <Dialogue item={dialogue} line={line} />}
@@ -251,6 +254,7 @@ export function Hud() {
       {worldOpen && <WorldSelector />}
       {gamesOpen && <GamesModal />}
       {siteOpen && <PersonalSite />}
+      {recordsOpen && <RecordsModal />}
       {ride && <RideDialogue />}
       {ride && <RideHud />}
       {ride && <RideRouteOverview />}

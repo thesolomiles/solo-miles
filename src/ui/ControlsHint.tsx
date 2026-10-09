@@ -20,7 +20,7 @@ type Step = 'move' | 'jump' | 'done'
 export function ControlsHint() {
   const [step, setStep] = useState<Step>('move')
   const busy = useGame(
-    (s) => !!(s.forest || s.dialogue || s.ride || s.minigame || s.siteOpen || s.worldOpen || s.gamesOpen || s.section),
+    (s) => !!(s.forest || s.dialogue || s.ride || s.minigame || s.siteOpen || s.recordsOpen || s.worldOpen || s.gamesOpen || s.section),
   )
 
   useEffect(() => {

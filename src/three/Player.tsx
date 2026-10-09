@@ -83,6 +83,7 @@ export function Player({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       !st.worldOpen &&
       !st.gamesOpen &&
       !st.siteOpen &&
+      !st.recordsOpen &&
       !st.minigame &&
       !st.transition &&
       !typing

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { DialogueChoice, Interactable, InteractZone, SectionId } from '../config/town'
 import { CAFE } from '../config/cafe'
 import { HOME } from '../config/home'
+import { TURNTABLE } from '../config/turntable'
 import { FOREST_SIGN } from '../config/town'
 import { SOUTH_TRAIL } from '../config/forest'
 import { ROUTES, routeScript } from '../config/worlds'
@@ -71,6 +72,8 @@ interface GameState {
   gamesOpen: boolean
   /** Leonard's personal site in the fake browser (the home's work desk). */
   siteOpen: boolean
+  /** The home turntable's record crate (ui/RecordsModal.tsx). */
+  recordsOpen: boolean
   /** Active ride route id (the auto-runner scene), or null when not riding. Set
       by picking a route in the world selector; cleared when Leonard's chat ends
       or the player leaves. Drives the town→ride world swap (three/Scene.tsx). */
@@ -119,6 +122,7 @@ interface GameState {
   openGames: () => void
   closeGames: () => void
   closeSite: () => void
+  closeRecords: () => void
   /** Begin a town↔ride fade (pass a route id to start, null to leave). Closes the
       world selector so the fade isn't sitting under it. */
   requestRide: (to: string | null) => void
@@ -155,6 +159,7 @@ export const useGame = create<GameState>((set, get) => ({
   worldOpen: false,
   gamesOpen: false,
   siteOpen: false,
+  recordsOpen: false,
   ride: null,
   rideLine: 0,
   interior: null,
@@ -183,9 +188,9 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   interact: () => {
-    const { dialogue, near, nearZone, section, worldOpen, gamesOpen, siteOpen, transition, minigame } =
+    const { dialogue, near, nearZone, section, worldOpen, gamesOpen, siteOpen, recordsOpen, transition, minigame } =
       get()
-    if (section || worldOpen || gamesOpen || siteOpen || transition || minigame) return
+    if (section || worldOpen || gamesOpen || siteOpen || recordsOpen || transition || minigame) return
     if (dialogue) {
       get().advance()
     } else if (get().forest) {
@@ -210,6 +215,10 @@ export const useGame = create<GameState>((set, get) => ({
       }
       if (interior === 'home' && nearZone.id === HOME.exitZoneId) {
         get().requestInterior(null)
+        return
+      }
+      if (interior === 'home' && nearZone.id === TURNTABLE.zoneId) {
+        set({ recordsOpen: true, near: null, nearZone: null })
         return
       }
       const look = interior === 'home' ? HOME.looks[nearZone.id] : undefined
@@ -283,6 +292,7 @@ export const useGame = create<GameState>((set, get) => ({
   openGames: () => set({ gamesOpen: true, near: null, nearZone: null }),
   closeGames: () => set({ gamesOpen: false }),
   closeSite: () => set({ siteOpen: false }),
+  closeRecords: () => set({ recordsOpen: false }),
 
   requestRide: (to) => {
     if (get().transition) return
