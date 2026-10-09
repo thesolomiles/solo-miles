@@ -693,29 +693,6 @@ canvas {
 .ahud-btn kbd { height: 20px; font-size: 9px; }
 
 /* Ninja Run extras. */
-.ninja-hud__hint {
-  position: absolute;
-  left: 50%;
-  bottom: 12%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px 8px 10px;
-  font: 400 12px/1 'JetBrains Mono', monospace;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--ahud-text);
-  background: rgba(0, 0, 0, 0.72);
-  border: 1px solid #353535;
-  border-radius: 999px;
-  animation: ninja-hint-out 0.6s ease 3.9s forwards;
-}
-.ninja-hud__hint i { font-style: normal; color: var(--ahud-muted); margin: 0 4px; }
-@keyframes ninja-hint-out {
-  to { opacity: 0; }
-}
 .ninja-hud__ammo {
   display: flex;
   gap: 5px;
@@ -1359,6 +1336,8 @@ canvas {
 }
 .chint--show { opacity: 1; }
 .chint__callout { display: flex; flex-direction: column; align-items: center; animation: fade-in 0.4s ease both; }
+.chint--row { display: flex; align-items: flex-end; gap: 36px; }
+.chint__pair { display: flex; gap: 4px; }
 .chint__pad { display: grid; grid-template-columns: repeat(3, 32px); gap: 4px; }
 .chint__key {
   position: relative;

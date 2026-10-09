@@ -18,25 +18,12 @@ import { SpeechBox } from './SpeechBox'
 import { PersonalSite, usePersonalSiteSfx } from './PersonalSite'
 import { isTypingTarget } from '../systems/input'
 import { StartScreen } from './StartScreen'
-import { ControlsHint } from './ControlsHint'
+import { ControlsHint, ForestControlsHint } from './ControlsHint'
 import { RecordsModal } from './RecordsModal'
 import { ForestEncounterHud } from './ForestEncounterHud'
 import { skipForestReveal, useForestEncounter } from '../state/forestEncounter'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
-
-/** The forest walk's controls, shown for a few seconds on arriving. */
-function ForestHint() {
-  const [show, setShow] = useState(true)
-  useEffect(() => {
-    const t = setTimeout(() => setShow(false), 6000)
-    return () => clearTimeout(t)
-  }, [])
-  const text = isTouch
-    ? 'Hold left or right to walk (keep holding to run) · swipe up to jump'
-    : '← → walk (keep holding to run) · Space jump · Esc town'
-  return <div className={'hint' + (show ? ' hint--show' : '')}>{text}</div>
-}
 
 function Prompt({ near }: { near: Interactable }) {
   // Tappable so touch devices (no E key) can trigger the interaction too.
@@ -248,7 +235,7 @@ export function Hud() {
       {started && !forest && <ControlsHint />}
       {/* Canopy shade: the forest darkens toward the treetops. */}
       {forest && !forestRevealing && <div className="forest-shade" />}
-      {forest && !forestRevealing && <ForestHint />}
+      {forest && !forestRevealing && <ForestControlsHint />}
       {forest && isTouch && !dialogue && !forestRevealing && <ForestTouch />}
       {forest && <ForestEncounterHud />}
       {started && isTouch && SHOW_STICK && !dialogue && !section && !worldOpen && !gamesOpen && !siteOpen && !recordsOpen && !minigame && !ride && (

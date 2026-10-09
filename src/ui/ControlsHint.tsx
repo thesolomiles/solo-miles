@@ -57,6 +57,66 @@ export function ControlsHint() {
   )
 }
 
+/** A row of keycap callouts shown together, fading after `ms`. */
+function HintRow({ ms, children }: { ms: number; children: ReactNode }) {
+  const [show, setShow] = useState(true)
+  useEffect(() => {
+    const t = window.setTimeout(() => setShow(false), ms)
+    return () => window.clearTimeout(t)
+  }, [ms])
+  return (
+    <div className={'chint chint--row' + (show ? ' chint--show' : '')} aria-live="polite">
+      {children}
+    </div>
+  )
+}
+
+const ArrowPair = ({ a, b }: { a: string; b: string }) => (
+  <span className="chint__pair">
+    <Key>{a}</Key>
+    <Key>{b}</Key>
+  </span>
+)
+
+/** The forest walk's controls, all at once, shown for a few seconds on arriving. */
+export function ForestControlsHint() {
+  return (
+    <HintRow ms={6000}>
+      {isTouch ? (
+        <>
+          <Callout keys={<Key wide>HOLD ◀ ▶</Key>} label="Walk / run" />
+          <Callout keys={<Key wide>SWIPE ↑</Key>} label="Jump" />
+        </>
+      ) : (
+        <>
+          <Callout keys={<ArrowPair a="←" b="→" />} label="Walk / run" />
+          <Callout keys={<Key wide>SPACE</Key>} label="Jump" />
+          <Callout keys={<Key wide>ESC</Key>} label="Town" />
+        </>
+      )}
+    </HintRow>
+  )
+}
+
+/** Ninja Run's controls for the first few seconds of a run. */
+export function NinjaControlsHint() {
+  return (
+    <HintRow ms={4500}>
+      {isTouch ? (
+        <>
+          <Callout keys={<Key wide>TAP</Key>} label="Jump" />
+          <Callout keys={<Key wide>✦</Key>} label="Throw" />
+        </>
+      ) : (
+        <>
+          <Callout keys={<Key wide>SPACE</Key>} label="Jump" />
+          <Callout keys={<Key>E</Key>} label="Throw" />
+        </>
+      )}
+    </HintRow>
+  )
+}
+
 /** WASD ⇄ arrows: holds one set, glitches briefly, lands on the other. */
 function MoveCallout() {
   const [arrows, setArrows] = useState(false)

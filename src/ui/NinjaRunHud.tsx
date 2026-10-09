@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useGame } from '../state/store'
 import { isTypingTarget, ninjaInput } from '../systems/input'
 import { NINJA_RUN } from '../config/arcade'
+import { NinjaControlsHint } from './ControlsHint'
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -15,13 +16,6 @@ export function NinjaRunHud() {
   const setPaused = useGame((s) => s.setArcadePaused)
   const leave = () => useGame.getState().requestMinigame(null)
   const retry = () => useGame.getState().retryArcade()
-  // The controls hint fades after the first few seconds of a run.
-  const [hint, setHint] = useState(true)
-  useEffect(() => {
-    const t = window.setTimeout(() => setHint(false), 4500)
-    return () => window.clearTimeout(t)
-  }, [])
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target) || e.repeat) return
@@ -93,19 +87,7 @@ export function NinjaRunHud() {
           {arcade.paused ? 'Resume' : 'Pause'}
         </button>
       </div>
-      {hint && !lost && (
-        <div className="ninja-hud__hint">
-          {isTouch ? (
-            <>
-              Tap to jump <i>·</i> ✦ to throw
-            </>
-          ) : (
-            <>
-              <kbd>Space</kbd> Jump <i>·</i> <kbd>E</kbd> Shuriken
-            </>
-          )}
-        </div>
-      )}
+      {!lost && <NinjaControlsHint />}
       {isTouch && !lost && !arcade.paused && (
         <button
           type="button"
