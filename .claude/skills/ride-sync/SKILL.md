@@ -23,7 +23,9 @@ order, IS the ride's sequence. The mapping is mechanical, done by
    front matter (`id, notion, place, country, region, date, synced`), the
    `Strava: / Distance: / Elevation gained:` lines, then `# Blog` and every block
    after it, one per line, in order. Include the `# Thumbnail` heading + its image
-   (above `# Blog`) — it becomes the blog cover on first sync. For images **already
+   (above `# Blog`) — it becomes the blog cover on first sync. Include `# Description` + its
+   paragraph(s) too — they become the route's `blurb` (the pitch under the title in
+   the world selector and on /blog/). For images **already
    synced** write just the file path `![caption](<workspace-uuid>/<file-uuid>/<name>)`
    (the file UUID is the stable key → `images/<uuid8>.jpg`). For **new** images, put
    the query every image of the fetch shares ONCE in front matter as `s3query:`
@@ -43,7 +45,7 @@ order, IS the ride's sequence. The mapping is mechanical, done by
    parts (s3query/signatures carry an AWS session token) from the snapshot so only
    stable file paths get committed.
 4. **First sync of a route only**: in `worlds.ts` import the generated script and set
-   `script:` + `blogPath: '/blog/<route-id>/index.html'` on the route; make sure
+   `script:` + `blurb:` (both exported by the generated file) + `blogPath: '/blog/<route-id>/index.html'` on the route; make sure
    `public/blog/<route-id>/images/cover.jpg` exists (the page's `# Thumbnail`) and the
    route SVG is at `public/routes/<route-id>.svg`.
 5. **Check** `git diff content/rides/` (shows exactly what changed on the page), load

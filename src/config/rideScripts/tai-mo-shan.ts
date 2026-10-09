@@ -26,3 +26,6 @@ export const script: ScriptLine[] = [
   { say: "The final stretches of the road were amazing. It felt like a road to the sky.", photos: ["/blog/tai-mo-shan/images/7dc592b5.jpg"] },
   { say: "The views from the unguarded edge of the road added to the experience as well.", photos: ["/blog/tai-mo-shan/images/02b46c32.jpg"] },
 ]
+
+/** The page's # Description — the pitch under the title in the selector + /blog/. */
+export const blurb: string | undefined = "Past reservoirs and buffalo to Hong Kong's highest peak. The final stretch feels like a road to the sky."

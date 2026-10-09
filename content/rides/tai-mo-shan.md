@@ -4,13 +4,15 @@ notion: https://app.notion.com/p/3cce34df57ac8118bdaddf4d0c9eec50
 place: Tai Mo Shan
 country: Hong Kong
 region: New Territories
-synced: 2026-09-28
+synced: 2026-10-09
 ---
 Strava: https://www.strava.com/activities/12505353236
 Distance: 48.25 km
 Elevation gained: 1,226 m
 # Thumbnail
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/c4e56d91-7437-4a65-a146-5ba54e2a9c66/Tai_Mo_Shan.jpg)
+# Description
+Past reservoirs and buffalo to Hong Kong's highest peak. The final stretch feels like a road to the sky.
 # Blog
 Hong Kong gives me anxiety.
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/9712ee87-03ed-4835-9f17-0de408e9ad69/IMG_2032.jpg)

@@ -23,3 +23,6 @@ export const script: ScriptLine[] = [
   { say: "I don’t recall the Bugaksan climb to be visually spectacular.", photos: ["/blog/namsan-bugaksan/images/d0b353c1.jpg", "/blog/namsan-bugaksan/images/83f8c983.jpg"] },
   { say: "Skip it if you want, but if you want a quick ride around Seoul, you can consider adding it into your plan.", photos: ["/blog/namsan-bugaksan/images/bb451eb2.jpg"] },
 ]
+
+/** The page's # Description — the pitch under the title in the selector + /blog/. */
+export const blurb: string | undefined = "My maiden voyage. A short city loop up Namsan under the cherry blossoms, then on to Bugaksan behind Gyeongbokgung Palace."

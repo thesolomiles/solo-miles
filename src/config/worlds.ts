@@ -10,9 +10,9 @@
  * Countries Leonard hasn't ridden yet (Singapore, Malaysia, Indonesia) are kept
  * as empty shelves so the map of where he's been reads honestly.
  */
-import { script as namsanBugaksan } from './rideScripts/namsan-bugaksan'
-import { script as namhansanseong } from './rideScripts/namhansanseong'
-import { script as taiMoShan } from './rideScripts/tai-mo-shan'
+import { script as namsanBugaksan, blurb as namsanBugaksanBlurb } from './rideScripts/namsan-bugaksan'
+import { script as namhansanseong, blurb as namhansanseongBlurb } from './rideScripts/namhansanseong'
+import { script as taiMoShan, blurb as taiMoShanBlurb } from './rideScripts/tai-mo-shan'
 
 /** The ride logs (/blog/) are a WIP Leonard is still thinking through, so the
  *  game doesn't link to them: no "L Ride logs" in the world selector, no 📖 on
@@ -56,7 +56,8 @@ export interface Route {
       from the Strava activity). Shown on the ride-log page; "GPX soon" until set. */
   gpx?: string
   /** A two-or-three-sentence pitch for the ride, shown under the title in the
-      world selector's hero and the /blog/ page's. BLURB_PLACEHOLDER until set. */
+      world selector's hero and the /blog/ page's. Synced from the Notion page's
+      # Description (tools/sync-ride.py). BLURB_PLACEHOLDER until set. */
   blurb?: string
 }
 
@@ -105,8 +106,9 @@ export const WORLDS: Country[] = [
         // Generated from his Notion page (content/rides → tools/sync-ride.py): the
         // page's order of text and photos is the ride's sequence.
         script: namsanBugaksan,
+        blurb: namsanBugaksanBlurb,
       },
-      { id: 'namhansanseong', place: 'Namhansanseong', region: 'Gyeonggi', distanceKm: 96, elevationM: 952, difficulty: 2, map: '/routes/namhansanseong.svg', strava: 'https://www.strava.com/activities/6983386124', date: '2022-04-15', photo: '/thumbs/namhansanseong.jpg', thumb: { ...G.korea, glyph: '🏯' }, blogPath: '/blog/namhansanseong/index.html', script: namhansanseong },
+      { id: 'namhansanseong', place: 'Namhansanseong', region: 'Gyeonggi', distanceKm: 96, elevationM: 952, difficulty: 2, map: '/routes/namhansanseong.svg', strava: 'https://www.strava.com/activities/6983386124', date: '2022-04-15', photo: '/thumbs/namhansanseong.jpg', thumb: { ...G.korea, glyph: '🏯' }, blogPath: '/blog/namhansanseong/index.html', script: namhansanseong, blurb: namhansanseongBlurb },
       { id: 'jirisan', place: 'Jirisan', region: 'Jirisan National Park', distanceKm: 82.5, elevationM: 2133, difficulty: 4, map: '/routes/jirisan.svg', strava: 'https://www.strava.com/activities/10065502447', date: '2023-10-19', photo: '/thumbs/jirisan.jpg', thumb: { ...G.korea, glyph: '🏔️' } },
       { id: 'suncheon-bay', place: 'Suncheon Bay Loop', region: 'Suncheon', distanceKm: 153.4, elevationM: 1420, difficulty: 3, map: '/routes/suncheon-bay.svg', strava: 'https://www.strava.com/activities/10071353489', date: '2023-10-20', photo: '/thumbs/suncheon-bay.jpg', thumb: { ...G.korea, glyph: '🌾' } },
       { id: 'jeju-round', place: 'Jeju Round Island', region: 'Jeju-do', distanceKm: 225.7, elevationM: 1406, difficulty: 3, map: '/routes/jeju-round.svg', strava: 'https://www.strava.com/activities/10082940987', date: '2023-10-22', photo: '/thumbs/jeju-round.jpg', thumb: { ...G.korea, glyph: '🌊' } },
@@ -167,7 +169,7 @@ export const WORLDS: Country[] = [
     name: 'Hong Kong',
     flag: '🇭🇰',
     routes: [
-      { id: 'tai-mo-shan', place: 'Tai Mo Shan', region: 'New Territories', distanceKm: 48.3, elevationM: 1226, difficulty: 2, map: '/routes/tai-mo-shan.svg', strava: 'https://www.strava.com/activities/12505353236', date: '2024-09-26', photo: '/thumbs/tai-mo-shan.jpg', thumb: { ...G.hongkong, glyph: '🌫️' }, blogPath: '/blog/tai-mo-shan/index.html', script: taiMoShan },
+      { id: 'tai-mo-shan', place: 'Tai Mo Shan', region: 'New Territories', distanceKm: 48.3, elevationM: 1226, difficulty: 2, map: '/routes/tai-mo-shan.svg', strava: 'https://www.strava.com/activities/12505353236', date: '2024-09-26', photo: '/thumbs/tai-mo-shan.jpg', thumb: { ...G.hongkong, glyph: '🌫️' }, blogPath: '/blog/tai-mo-shan/index.html', script: taiMoShan, blurb: taiMoShanBlurb },
       { id: 'lantau-island', place: 'Lantau Island', region: 'Lantau', distanceKm: 44.2, elevationM: 1115, difficulty: 2, map: '/routes/lantau-island.svg', strava: 'https://www.strava.com/activities/12519843808', date: '2024-09-28', photo: '/thumbs/lantau-island.jpg', thumb: { ...G.hongkong, glyph: '⛰️' } },
     ],
   },

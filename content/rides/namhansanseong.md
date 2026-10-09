@@ -5,13 +5,15 @@ place: Namhansanseong
 country: Korea
 region: Gyeonggi
 date: 2022
-synced: 2026-09-28
+synced: 2026-10-09
 ---
 Strava: https://www.strava.com/activities/6983386124
 Distance: 96.03 km
 Elevation gained: 952 m
 # Thumbnail
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/bbb2f9f6-98d2-4b74-a9c0-fc8a4e0d3152/image.png)
+# Description
+Steep 10% ramps up to a UNESCO mountain fortress and hanok village, with cherry blossom roads on the way back to Seoul.
 # Blog
 Namhansanseong is a historic mountain fortress city located 25 kilometres southeast of Seoul in Gyeonggi Province, South Korea.
 This trip happened in 2022. I just picked up cycling and I knew I wanted to travel around with my bike.

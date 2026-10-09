@@ -5,11 +5,13 @@ place: Namsan × Bugaksan
 country: Korea
 region: Seoul
 date: 10 April 2022
-synced: 2026-09-30
+synced: 2026-10-09
 ---
 Strava: https://www.strava.com/activities/6967634149
 Distance: 30.6 km
 Elevation gained: 611 m
+# Description
+My maiden voyage. A short city loop up Namsan under the cherry blossoms, then on to Bugaksan behind Gyeongbokgung Palace.
 # Blog
 10 April, 2022. Right at the end of COVID-19.
 ![](ef2e34df-57ac-814d-9504-0003b069c2e8/05204386-11a2-4103-a043-85f899d7138f/IMG_0774.jpg)

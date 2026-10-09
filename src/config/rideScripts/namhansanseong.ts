@@ -15,3 +15,6 @@ export const script: ScriptLine[] = [
   { say: "Namhansanseong wasn’t a difficult mountain to climb and I think it’s definitely a historical site worth visiting. I might want to do hike up here next time!", photos: ["/blog/namhansanseong/images/068a3927.jpg"] },
   { say: "Cherry Blossom roads on my way back to Seoul.", photos: ["/blog/namhansanseong/images/f1d42cde.jpg"] },
 ]
+
+/** The page's # Description — the pitch under the title in the selector + /blog/. */
+export const blurb: string | undefined = "Steep 10% ramps up to a UNESCO mountain fortress and hanok village, with cherry blossom roads on the way back to Seoul."
