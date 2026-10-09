@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -41,6 +41,7 @@ import { playForestSfx, startForestAmbience, type ForestSound } from './forestSf
 import { FOREST_ENCOUNTER, forestSceneryHalf, inForestClearing } from '../../config/forestEncounter'
 import { forestReveal, useForestEncounter } from '../../state/forestEncounter'
 import { ForestEncounter } from './ForestEncounter'
+import { ForestStones } from './ForestStones'
 
 /**
  * The forest walk: an endless side-on stroll through tall pines (see
@@ -1557,9 +1558,11 @@ export function ForestWorld() {
 
   // A fresh walk every time: back at the trail's start, camera snapped to him.
   useEffect(() => {
-    // Quick local preview: ?forest&viewpoint begins at the viewpoint.
-    const preview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('viewpoint')
-    forestView.walkerX = preview ? FOREST_ENCOUNTER.viewpointX : 0
+    // Local previews: the viewpoint or an early group of mossy stone forms.
+    const params = new URLSearchParams(window.location.search)
+    const preview = import.meta.env.DEV && params.has('viewpoint')
+    const stones = import.meta.env.DEV && params.has('stones')
+    forestView.walkerX = preview ? FOREST_ENCOUNTER.viewpointX : stones ? 34 : 0
     forestView.walkerY = 0
     forestView.facing = 1
     forestView.camX = forestView.walkerX
@@ -1597,6 +1600,9 @@ export function ForestWorld() {
         <TreeBand key={li} li={li} layer={layer} assets={assets} />
       ))}
       <Understory assets={assets} />
+      <Suspense fallback={null}>
+        <ForestStones />
+      </Suspense>
       <Grass assets={assets} />
       <Obstacles />
       <Shafts />

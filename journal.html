@@ -89,6 +89,7 @@
     <nav>
       <h2>Entries</h2>
       <!-- newest first: add new date links at the top -->
+      <a href="#2026-10-10">2026-10-10</a>
       <a href="#2026-10-09">2026-10-09</a>
       <a href="#2026-10-08">2026-10-08</a>
       <a href="#2026-10-07">2026-10-07</a>
@@ -124,6 +125,15 @@
     <main>
       <!-- newest first: add new <article> blocks at the top. Keep it high-level:
            a few short bullets per day, decisions + what changed. -->
+      <article id="2026-10-10">
+        <h3><a class="perma" href="#2026-10-10">2026-10-10 · Saturday</a></h3>
+        <ul>
+          <li><strong>Mossy forest stone stacks started.</strong> Leonard requested scenery based on a moss-covered stone lantern/cairn reference, with varied shapes and sizes. Building five palette-based forms: low cairn, squat lantern, layered pagoda, irregular tall stack and broken lantern, scattered beside the trail with deterministic placement. Asset and integration work in progress.</li>
+          <li><strong>Five stone forms integrated.</strong> Built low cairn, squat lantern, tiered pagoda, tall irregular stack and broken lantern in a dedicated packed-palette Blender asset. Real apertures, uneven slabs and thick moss caps vary in scale and orientation beside the trail; five instanced meshes keep scenery cost bounded, and the remains clearing stays open. Local preview: <code>?forest&amp;stones</code>. Visual and build verification in progress.</li>
+          <li><strong>Stone scenery checked.</strong> Export checks confirmed five identity-transform meshes, one shared matte material, packed palettes and 8,628 triangles in a 925 KiB GLB. Production build and focused lint passed; desktop/portrait stone previews and the portrait remains reveal showed no forest errors. Deterministic placement checks covered 801 camera positions, bounded pools, all five forms and trail/clearing clearance. After a concurrent Ninja Run HUD edit cleared, the remains reveal returned to the side view correctly and the final build passed. Instance buffers and owned materials are cleaned up on leaving; real phone GPU performance remains untested. Reference, lineup and in-world screenshots saved.</li>
+          <li><strong>Forest stones checkpoint.</strong> Leonard requested a commit of the five mossy stone forms, dedicated Blender source/generator, deterministic forest placement and saved references/previews. Build, lint, asset and placement checks passed; concurrent controls and Ninja Run UI edits stay separate.</li>
+        </ul>
+      </article>
       <article id="2026-10-09">
         <h3><a class="perma" href="#2026-10-09">2026-10-09 · Friday</a></h3>
         <ul>
