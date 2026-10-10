@@ -24,6 +24,7 @@ import { useRideHud } from '../../state/rideHud'
 import { useGame } from '../../state/store'
 import { Beach } from './kits/Beach'
 import { Farmland } from './kits/Farmland'
+import { BikeLights } from './BikeLights'
 
 const _m = new THREE.Matrix4()
 const _q = new THREE.Quaternion()
@@ -932,6 +933,7 @@ function RideCyclist({ x, phase = 0, rate = 1, kit }: { x: number; phase?: numbe
     // heading; these initial values just avoid a one-frame pop before useFrame runs.
     <group ref={root} position={[x, RIDE.roadHeight, RIDE.runnerZ]} rotation={[0, Math.PI, 0]} scale={CYCLIST_SCALE}>
       <primitive object={model} />
+      <BikeLights phase={phase} />
     </group>
   )
 }
