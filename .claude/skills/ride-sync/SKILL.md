@@ -53,3 +53,10 @@ order, IS the ride's sequence. The mapping is mechanical, done by
 
 `# Ride scene description` on the page is separate — it drives the scenery kits in
 `src/config/rideScenes.ts`, not this sync.
+
+## Descriptions for routes not synced yet
+
+Every climb page has a `# Description`. Routes without a full sync take theirs from
+`src/config/rideBlurbs.ts` (verbatim, keyed by route id; worlds.ts falls back to it).
+When Leonard says he's updated descriptions, fetch the pages and refresh that map; when a
+route gets its first full sync, remove it from the map (its rideScripts file carries it).

@@ -13,6 +13,7 @@
 import { script as namsanBugaksan, blurb as namsanBugaksanBlurb } from './rideScripts/namsan-bugaksan'
 import { script as namhansanseong, blurb as namhansanseongBlurb } from './rideScripts/namhansanseong'
 import { script as taiMoShan, blurb as taiMoShanBlurb } from './rideScripts/tai-mo-shan'
+import { RIDE_BLURBS } from './rideBlurbs'
 
 /** The ride logs (/blog/) are a WIP Leonard is still thinking through, so the
  *  game doesn't link to them: no "L Ride logs" in the world selector, no 📖 on
@@ -178,6 +179,9 @@ export const WORLDS: Country[] = [
   { id: 'malaysia', name: 'Malaysia', flag: '🇲🇾', routes: [] },
   { id: 'indonesia', name: 'Indonesia', flag: '🇮🇩', routes: [] },
 ]
+
+// Routes without a full ride sync take their Notion # Description from rideBlurbs.ts.
+for (const c of WORLDS) for (const r of c.routes) r.blurb ??= RIDE_BLURBS[r.id]
 
 /** Flat index of every route by id — the ride scene looks routes up by id. */
 export const ROUTES: Record<string, Route> = Object.fromEntries(
