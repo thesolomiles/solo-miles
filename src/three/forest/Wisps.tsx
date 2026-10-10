@@ -8,6 +8,8 @@ import { forestFrame, forestView, rateAt } from '../../systems/forestView'
 import { playWispCall, type WispCall } from './forestSfx'
 import { FOREST_ENCOUNTER as E } from '../../config/forestEncounter'
 import { useForestEncounter } from '../../state/forestEncounter'
+import { FOREST_OPENING as O, wispJumpDemonstration } from '../../config/forestOpening'
+import { forestOpeningMotion, useForestOpening, type ForestOpeningPhase } from '../../state/forestOpening'
 
 /**
  * The forest wisp — a small, cute spirit that floats ahead of Leonard and
@@ -476,18 +478,13 @@ export function Wisp({ motion, look }: { motion: (t: number, out: THREE.Vector3)
 const sstep = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b)
 
 /**
- * The wisp's mind (FOREST.wisp). It's leading him somewhere to the right
- * (+x), and only ever keeps to that side. It doesn't come straight to him:
- * a little way in (`watchAt`) it shows up far back among the trees, small
- * and hazy, keeping pace with him and watching; further on (`meetAt`) it
- * slips away there and pops up right in front of him, says hello, and from
- * then on leads. While he
- * walks right it stays in front, drifting about, now and then darting out of
- * frame and peeking back in — come on, this way. Walking left, it hangs back
- * on the right of the frame, beckoning him round. When he stops it waits (bobbing
- * forward, beckoning); after a while it drifts closer, closer the longer he
- * stands, until it's circling him. The moment he walks on it races back out
- * in front.
+ * Quiet background watching continues while the stranded player tries alone.
+ * A cautious approach and the double-jump demonstration are driven by
+ * state/forestOpening; after the escape, it guides toward the discoveries.
+ * While he walks right it stays in front, drifting about, now and then darting
+ * out of frame and peeking back in. Walking left, it hangs back on the right,
+ * beckoning him round. When he stops it waits, then gradually drifts closer
+ * until it circles him. The moment he walks on it races back out in front.
  */
 export function WispGuide() {
   const size = useThree((s) => s.size)
@@ -499,6 +496,11 @@ export function WispGuide() {
     const look: WispLook = { scale: 1, opacity: 0, gaze: 0, snap: false }
     const st = {
       lastT: -1,
+      openingPhase: 'watching' as ForestOpeningPhase,
+      openingFrom: new THREE.Vector3(),
+      openingPeek: new THREE.Vector3(),
+      openingNear: new THREE.Vector3(),
+      openingMeet: new THREE.Vector3(),
       startX: NaN,
       /** hidden → watching from the back of the forest → slipping away
        *  there → popping up in front of him → leading. */
@@ -587,10 +589,80 @@ export function WispGuide() {
         out.copy(st.pos)
       }
 
+      const opening = useForestOpening.getState()
+      if (opening.phase !== st.openingPhase) {
+        st.openingPhase = opening.phase
+        if (opening.phase === 'stranded' && st.stage === 'hidden') {
+          // Direct hollow previews still begin with it watching in the woods.
+          stage('watch')
+          st.pos.set(O.gap.right + 2, 1.5, W.watch.z)
+          Object.assign(st.shy, { moving: false, t0: t, toY: 1.5, hold: O.strandedSecs + 1 })
+          look.scale = W.watch.scale
+          look.snap = true
+        }
+        st.openingFrom.copy(st.pos)
+        if (opening.phase === 'investigate') {
+          st.openingPeek.set(O.gap.right + 0.8, 1.65, -10)
+          st.openingNear.set(O.gap.right - 0.3, 0.55, -3.8)
+          st.openingMeet.set(Math.max(O.gap.left + 0.8, Math.min(O.gap.right - 0.8, wx + 1.5)), -O.gap.depth + 1.2, -0.3)
+        }
+        if (opening.phase === 'observe') say('hello')
+        if (opening.phase === 'following') {
+          stage('lead')
+          st.cycleStart = t
+          st.phase = -1
+          st.idle = 0
+          st.wasOut = false
+          say('giggle')
+        }
+      }
+      if (opening.phase === 'stranded') {
+        const pan = Number.isNaN(st.prevCam) ? 0 : camX - st.prevCam
+        st.pos.x += pan * (1 - rateAt(W.watch.z))
+        st.pos.y = st.openingFrom.y + 0.06 * Math.sin(forestOpeningMotion.elapsed * 0.9)
+        look.scale = W.watch.scale
+        look.opacity = Math.min(0.8, look.opacity + dt * 0.4)
+        look.gaze = wx < st.pos.x ? -1 : 1
+        st.prevCam = camX
+        out.copy(st.pos)
+        return
+      }
+      // It takes its time slipping between tree layers, pauses to look, and
+      // settles beside the player before offering the existing two-rise gesture.
+      if (opening.phase === 'investigate' || opening.phase === 'observe' || opening.phase === 'demonstrate' || opening.phase === 'practice') {
+        const elapsed = forestOpeningMotion.elapsed
+        look.opacity = Math.min(1, look.opacity + dt * 2)
+        look.gaze = -1
+        const baseY = -O.gap.depth + 1.2
+        const ahead = Math.min(O.gap.right - 0.8, wx + 1.5)
+        if (opening.phase === 'investigate') {
+          const p = Math.min(1, elapsed / O.investigateSecs)
+          if (p < 0.3) st.pos.lerpVectors(st.openingFrom, st.openingPeek, sstep(0, 0.3, p))
+          else if (p < 0.44) st.pos.copy(st.openingPeek)
+          else if (p < 0.72) st.pos.lerpVectors(st.openingPeek, st.openingNear, sstep(0.44, 0.72, p))
+          else if (p < 0.82) st.pos.copy(st.openingNear)
+          else st.pos.lerpVectors(st.openingNear, st.openingMeet, sstep(0.82, 1, p))
+          st.pos.y += 0.045 * Math.sin(elapsed * 1.2)
+          look.scale = THREE.MathUtils.lerp(W.watch.scale, 1, sstep(0.2, 1, p))
+          look.gaze = wx < st.pos.x ? -1 : 1
+        } else if (opening.phase === 'observe') {
+          look.scale = 1
+          st.target.set(ahead, baseY + 0.08 * Math.sin(elapsed * 1.2), -0.3)
+          st.pos.lerp(st.target, 1 - Math.exp(-1.2 * dt))
+        } else {
+          look.scale = 1
+          st.target.set(ahead, baseY + wispJumpDemonstration(elapsed), -0.3)
+          st.pos.lerp(st.target, 1 - Math.exp(-12 * dt))
+        }
+        st.prevCam = camX
+        out.copy(st.pos)
+        return
+      }
+
       // At the first discovery it becomes a patient guide: wait at the viewpoint,
       // then happily explore the landmark while the player looks and reads.
       const encounter = useForestEncounter.getState()
-      if (wx >= E.leadAt && wx < E.landmarkX + 14 && !(encounter.phase === 'complete' && moving)) {
+      if (opening.phase === 'following' && wx >= E.leadAt && wx < E.landmarkX + 14 && !(encounter.phase === 'complete' && moving)) {
         if (st.stage !== 'lead') {
           stage('lead')
           look.scale = 1
@@ -656,7 +728,7 @@ export function WispGuide() {
         st.prevCam = camX
         const slip = (toX: number, toY: number, dur: number) =>
           Object.assign(sh, { moving: true, t0: t, dur, fromX: st.pos.x - camX, fromY: st.pos.y, toX, toY })
-        if (st.stage === 'watch' && walked >= W.meetAt) {
+        if (st.stage === 'watch' && opening.phase === 'following' && walked >= W.meetAt) {
           stage('leave')
           slip(halfX * 1.4, lerp(V.y[0], V.y[1], 0.5) + 1.2, V.outZip)
         }

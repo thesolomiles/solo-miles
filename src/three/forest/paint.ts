@@ -21,7 +21,7 @@ const FOG_COS = Math.cos(THREE.MathUtils.degToRad(FOREST.pitchDeg)).toFixed(8)
  * - leaf:   gentle light/dark mottling (ferns, boughs).
  * - bone:   muddy rain washes on stained bone, preserving authored foliage colours.
  */
-export type PaintKind = 'bark' | 'ground' | 'stone' | 'leaf' | 'bone'
+export type PaintKind = 'bark' | 'ground' | 'stone' | 'leaf' | 'bone' | 'earth'
 
 const NOISE = /* glsl */ `
 varying vec3 vPaintPos;
@@ -72,6 +72,16 @@ const VERT_BODY = /* glsl */ `
 `
 
 const BODY: Record<PaintKind, string> = {
+  earth: /* glsl */ `
+  {
+    vec3 p = vPaintPos;
+    float broad = pFbm(p * 0.9);
+    float grain = pNoise(p * vec3(7.0, 4.0, 7.0));
+    float rain = pNoise(p * vec3(9.0, 0.45, 9.0));
+    float layers = sin(p.y * 11.0 + pFbm(p * 1.2) * 3.0);
+    diffuseColor.rgb *= 0.78 + 0.22 * broad + 0.12 * grain + 0.08 * rain + 0.04 * layers;
+  }
+  `,
   bark: /* glsl */ `
   {
     vec3 p = vPaintPos;

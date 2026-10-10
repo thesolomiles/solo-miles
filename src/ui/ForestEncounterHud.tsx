@@ -3,6 +3,7 @@ import { useGame } from '../state/store'
 import { forestReveal, inspectForestLandmark, skipForestReveal, useForestEncounter } from '../state/forestEncounter'
 import { isTypingTarget } from '../systems/input'
 import { IS_MOBILE } from '../systems/device'
+import { useForestOpening } from '../state/forestOpening'
 
 export function ForestEncounterHud() {
   const phase = useForestEncounter((s) => s.phase)
@@ -10,6 +11,7 @@ export function ForestEncounterHud() {
   const nearby = useForestEncounter((s) => s.nearby)
   const dialogue = useGame((s) => s.dialogue)
   const transition = useGame((s) => s.transition)
+  const showOpeningHint = useForestOpening((s) => s.showHint)
   const fadeRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     forestReveal.fadeElement = fadeRef.current
@@ -29,6 +31,16 @@ export function ForestEncounterHud() {
   const fading = revealing && stage !== 'hold' && stage !== 'story'
   return (
     <>
+      {!dialogue && !transition && !revealing && showOpeningHint && (
+        <div className="forest-lesson" aria-live="polite">
+          <div className="forest-lesson__keys" aria-hidden="true">
+            <span className="chint__key chint__key--wide">{IS_MOBILE ? 'JUMP' : 'SPACE'}</span>
+            <span>then</span>
+            <span className="chint__key chint__key--wide">{IS_MOBILE ? 'JUMP' : 'SPACE'}</span>
+          </div>
+          <span className="chint__label">JUMP AGAIN NEAR THE TOP</span>
+        </div>
+      )}
       {!dialogue && !transition && nearby && (phase === 'ready' || phase === 'complete') && (
         <button className="prompt prompt--show" onClick={inspectForestLandmark}>
           <span className="prompt__key">{IS_MOBILE ? '›' : 'E'}</span>

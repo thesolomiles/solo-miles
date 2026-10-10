@@ -42,6 +42,9 @@ import { FOREST_ENCOUNTER, forestSceneryHalf, inForestClearing } from '../../con
 import { forestReveal, useForestEncounter } from '../../state/forestEncounter'
 import { ForestEncounter } from './ForestEncounter'
 import { ForestStones } from './ForestStones'
+import { ForestHollow } from './ForestHollow'
+import { FOREST_OPENING as O, forestFloorAt, constrainForestHollowX, inForestHollow } from '../../config/forestOpening'
+import { advanceForestOpening, noteForestDoubleJump, resetForestOpening, useForestOpening } from '../../state/forestOpening'
 
 /**
  * The forest walk: an endless side-on stroll through tall pines (see
@@ -249,9 +252,24 @@ function Ground() {
   const mats = useMemo(() => {
     const map = pathTexture(half, PATH_EDGE, P.path, P.pathEdge)
     map.repeat.x = PATH_W / PATH_TILE
+    const cut = (mat: THREE.MeshStandardMaterial, key: string) => {
+      const compile = mat.onBeforeCompile.bind(mat)
+      mat.onBeforeCompile = (shader, renderer) => {
+        compile(shader, renderer)
+        shader.fragmentShader = shader.fragmentShader.replace('#include <clipping_planes_fragment>', `
+          #include <clipping_planes_fragment>
+          float hollowAcross = (vPaintPos.x - ${((O.gap.left + O.gap.right) / 2).toFixed(3)}) / ${((O.gap.right - O.gap.left) / 2).toFixed(3)};
+          float hollowBack = ${O.gap.back.toFixed(3)} + 1.2 * min(1.35, hollowAcross * hollowAcross);
+          if (vPaintPos.x > ${O.gap.left.toFixed(3)} && vPaintPos.x < ${O.gap.right.toFixed(3)}
+            && vPaintPos.z > hollowBack && vPaintPos.z < ${O.gap.front.toFixed(3)}) discard;
+        `)
+      }
+      mat.customProgramCacheKey = () => 'forest-hollow-eroded-' + key
+      return mat
+    }
     return {
-      ground: paint(new THREE.MeshStandardMaterial({ color: P.ground, roughness: 1 }), 'ground'),
-      path: paint(new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 1 }), 'leaf'),
+      ground: cut(paint(new THREE.MeshStandardMaterial({ color: P.ground, roughness: 1 }), 'ground'), 'ground'),
+      path: cut(paint(new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 1 }), 'leaf'), 'path'),
     }
   }, [half])
   useEffect(
@@ -265,15 +283,20 @@ function Ground() {
     mats.path.map!.offset.x = (forestView.camX - PATH_W / 2) / PATH_TILE
   })
   return (
-    <group ref={group}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, -20]} material={mats.ground} receiveShadow>
-        <planeGeometry args={[220, 130]} />
-      </mesh>
-      {/* The path with its worn rim, where the grass gives way to dirt. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, 0]} material={mats.path} receiveShadow>
-        <planeGeometry args={[PATH_W, (half + PATH_EDGE) * 2]} />
-      </mesh>
-    </group>
+    <>
+      <Suspense fallback={null}>
+        <ForestHollow />
+      </Suspense>
+      <group ref={group}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, -20]} material={mats.ground} receiveShadow>
+          <planeGeometry args={[220, 130]} />
+        </mesh>
+        {/* The path with its worn rim, where the grass gives way to dirt. */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, 0]} material={mats.path} receiveShadow>
+          <planeGeometry args={[PATH_W, (half + PATH_EDGE) * 2]} />
+        </mesh>
+      </group>
+    </>
   )
 }
 
@@ -374,12 +397,14 @@ function TreeBand({ li, layer, assets }: { li: number; layer: ForestLayer; asset
       for (let k = 0; k < ferns && fc < slots * 2; k++) {
         const x = (i + r(10 + k)) * layer.every
         const z = lerp(layer.z[0] - 1, layer.z[1] + 1, r(20 + k))
+        if (inForestHollow(x + camX * (1 - rate), z, 0.8)) continue
         const s = 0.8 + r(30 + k) * 0.6
         put(fernRef.current, fc++, x, z, r(40 + k) * 6.28, s, s * (0.8 + r(45 + k) * 0.5), s)
       }
       if (r(50) < 0.22 && rc < slots) {
         const x = (i + r(51)) * layer.every
         const z = lerp(layer.z[0], layer.z[1], r(52))
+        if (inForestHollow(x + camX * (1 - rate), z, 0.8)) continue
         const s = 0.7 + r(53) * 0.9
         put(rockRef.current, rc++, x, z, r(54) * 6.28, s, s, s)
       }
@@ -580,6 +605,7 @@ function Grass({ assets }: { assets: Assets }) {
         if (r(0) > G.fill) continue
         const z = lerp(band.z0, band.z1, r(1))
         const x = (i + r(3)) * G.every
+        if (inForestHollow(x + camX * (1 - band.rate), z, 0.35)) continue
         if (band.path) {
           // Only off the bare dirt, and kept short so his legs still show.
           if (Math.abs(z) < FOREST.pathHalf * pathDirt(x) + 0.12) continue
@@ -650,12 +676,32 @@ function Foreground() {
     const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, fog: false })
     // Its "keep crisp" mask (CharacterMask) only where it's solid.
     const mask = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5 })
+    // The same cut in the visible and crisp-mask passes keeps the lower
+    // hollow readable without hiding the entire foreground on approach.
+    for (const material of [mat, mask]) {
+      material.onBeforeCompile = (shader) => {
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying float vOpeningX;\nvarying float vOpeningY;')
+          .replace('#include <project_vertex>', `#include <project_vertex>
+            vOpeningX = (modelMatrix * vec4(position, 1.0)).x;
+            vOpeningY = (modelMatrix * vec4(position, 1.0)).y;`)
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying float vOpeningX;\nvarying float vOpeningY;')
+          // Only the opening stays in world space. All foreground foliage
+          // shares one scrolling texture; the terrain mesh supplies the rim.
+          .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+            float openingFray = 0.12 * sin(vOpeningY * 4.3) + 0.06 * sin(vOpeningY * 9.0);
+            if (vOpeningX > ${(O.gap.left - 0.1).toFixed(3)} + openingFray
+              && vOpeningX < ${(O.gap.right + 0.1).toFixed(3)} - openingFray) discard;`)
+      }
+      material.customProgramCacheKey = () => 'forest-opening-foreground-scrolling'
+    }
     const geom = new THREE.PlaneGeometry(width, H).translate(0, (top - FG_DEPTH) / 2, 0)
     return { tex, mat, mask, geom }
   }, [F, width])
   useEffect(
     () => () => {
-      for (const v of Object.values(assets)) v.dispose()
+      for (const v of [assets.tex, assets.mat, assets.mask, assets.geom]) v.dispose()
     },
     [assets],
   )
@@ -698,8 +744,10 @@ function pathShaftAt(i: number) {
   const PS = FOREST.pathShafts
   const r = (salt: number) => hash3(i, 91, salt)
   if (r(0) > PS.fill) return null
+  const x = (i + 0.2 + 0.6 * r(1)) * PS.every
+  if (inForestHollow(x, 0, 1)) return null
   return {
-    x: (i + 0.2 + 0.6 * r(1)) * PS.every,
+    x,
     w: lerp(PS.width[0], PS.width[1], r(2)),
     len: lerp(PS.length[0], PS.length[1], r(3)),
     rate: 0.12 + r(4) * 0.1,
@@ -1280,16 +1328,15 @@ function WalkerFigure({ w }: { w: { current: WalkerState } }) {
 /**
  * Leonard on the path. Left / right walks (breaking into a run after a while,
  * like in town); Space jumps with Ninja Run's physics — and again in mid-air,
- * stepping on the air in a puff of mist; ↓ crouches. Rocks and fallen trees
- * block the way until you hop them; a boulder or an ancient skull can be
- * climbed — walk or jump into its face and he climbs up it, then pulls himself
- * over onto the top. You can stand on anything, and walk off the edge.
+ * stepping on the air in a puff of mist once the wisp has taught it. Rocks and fallen trees
+ * block the way until you hop them. Climbing is reserved for a later lesson.
+ * You can stand on obstacles, and walk off their edges into the lower hollow.
  */
 function Walker() {
   const group = useRef<THREE.Group>(null!)
   const offset = useRef<THREE.Group>(null!)
   const w = useRef<WalkerState>({
-    y: 0,
+    y: import.meta.env.DEV && new URLSearchParams(window.location.search).has('hollow') ? -O.gap.depth : 0,
     vy: 0,
     grounded: true,
     jumpBuffer: 0,
@@ -1340,7 +1387,7 @@ function Walker() {
     const hw = FOREST.walkerHalfW
     const near = obstaclesIn(forestView.walkerX - 5, forestView.walkerX + 5)
     const floorAt = (px: number) => {
-      let f = 0
+      let f = forestFloorAt(px, hw)
       for (const o of near) if (px + hw > o.x - o.hw && px - hw < o.x + o.hw) f = Math.max(f, o.h)
       return f
     }
@@ -1358,8 +1405,8 @@ function Walker() {
       if (dir === 0) dir = forestTouch.dir
     }
     const M = FOREST.moves
-    const press = M.jump && ((canMove && keys.jump) || forestTouch.jump) && !jumpHeld.current
-    jumpHeld.current = (canMove && keys.jump) || forestTouch.jump
+    const press = M.jump && canMove && (forestTouch.jump || (keys.jump && !jumpHeld.current))
+    jumpHeld.current = keys.jump
     forestTouch.jump = false
     const crouchHeld = M.crouch && canMove && (keys.back || forestTouch.crouch)
 
@@ -1422,13 +1469,14 @@ function Walker() {
           wall = o
         }
       }
+      x = constrainForestHollowX(x, s.y, hw)
       forestView.walkerX = x
       if (wall && s.grounded) s.speed = 0
 
       // Into the face of something tall: hold against it a moment (or hit it
       // mid-air) and he takes hold and climbs.
       const facingWall = wall && Math.sign(wall.x - x) === forestView.facing
-      if (wall && facingWall && wall.h >= OB.climbFrom && (dir === forestView.facing || !s.grounded)) {
+      if (M.climb && wall && facingWall && wall.h >= OB.climbFrom && (dir === forestView.facing || !s.grounded)) {
         pushing.current += s.grounded ? dt : 1
         if (pushing.current > 0.18) {
           const side = forestView.facing
@@ -1451,7 +1499,7 @@ function Walker() {
     if (s.mode === 'free') {
       const x = forestView.walkerX
       // --- jumping (Ninja Run's rules) ------------------------------------------
-      if (press && !s.grounded && s.airJumpsUsed < N.airJumps) {
+      if (press && useForestOpening.getState().doubleJump && !s.grounded && s.airJumpsUsed < N.airJumps) {
         // He steps on the air and kicks off again from wherever he is.
         s.vy = Math.sqrt(2 * N.gravity * N.doubleJumpHeight)
         s.airJumpsUsed++
@@ -1460,6 +1508,7 @@ function Walker() {
         s.leapSeq++
         s.leapAir = airTime(s.vy, s.y, floorAt(x))
         sounds.push('doubleJump')
+        noteForestDoubleJump()
       } else if (press) s.jumpBuffer = N.jumpBuffer
       else s.jumpBuffer = Math.max(0, s.jumpBuffer - dt)
       if (s.grounded && s.jumpBuffer > 0 && canMove) {
@@ -1522,6 +1571,7 @@ function Walker() {
     yaw.current += (want - yaw.current) * Math.min(1, dt * (still ? 4 : 12))
     group.current.position.set(forestView.walkerX, s.y, 0)
     forestView.walkerY = s.y
+    advanceForestOpening(dt, forestView.walkerX, s.y, s.grounded, !canMove || document.hidden)
     // Turn toward the discovery only in the shot; walking facing stays intact.
     group.current.rotation.y = forestReveal.perspective
       ? Math.atan2(FOREST_ENCOUNTER.landmarkX - forestView.walkerX, FOREST_ENCOUNTER.landmarkZ)
@@ -1556,19 +1606,24 @@ function Walker() {
 export function ForestWorld() {
   const assets = useForestAssets()
 
-  // A fresh walk every time: back at the trail's start, camera snapped to him.
+  // A fresh lesson every visit; authoring previews may bypass the opening.
   useEffect(() => {
-    // Local previews: the viewpoint or an early group of mossy stone forms.
+    // Local previews: remains, stones, the gap approach, or the lower hollow.
     const params = new URLSearchParams(window.location.search)
     const preview = import.meta.env.DEV && params.has('viewpoint')
     const stones = import.meta.env.DEV && params.has('stones')
-    forestView.walkerX = preview ? FOREST_ENCOUNTER.viewpointX : stones ? 34 : 0
-    forestView.walkerY = 0
+    const hollow = import.meta.env.DEV && params.has('hollow')
+    const opening = import.meta.env.DEV && params.has('opening')
+    resetForestOpening(preview || stones)
+    forestView.walkerX = preview ? FOREST_ENCOUNTER.viewpointX : stones ? 34 : hollow ? 55 : opening ? 48 : 0
+    forestView.walkerY = hollow ? -O.gap.depth : 0
+    forestView.camY = hollow ? -1.6 : 0
     forestView.facing = 1
     forestView.camX = forestView.walkerX
     forestView.snap = true
     forestTouch.dir = 0
     forestTouch.jump = false
+    return () => resetForestOpening()
   }, [])
 
   // The forest's own sound: wind in the canopy, leaves, distant birds.
@@ -1580,6 +1635,7 @@ export function ForestWorld() {
     const w = window as unknown as Record<string, unknown>
     w.__forest = {
       view: forestView,
+      opening: useForestOpening,
       tp: (x: number) => {
         forestView.walkerX = x
         forestView.snap = true

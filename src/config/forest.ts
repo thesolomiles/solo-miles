@@ -3,8 +3,9 @@ import type { Interactable } from './town'
 
 /**
  * The forest walk — a quiet, endless 2D side-on stroll through tall pines,
- * reached by the small trail cut into the town's south-east trees. No goal, no
- * damage, no HUD: walk left / right, jump, and Esc asks to go back to town.
+ * reached by the small trail cut into the town's south-east trees. An ordinary
+ * hike becomes a first meeting with the wisp and a series of discoveries.
+ * Walk left / right, jump, and Esc asks to go back to town.
  * Loosely Leonard's memory of the forest at the foot of a mountain on Japan's
  * rindō: tall slim trunks everywhere you look, quiet, light coming down
  * through the canopy.
@@ -127,9 +128,9 @@ export const FOREST = {
   /** Walker's half-width against obstacles. */
   walkerHalfW: 0.28,
 
-  /** What he can do besides walk (Leonard, 2026-10-02): run and jump (with
-   *  its air step), no crouch — that still works, just switched off. */
-  moves: { run: true, jump: true, crouch: false },
+  /** Opening: run and single jump. The wisp teaches the air step; climbing
+   *  and crouching stay disabled until a later lesson. */
+  moves: { run: true, jump: true, climb: false, crouch: false },
 
   /** The wisp (three/forest/Wisps.tsx). It arrives in two steps (Leonard,
    *  2026-10-02): once he's `watchAt` u (m) from where he came in, it shows up

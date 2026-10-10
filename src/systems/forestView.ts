@@ -12,6 +12,8 @@ export const forestView = {
   /** +1 facing right (+X), −1 left. */
   facing: 1 as 1 | -1,
   camX: 0,
+  /** A gentle dip to the hollow's floor; jumps keep their framing. */
+  camY: 0,
   /** Set on entering: the camera snaps to the walker instead of easing. */
   snap: true,
 }

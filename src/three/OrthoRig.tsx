@@ -7,6 +7,7 @@ import { HOME } from '../config/home'
 import { NINJA_RUN, PACMAN, ninjaView } from '../config/arcade'
 import { RIDE } from '../config/ride'
 import { FOREST } from '../config/forest'
+import { forestFloorAt } from '../config/forestOpening'
 import { forestFrame, forestView } from '../systems/forestView'
 import { arcadeFocus } from '../systems/arcadeFocus'
 import { useGame } from '../state/store'
@@ -188,11 +189,15 @@ export function OrthoRig({ posRef }: { posRef: RefObject<THREE.Vector3> }) {
       } else {
         forestView.camX += (want - forestView.camX) * Math.min(1, dt * FOREST.follow)
       }
+      // Follow the trail's lower shelf, not each jump within it. Tracking the
+      // player's negative height made the entire hollow bob during practice.
+      const dip = Math.max(-1.6, forestFloorAt(forestView.walkerX, FOREST.walkerHalfW))
+      forestView.camY += (dip - forestView.camY) * Math.min(1, dt * FOREST.follow)
       const pitch = THREE.MathUtils.degToRad(FOREST.pitchDeg)
       cam.quaternion.copy(forestQuat)
       cam.position.set(
         forestView.camX,
-        f.lookY + Math.sin(pitch) * FOREST.camDist,
+        f.lookY + forestView.camY + Math.sin(pitch) * FOREST.camDist,
         Math.cos(pitch) * FOREST.camDist,
       )
       forestCamera.update(aspectNow)

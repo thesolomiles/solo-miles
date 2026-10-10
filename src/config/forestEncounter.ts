@@ -1,4 +1,5 @@
 import type { Interactable } from './town'
+import { inForestHollow } from './forestOpening'
 import pathTusk from './forestSkull.json'
 
 /** First sightseeing encounter. All positions are along the forest's +X path. */
@@ -41,6 +42,7 @@ export const FOREST_ENCOUNTER = {
 
 /** Keep the near scenery out of the landmark's authored clearing. */
 export function inForestClearing(x: number, z: number): boolean {
+  if (inForestHollow(x, z, 1)) return true
   const dx = (x - FOREST_ENCOUNTER.landmarkX) / FOREST_ENCOUNTER.clearingHalfWidth
   const dz = (z - FOREST_ENCOUNTER.landmarkZ) / FOREST_ENCOUNTER.clearingDepth
   return dx * dx + dz * dz < 1
