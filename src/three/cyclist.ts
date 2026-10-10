@@ -99,13 +99,20 @@ function detectSwatches(scene: THREE.Object3D): Swatches | null {
   const h = ymax - ymin
   const xc = (xmin + xmax) / 2
   const xspan = xmax - xmin || 1
+  // The chin strap and hair hang down into the torso band and outnumber the
+  // low-poly jersey's verts, so skip anything skinned to the Head bone there.
+  const headBone = (char as THREE.SkinnedMesh).skeleton?.bones.findIndex((b) => b.name === 'Head') ?? -1
+  const skinIdx = char?.geometry.getAttribute('skinIndex') as THREE.BufferAttribute | undefined
+  const skinW = char?.geometry.getAttribute('skinWeight') as THREE.BufferAttribute | undefined
+  const onHead = (i: number) =>
+    headBone >= 0 && !!skinIdx && !!skinW && skinIdx.getX(i) === headBone && skinW.getX(i) > 0.5
   const top: Record<string, number> = {}
   const torso: Record<string, number> = {}
   for (let i = 0; i < n; i++) {
     const y = pos.getY(i), x = pos.getX(i)
     const key = sample(uv.getX(i), uv.getY(i))
     if (y > ymin + 0.86 * h) top[key] = (top[key] || 0) + 1
-    if (y > ymin + 0.5 * h && y < ymin + 0.72 * h && Math.abs(x - xc) < 0.16 * xspan)
+    if (y > ymin + 0.5 * h && y < ymin + 0.72 * h && Math.abs(x - xc) < 0.16 * xspan && !onHead(i))
       torso[key] = (torso[key] || 0) + 1
   }
   const mode = (c: Record<string, number>) => Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0]
