@@ -15,6 +15,10 @@ export. So: import once as the mesh/skeleton base, drop its bundled takes, then
 re-import as a throwaway clip source and bake its real (mixamo) take back onto the
 base as a clean, exportable action.
 
+An optional `<patron>.fbx` (mesh-only Blender export on the same rig) is used as
+the mesh/skeleton base instead, and the remaining files only supply clips — that's
+how amily (remodelled from melanie in playable-char.blend) borrows melanie's sit.
+
 Output: public/models/<patron>.glb. A single-clip patron exports one animation
 `sit`. Multi-clip patrons export `idle` plus named extras (thumbs-up / angry /
 clap); Patron.tsx loops idle and periodically plays the extra. Extend NAME_MAP
@@ -146,8 +150,18 @@ files = sorted(glob.glob(os.path.join(SRC, "*.fbx")))
 if not files:
     log("ERROR: no fbx in", SRC); sys.exit(1)
 
+# A `<patron>.fbx` is a mesh-only Blender export (no take) of a character
+# remodelled on the shared rig, e.g. amily: it carries the mesh, and the other
+# files are just clip sources (another character's Mixamo sit takes).
+MESH_ONLY = os.path.join(SRC, PATRON + ".fbx")
+if os.path.exists(MESH_ONLY):
+    files = [p for p in files if p != MESH_ONLY]
+    base_candidates = [MESH_ONLY]
+else:
+    base_candidates = []
+
 # ---- base: prefer an idle file so the rest pose is seated idle ---------------
-base_candidates = sorted(
+base_candidates += sorted(
     files, key=lambda p: (0 if "idle" in os.path.basename(p).lower() else 1, p)
 )
 base_path = base_arm = mesh = None

@@ -144,4 +144,34 @@ export const HOME = {
 
   /** Zone id that returns to town (must match a box in `zones` above). */
   exitZoneId: 'home-exit',
+
+  /** Seated people at home — same seam as CAFE.patrons (three/actors/Patron).
+   *  Amily sits on the L-sofa's south run, centred on the coffee table and
+   *  facing into the room (−Z), so her back is to the camera. The sit clip is
+   *  borrowed from Melanie (tools/build-patron.py -- amily); `yFix` lifts it
+   *  from chair height onto the deeper sofa cushion (top ≈ 0.42), and `pos`
+   *  sits her near the seat's front edge so her shins hang in front of it. */
+  patrons: [
+    {
+      model: '/models/amily.glb',
+      pos: [-4.55, 5.9] as [number, number],
+      rot: Math.PI,
+      yFix: 0.3,
+      interact: {
+        id: 'amily',
+        name: 'Amily',
+        role: '',
+        verb: 'Talk',
+        color: 0x6f7c8a,
+        radius: 1.5,
+        portrait: '/portraits/amily.png',
+        lines: ['...'],
+      } satisfies Interactable,
+    },
+  ],
+
+  /** Mews indoors: a slow loop round the coffee table, passing just in front of
+   *  Amily's feet.
+   *  Ellipse centre / radii in three-space, `speed` in u/s (town Mews is 0.9). */
+  cat: { cx: -4.55, cz: 4.2, rx: 1.0, rz: 0.8, speed: 0.35 },
 } as const

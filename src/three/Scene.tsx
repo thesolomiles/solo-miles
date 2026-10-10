@@ -31,7 +31,7 @@ import { CafeBgm } from './CafeBgm'
 import { HomeAmbience } from './HomeAmbience'
 import { Turntable } from './Turntable'
 import { Interactions } from './Interactions'
-import { Cat } from './actors/Cat'
+import { Cat, HomeCat } from './actors/Cat'
 import { Rider } from './actors/Rider'
 import { Workers } from './actors/Worker'
 import { PostFX } from './PostFX'
@@ -360,6 +360,9 @@ export function Scene() {
         <>
           <HomeModel />
           <Turntable playerPos={posRef} />
+          {/* Amily on the sofa (E-talk) and Mews looping the coffee table. */}
+          <Patrons playerPos={posRef} list={HOME.patrons} />
+          <HomeCat />
           {edit && <ColliderEditorFor store={useHomeColliderEdit} />}
           {zonesEdit && <ZoneEditorFor store={useHomeZoneEdit} />}
         </>

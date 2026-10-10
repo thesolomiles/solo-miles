@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useTownGLTF } from '../gltf'
 import { CAFE } from '../../config/cafe'
+import { HOME } from '../../config/home'
 import { useRegisterInteractable, useNpcPointer } from '../../systems/interactables'
 import { useGame } from '../../state/store'
 import { useAlertTexture } from '../alertTexture'
@@ -15,7 +16,14 @@ import type { Interactable } from '../../config/town'
 const SCALE = 0.9
 const FADE = 0.3
 
-type PatronDef = (typeof CAFE.patrons)[number]
+/** One seated person (CAFE.patrons / HOME.patrons). */
+type PatronDef = {
+  model: string
+  pos: [number, number]
+  rot: number
+  yFix?: number
+  interact?: Interactable
+}
 
 function idleClip(animations: THREE.AnimationClip[]) {
   return animations.find((c) => c.name === 'idle') ?? animations.find((c) => c.name === 'sit')
@@ -182,11 +190,18 @@ function OnePatron({
   )
 }
 
-/** All seated café customers (see CAFE.patrons). */
-export function Patrons({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) {
+/** All seated people in a room — the café's customers by default (CAFE.patrons),
+ *  or pass `list` (e.g. HOME.patrons). */
+export function Patrons({
+  playerPos,
+  list = CAFE.patrons,
+}: {
+  playerPos: RefObject<THREE.Vector3>
+  list?: readonly PatronDef[]
+}) {
   return (
     <>
-      {CAFE.patrons.map((p, i) => (
+      {list.map((p, i) => (
         <OnePatron key={p.model} def={p} index={i} playerPos={playerPos} />
       ))}
     </>
@@ -194,4 +209,4 @@ export function Patrons({ playerPos }: { playerPos: RefObject<THREE.Vector3> }) 
 }
 
 // Preload each distinct patron model.
-for (const url of new Set(CAFE.patrons.map((p) => p.model))) useTownGLTF.preload(url)
+for (const url of new Set([...CAFE.patrons, ...HOME.patrons].map((p) => p.model))) useTownGLTF.preload(url)

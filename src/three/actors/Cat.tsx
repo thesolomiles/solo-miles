@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
 import { ACTORS } from '../../config/town'
+import { HOME } from '../../config/home'
 import { useRegisterInteractable, useNpcPointer, canTalk } from '../../systems/interactables'
 import { useGame } from '../../state/store'
 import { useTownGLTF } from '../gltf'
@@ -19,7 +20,7 @@ const YAW_OFFSET = M.yawOffset
  * `Cat` orients and moves the group, exactly the seam `RiggedFigure` fills for
  * the player.
  */
-function CatModel({ outline }: { outline: RefObject<number> }) {
+function CatModel({ outline, pace = 1 }: { outline: RefObject<number>; pace?: number }) {
   const root = useRef<THREE.Group>(null!)
   const { scene, animations } = useTownGLTF(MODEL)
   const { actions } = useAnimations(animations, root)
@@ -39,8 +40,9 @@ function CatModel({ outline }: { outline: RefObject<number> }) {
   useFrame(() => setOutline(outline.current))
 
   useEffect(() => {
-    actions.walk?.reset().play()
-  }, [actions])
+    // `pace` slows the stride to match a slower walk speed (1 = town Mews).
+    actions.walk?.reset().setEffectiveTimeScale(pace).play()
+  }, [actions, pace])
 
   return (
     <group ref={root} rotation={[0, YAW_OFFSET, 0]}>
@@ -109,6 +111,58 @@ export function Cat() {
         <meshBasicMaterial colorWrite={false} depthWrite={false} />
       </mesh>
       <CatModel outline={outline} />
+    </group>
+  )
+}
+
+const H = HOME.cat
+
+/**
+ * Mews indoors — strolls a slow loop round the lounge's coffee table, passing
+ * Amily on the sofa (HOME.cat). Same model, outline and petting as the town
+ * Mews; he pauses mid-loop while you pet him.
+ */
+export function HomeCat() {
+  const group = useRef<THREE.Group>(null!)
+  const pos = useRef(new THREE.Vector3(H.cx + H.rx, 0, H.cz))
+  const t = useRef(0) // angle round the loop
+
+  useRegisterInteractable(M.interact, pos.current)
+  const { hovered, handlers } = useNpcPointer(M.interact.id, pos.current)
+  const outline = useRef(0)
+
+  useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.05)
+    const st = useGame.getState()
+    const petting = st.dialogue?.id === 'mews'
+    const lit = canTalk() && (st.near?.id === M.interact.id || hovered.current)
+    outline.current = THREE.MathUtils.damp(outline.current, lit ? 1 : 0, 14, dt)
+
+    // Advance by arc length so the speed is even round the ellipse.
+    if (!petting) {
+      const step = Math.hypot(H.rx * Math.sin(t.current), H.rz * Math.cos(t.current))
+      t.current += (H.speed * dt) / Math.max(step, 1e-3)
+    }
+    const a = t.current
+    pos.current.set(H.cx + Math.cos(a) * H.rx, 0, H.cz + Math.sin(a) * H.rz)
+    // Face along the tangent (dx, dz) → yaw = atan2(dx, dz) (model nose = +Z).
+    const dx = -Math.sin(a) * H.rx
+    const dz = Math.cos(a) * H.rz
+    group.current.rotation.y = Math.atan2(dx, dz)
+    group.current.position.set(
+      pos.current.x,
+      petting ? 0 : Math.abs(Math.sin(state.clock.elapsedTime * 2)) * 0.02,
+      pos.current.z,
+    )
+  })
+
+  return (
+    <group ref={group} position={[pos.current.x, 0, pos.current.z]} {...handlers}>
+      <mesh position={[0, 0.4, 0]}>
+        <boxGeometry args={[1.2, 0.9, 1.2]} />
+        <meshBasicMaterial colorWrite={false} depthWrite={false} />
+      </mesh>
+      <CatModel outline={outline} pace={H.speed / M.speed} />
     </group>
   )
 }
