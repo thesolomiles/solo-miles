@@ -17,7 +17,9 @@ import {
   type LitAsset,
 } from './assets'
 import { RIDE_SCENES, type RideScene } from '../../config/rideScenes'
-import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope, LAND_GROVES } from './motion'
+import { MOTION, SPAN, mulberry32, CURVE, roadX, curveSlope, LAND_GROVES, ELEV, elevY, elevSlope, gradeAtW, VIEW, hiddenByView } from './motion'
+import { RideCameras, SideCutaway } from './RideCameras'
+import { RIG_CAMERA } from '../OrthoRig'
 import { makeTarmacTexture } from '../tarmac'
 import { useShadowDispose } from '../useShadowDispose'
 import { useRideHud } from '../../state/rideHud'
@@ -31,6 +33,8 @@ const _q = new THREE.Quaternion()
 const _p = new THREE.Vector3()
 const _s = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
+const _xAxis = new THREE.Vector3(1, 0, 0)
+const _qp = new THREE.Quaternion()
 
 // The winding road (CURVE / roadX / curveSlope) lives in ./motion so the scenery
 // kits can follow the road too.
@@ -79,7 +83,7 @@ function MotionDriver() {
   }, [])
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
-    const grade = gradeAt(CURVE.phase)
+    const grade = ELEV.on ? gradeAtW(RIDE.runnerZ + CURVE.phase) : gradeAt(CURVE.phase)
     MOTION.grade = grade
     const target = RIDE.scrollSpeed * THREE.MathUtils.clamp(1 - grade * 0.042, 0.42, 1.6)
     MOTION.speed += (target - MOTION.speed) * (1 - Math.pow(0.06, dt)) // ease, don't jerk
@@ -126,6 +130,7 @@ function ScrollField({
   castShadow = true,
   align = false,
   normalOffset = false,
+  tilt = false,
 }: {
   insts: Inst[]
   geometry: THREE.BufferGeometry
@@ -133,6 +138,8 @@ function ScrollField({
   castShadow?: boolean
   align?: boolean
   normalOffset?: boolean
+  /** Flat ground pieces (patches) lean with the climb so they lie on the slope. */
+  tilt?: boolean
 }) {
   const ref = useRef<THREE.InstancedMesh>(null!)
   useFrame((_, delta) => {
@@ -145,6 +152,8 @@ function ScrollField({
       if (it.z < RIDE.spawnZ) it.z += SPAN
       const rotY = align ? Math.atan(curveSlope(it.z)) : it.rotY
       _q.setFromAxisAngle(_up, rotY)
+      // Road-aligned pieces (the dashes) also pitch with the climb so they lie flat on it.
+      if (align && ELEV.on) _q.multiply(_qp.setFromAxisAngle(_xAxis, -Math.atan(elevSlope(it.z))))
       if (normalOffset) {
         // it.x is a signed magnitude along the road normal (same maths as the road
         // ribbon / fields), so the prop shares the fields' coordinate frame.
@@ -154,7 +163,10 @@ function ScrollField({
       } else {
         _p.set(it.x + roadX(it.z), 0, it.z)
       }
-      _s.setScalar(it.scale)
+      _p.y = elevY(_p.z)
+      if (tilt && ELEV.on) _q.premultiply(_qp.setFromAxisAngle(_xAxis, -Math.atan(elevSlope(_p.z))))
+      // Side-profile cut-away / roadside tripod: drop props blocking the shot.
+      _s.setScalar(hiddenByView(_p.x, _p.z) ? 0 : it.scale)
       _m.compose(_p, _q, _s)
       mesh.setMatrixAt(i, _m)
     }
@@ -430,8 +442,8 @@ function LitField({ asset, insts }: { asset: LitAsset; insts: Inst[] }) {
       it.z -= MOTION.speed * dt
       if (it.z < RIDE.spawnZ) it.z += SPAN
       _q.setFromAxisAngle(_up, it.rotY)
-      _p.set(it.x + roadX(it.z), 0, it.z)
-      _s.setScalar(it.scale)
+      _p.set(it.x + roadX(it.z), elevY(it.z), it.z)
+      _s.setScalar(hiddenByView(_p.x, _p.z) ? 0 : it.scale)
       _m.compose(_p, _q, _s)
       bodyRef.current?.setMatrixAt(i, _m)
       litRef.current?.setMatrixAt(i, _m)
@@ -558,10 +570,11 @@ const MOTE_FRAG = `
  */
 function Motes() {
   const COUNT = 170
-  const { geom, baseX } = useMemo(() => {
+  const { geom, baseX, baseY } = useMemo(() => {
     const g = new THREE.BufferGeometry()
     const pos = new Float32Array(COUNT * 3)
     const bx = new Float32Array(COUNT) // lateral position before the road-curve offset
+    const by = new Float32Array(COUNT) // height above the ground before the elevation offset
     const aPhase = new Float32Array(COUNT)
     const aSpeed = new Float32Array(COUNT)
     const aSize = new Float32Array(COUNT)
@@ -569,7 +582,8 @@ function Motes() {
     for (let i = 0; i < COUNT; i++) {
       bx[i] = (r() * 2 - 1) * MOTE.xHalf
       pos[i * 3] = bx[i]
-      pos[i * 3 + 1] = MOTE.yLo + r() * (MOTE.yHi - MOTE.yLo)
+      by[i] = MOTE.yLo + r() * (MOTE.yHi - MOTE.yLo)
+      pos[i * 3 + 1] = by[i]
       pos[i * 3 + 2] = MOTE.zFar + r() * MOTE_SPAN
       aPhase[i] = r() * Math.PI * 2
       aSpeed[i] = 0.7 + r() * 2.0
@@ -579,7 +593,7 @@ function Motes() {
     g.setAttribute('aPhase', new THREE.BufferAttribute(aPhase, 1))
     g.setAttribute('aSpeed', new THREE.BufferAttribute(aSpeed, 1))
     g.setAttribute('aSize', new THREE.BufferAttribute(aSize, 1))
-    return { geom: g, baseX: bx }
+    return { geom: g, baseX: bx, baseY: by }
   }, [])
   const tex = useMemo(makeDiscTexture, [])
   const mat = useMemo(
@@ -614,6 +628,7 @@ function Motes() {
       // track the road's lateral curve like every other prop, so the motes don't
       // sway against the world as bends slide the whole scene sideways
       p[i * 3] = baseX[i] + roadX(z)
+      p[i * 3 + 1] = baseY[i] + elevY(z)
     }
     geom.attributes.position.needsUpdate = true
     mat.uniforms.uTime.value += dt
@@ -667,7 +682,7 @@ function buildTop(zs: number[], yTop: number): THREE.BufferGeometry {
   g.setIndex(idx)
   return g
 }
-function updateTop(g: THREE.BufferGeometry, zs: number[], HW: number) {
+function updateTop(g: THREE.BufferGeometry, zs: number[], HW: number, yTop: number) {
   const p = g.attributes.position.array as Float32Array
   for (let i = 0; i < zs.length; i++) {
     const zc = zs[i]
@@ -676,8 +691,9 @@ function updateTop(g: THREE.BufferGeometry, zs: number[], HW: number) {
     const invL = 1 / Math.hypot(1, s)
     const ox = HW * invL, oz = HW * s * invL // offset along the road normal
     const li = 2 * i, ri = 2 * i + 1
-    p[li * 3] = cx - ox; p[li * 3 + 2] = zc + oz
-    p[ri * 3] = cx + ox; p[ri * 3 + 2] = zc - oz
+    const y = yTop + elevY(zc)
+    p[li * 3] = cx - ox; p[li * 3 + 1] = y; p[li * 3 + 2] = zc + oz
+    p[ri * 3] = cx + ox; p[ri * 3 + 1] = y; p[ri * 3 + 2] = zc - oz
   }
   g.attributes.position.needsUpdate = true
 }
@@ -708,7 +724,7 @@ function buildWalls(zs: number[], yTop: number): THREE.BufferGeometry {
   g.setIndex(idx)
   return g
 }
-function updateWalls(g: THREE.BufferGeometry, zs: number[], HW: number) {
+function updateWalls(g: THREE.BufferGeometry, zs: number[], HW: number, yTop: number) {
   const p = g.attributes.position.array as Float32Array
   for (let i = 0; i < zs.length; i++) {
     const zc = zs[i]
@@ -718,10 +734,11 @@ function updateWalls(g: THREE.BufferGeometry, zs: number[], HW: number) {
     const ox = HW * invL, oz = HW * s * invL
     const b = 4 * i
     const lx = cx - ox, lz = zc + oz, rx = cx + ox, rz = zc - oz
-    p[(b + 0) * 3] = lx; p[(b + 0) * 3 + 2] = lz
-    p[(b + 1) * 3] = lx; p[(b + 1) * 3 + 2] = lz
-    p[(b + 2) * 3] = rx; p[(b + 2) * 3 + 2] = rz
-    p[(b + 3) * 3] = rx; p[(b + 3) * 3 + 2] = rz
+    const e = elevY(zc)
+    p[(b + 0) * 3] = lx; p[(b + 0) * 3 + 1] = yTop + e; p[(b + 0) * 3 + 2] = lz
+    p[(b + 1) * 3] = lx; p[(b + 1) * 3 + 1] = e; p[(b + 1) * 3 + 2] = lz
+    p[(b + 2) * 3] = rx; p[(b + 2) * 3 + 1] = yTop + e; p[(b + 2) * 3 + 2] = rz
+    p[(b + 3) * 3] = rx; p[(b + 3) * 3 + 1] = e; p[(b + 3) * 3 + 2] = rz
   }
   g.attributes.position.needsUpdate = true
 }
@@ -752,7 +769,7 @@ function buildLines(zs: number[], yTop: number): THREE.BufferGeometry {
   g.setIndex(idx)
   return g
 }
-function updateLines(g: THREE.BufferGeometry, zs: number[], EL: number) {
+function updateLines(g: THREE.BufferGeometry, zs: number[], EL: number, yLine: number) {
   const p = g.attributes.position.array as Float32Array
   const h = 0.09
   for (let i = 0; i < zs.length; i++) {
@@ -762,9 +779,11 @@ function updateLines(g: THREE.BufferGeometry, zs: number[], EL: number) {
     const invL = 1 / Math.hypot(1, s)
     const sInvL = s * invL
     const b = 4 * i
+    const y = yLine + elevY(zc)
     // place a vertex at signed offset o along the road normal from the centre
     const set = (k: number, o: number) => {
       p[(b + k) * 3] = cx + o * invL
+      p[(b + k) * 3 + 1] = y
       p[(b + k) * 3 + 2] = zc - o * sInvL
     }
     set(0, -(EL + h)); set(1, -(EL - h)) // left line
@@ -794,9 +813,13 @@ function CurvyRoad() {
     tex.dispose(); top.dispose(); walls.dispose(); lines.dispose()
   }, [tex, top, walls, lines])
   useFrame(() => {
-    updateTop(top, zs, HW)
-    updateWalls(walls, zs, HW)
-    updateLines(lines, zs, EL)
+    updateTop(top, zs, HW, yTop)
+    updateWalls(walls, zs, HW, yTop)
+    updateLines(lines, zs, EL, yTop + 0.015)
+    if (ELEV.on) {
+      top.computeVertexNormals()
+      walls.computeVertexNormals()
+    }
     // +phase/TILE makes the grain travel −Z at exactly scrollSpeed, matching the
     // dashes and props (the plane-UV maths flips the sign vs the ground texture).
     tex.offset.y = CURVE.phase / TILE
@@ -845,9 +868,22 @@ function RoadDashes() {
  *  The "patchy" look and the ground motion come from GroundPatches instead, which
  *  are real geometry scrolling with the same rig as the trees. */
 function Ground() {
+  // A strip subdivided along z so it can follow the climb profile (ELEV); flat
+  // otherwise. Built pre-rotated so vertex z is world z.
+  const geom = useMemo(
+    () => new THREE.PlaneGeometry(92, 130, 1, ELEV.on ? 130 : 1).rotateX(-Math.PI / 2).translate(0, 0, -12),
+    [],
+  )
+  useEffect(() => () => geom.dispose(), [geom])
+  useFrame(() => {
+    if (!ELEV.on) return
+    const p = geom.attributes.position.array as Float32Array
+    for (let i = 0; i < p.length; i += 3) p[i + 1] = elevY(p[i + 2])
+    geom.attributes.position.needsUpdate = true
+    geom.computeVertexNormals()
+  })
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -12]} receiveShadow>
-      <planeGeometry args={[92, 130]} />
+    <mesh geometry={geom} receiveShadow>
       <meshStandardMaterial color={RIDE_COLORS.grass} roughness={1} />
     </mesh>
   )
@@ -874,7 +910,7 @@ function GroundPatch({
       return { x, rotY: r() * Math.PI * 2, scale: smin + r() * (smax - smin) }
     },
   )
-  return <ScrollField {...p} castShadow={false} />
+  return <ScrollField {...p} castShadow={false} tilt />
 }
 
 /** The patchy ground: three tones of flat discs (two greens + bare earth) at
@@ -896,7 +932,7 @@ function GroundPatches() {
  *  `TronGlow` rim material glows (see useCyclistModel); an optional `kit` recolours
  *  the jersey + helmet so the two riders read as two people. Each instance clones
  *  the model (skeleton) — glow/kit materials are shared read-only. */
-function RideCyclist({ x, phase = 0, rate = 1, kit }: { x: number; phase?: number; rate?: number; kit?: CyclistKit }) {
+function RideCyclist({ x, phase = 0, rate = 1, kit, lead = 0 }: { x: number; phase?: number; rate?: number; kit?: CyclistKit; lead?: number }) {
   const { model, animations } = useCyclistModel(kit)
   const root = useRef<THREE.Group>(null!)
   const { actions } = useAnimations(animations, root)
@@ -924,8 +960,13 @@ function RideCyclist({ x, phase = 0, rate = 1, kit }: { x: number; phase?: numbe
     const g = root.current
     if (!g) return
     const ang = Math.atan(curveSlope(RIDE.runnerZ))
-    g.rotation.y = Math.PI + ang
-    g.position.set(x * Math.cos(ang), RIDE.roadHeight, RIDE.runnerZ - x * Math.sin(ang))
+    g.rotation.set(0, Math.PI + ang, 0)
+    // Pitch with the climb (front wheel up on a rise): about world X, after the yaw.
+    // Side-profile shot: ease this rider `lead` units up the road so the pair don't
+    // sit exactly behind one another (VIEW.stagger 0→1 with the side camera).
+    const rz = RIDE.runnerZ + lead * VIEW.stagger
+    if (ELEV.on) g.quaternion.premultiply(_qp.setFromAxisAngle(_xAxis, -Math.atan(elevSlope(rz))))
+    g.position.set(x * Math.cos(ang), RIDE.roadHeight + elevY(rz), rz - x * Math.sin(ang))
   })
 
   return (
@@ -984,8 +1025,12 @@ function RideLights() {
 function RidersScreenAnchor() {
   const last = useRef(-1)
   const v = useMemo(() => new THREE.Vector3(), [])
-  useFrame(({ camera, size }) => {
-    v.set(0, RIDE.roadHeight, RIDE.runnerZ + 0.9).project(camera)
+  useFrame(({ size }) => {
+    // Always measured from the normal overhead shot (the ortho rig keeps tracking
+    // even while a ?ridecam shot is on screen), so the photo keeps one size and
+    // place whatever the camera does.
+    RIG_CAMERA.updateMatrixWorld()
+    v.set(0, RIDE.roadHeight, RIDE.runnerZ + 0.9).project(RIG_CAMERA)
     const y = Math.round(((1 - v.y) / 2) * size.height)
     if (y !== last.current) {
       last.current = y
@@ -1041,9 +1086,11 @@ export function RideWorld() {
       {spec?.buildings && <Buildings />}
       {spec?.streetFurniture && <StreetFurniture />}
       <RideCyclist x={RIDE.playerX} kit={PLAYER_KIT} />
-      <RideCyclist x={RIDE.leonardX} phase={0.37} rate={1.06} />
+      <RideCyclist x={RIDE.leonardX} phase={0.37} rate={1.06} lead={1.9} />
       <Motes />
       <RidersScreenAnchor />
+      {ELEV.on && <RideCameras />}
+      {ELEV.on && <SideCutaway />}
     </group>
   )
 }
